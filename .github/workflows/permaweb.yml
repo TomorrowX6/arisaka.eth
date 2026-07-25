@@ -12,8 +12,9 @@ on:
       - "package.json"
       - "pnpm-lock.yaml"
 
+# Needed to push the refreshed upload cache back to the branch.
 permissions:
-  contents: read
+  contents: write
 
 # Never let two deploys race: they would each mint a manifest and fight over the
 # ENS record, and the loser's upload would be paid for but never published.
@@ -39,17 +40,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The cache maps file content hashes to Arweave transaction IDs, so only
-      # genuinely changed files are re-uploaded (and re-paid for). Losing it is
-      # not fatal, just more expensive: the next run re-uploads everything.
-      - name: Restore upload cache
-        uses: actions/cache/restore@v4
-        with:
-          path: .permaweb-cache.json
-          key: permaweb-${{ github.ref_name }}-${{ github.run_id }}
-          restore-keys: |
-            permaweb-${{ github.ref_name }}-
-
       - name: Write Arweave keyfile
         env:
           ARWEAVE_WALLET_JSON: ${{ secrets.ARWEAVE_WALLET_JSON }}
@@ -74,9 +64,21 @@ jobs:
         if: always()
         run: rm -f wallet.json
 
-      - name: Save upload cache
+      # Persist the map of content hashes to transaction IDs. Committed rather
+      # than cached with actions/cache, whose entries expire after 7 days idle —
+      # that would make every deploy after a quiet week pay to re-upload the
+      # whole site. Runs even on failure so files already paid for are recorded.
+      # This commit touches no path in the trigger filter above, so it cannot
+      # retrigger the workflow.
+      - name: Commit upload cache
         if: always()
-        uses: actions/cache/save@v4
-        with:
-          path: .permaweb-cache.json
-          key: permaweb-${{ github.ref_name }}-${{ github.run_id }}
+        run: |
+          if git diff --quiet -- .permaweb-cache.json; then
+            echo "cache unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .permaweb-cache.json
+          git commit -m "chore: update permaweb upload cache [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}

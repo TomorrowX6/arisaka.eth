@@ -22,7 +22,13 @@ wallet.json
 
 # incremental deploy state (content hash -> arweave txid)
 .deploy-cache.json
-.permaweb-cache.json
+
+# NOTE: .permaweb-cache.json is deliberately committed. It maps file content
+# hashes to Arweave transaction IDs so unchanged files are never re-uploaded or
+# re-paid for. GitHub Actions caches expire after 7 days idle, which for an
+# occasionally-updated blog means every deploy would pay full price; keeping the
+# map in git makes it permanent and shared between local and CI runs. It holds
+# no secrets — those transaction IDs are already public on chain.
 
 # permaweb deploy secrets — never commit
 .env.permaweb
