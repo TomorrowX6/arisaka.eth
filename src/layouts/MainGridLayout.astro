@@ -58,6 +58,16 @@ const mainPanelTop = siteConfig.banner.enable
     >
     </ImageWrapper>
 </div>}
+{siteConfig.banner.enable && siteConfig.banner.src.startsWith("http") && <script is:inline>
+{
+    // Bypass the browser cache so a random-image API returns a new image on every reload
+    const bannerImg = document.querySelector('#banner img');
+    if (bannerImg) {
+        const src = bannerImg.getAttribute('src');
+        bannerImg.setAttribute('src', src + (src.includes('?') ? '&' : '?') + '_t=' + Date.now());
+    }
+}
+</script>}
 
 <!-- Main content -->
 <div class="absolute w-full z-30 pointer-events-none" style={`top: ${mainPanelTop}`}>

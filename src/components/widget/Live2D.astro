@@ -1,0 +1,13 @@
+<script>
+import { createWidget } from "l2d-widget";
+
+// Skip on small screens where the widget would cover content
+if (window.matchMedia("(min-width: 1024px)").matches) {
+	createWidget({
+		model: {
+			path: "/live2d/tars/tars.model3.json",
+		},
+		position: "bottom-left",
+	});
+}
+</script>

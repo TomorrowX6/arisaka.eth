@@ -17,6 +17,16 @@ pnpm-debug.log*
 .env
 .env.production
 
+# Arweave wallet keyfile — never commit
+wallet.json
+
+# incremental deploy state (content hash -> arweave txid)
+.deploy-cache.json
+.permaweb-cache.json
+
+# permaweb deploy secrets — never commit
+.env.permaweb
+
 # macOS-specific files
 .DS_Store
 

@@ -1,0 +1,82 @@
+name: Deploy Permaweb
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "public/**"
+      - "scripts/**"
+      - "astro.config.mjs"
+      - "package.json"
+      - "pnpm-lock.yaml"
+
+permissions:
+  contents: read
+
+# Never let two deploys race: they would each mint a manifest and fight over the
+# ENS record, and the loser's upload would be paid for but never published.
+concurrency:
+  group: permaweb-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # The cache maps file content hashes to Arweave transaction IDs, so only
+      # genuinely changed files are re-uploaded (and re-paid for). Losing it is
+      # not fatal, just more expensive: the next run re-uploads everything.
+      - name: Restore upload cache
+        uses: actions/cache/restore@v4
+        with:
+          path: .permaweb-cache.json
+          key: permaweb-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            permaweb-${{ github.ref_name }}-
+
+      - name: Write Arweave keyfile
+        env:
+          ARWEAVE_WALLET_JSON: ${{ secrets.ARWEAVE_WALLET_JSON }}
+        run: |
+          if [ -z "$ARWEAVE_WALLET_JSON" ]; then
+            echo "::error::Secret ARWEAVE_WALLET_JSON is not set"
+            exit 1
+          fi
+          printf '%s' "$ARWEAVE_WALLET_JSON" > wallet.json
+          node -e 'const k=require("./wallet.json"); if(!k.n||!k.d) throw new Error("wallet.json is not an Arweave JWK"); console.log("keyfile ok")'
+
+      - name: Build and deploy
+        env:
+          DEPLOY_EVM_PRIVATE_KEY: ${{ secrets.DEPLOY_EVM_PRIVATE_KEY }}
+          ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
+          ENS_NAME: arisaka.eth
+          BUILD_DIR: dist
+          APP_NAME: arisaka-blog
+        run: pnpm deploy:perma
+
+      - name: Remove keyfile
+        if: always()
+        run: rm -f wallet.json
+
+      - name: Save upload cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: .permaweb-cache.json
+          key: permaweb-${{ github.ref_name }}-${{ github.run_id }}

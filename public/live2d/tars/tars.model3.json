@@ -1,0 +1,33 @@
+{
+	"Version": 3,
+	"FileReferences": {
+		"Moc": "Moc_0.moc3",
+		"Textures": ["Textures_0_0.png"],
+		"Physics": "Physics_0.json",
+		"Motions": {
+			"idle": [{ "File": "motion_idle.json", "FileLoop": true, "Interruptable": true }],
+			"Idle": [{ "File": "motion_idle.json", "FileLoop": true, "Interruptable": true }],
+			"milktea": [{ "File": "motion_milktea.json" }],
+			"fish": [{ "File": "motion_fish.json", "FileLoop": true, "Interruptable": true }],
+			"pillow": [{ "File": "motion_pillow.json", "FileLoop": true, "Interruptable": true }]
+		}
+	},
+	"Groups": [
+		{
+			"Target": "Parameter",
+			"Name": "EyeBlink",
+			"Ids": ["ParamEyeLOpen", "ParamEyeROpen"]
+		},
+		{
+			"Target": "Parameter",
+			"Name": "LipSync",
+			"Ids": ["ParamMouthOpenY"]
+		}
+	],
+	"HitAreas": [
+		{ "Name": "头", "Id": "HitArea", "Motion": "milktea" },
+		{ "Name": "拿鱼", "Id": "HitArea2", "Motion": "fish" },
+		{ "Name": "抱枕", "Id": "HitArea3", "Motion": "pillow" },
+		{ "Name": "脚", "Id": "HitArea4", "Motion": "idle" }
+	]
+}
