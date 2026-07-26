@@ -77,6 +77,12 @@ export type LicenseConfig = {
 	url: string;
 };
 
+export type CommentConfig = {
+	enable: boolean;
+	/** Waline server address, e.g. https://waline.example.com */
+	serverURL: string;
+};
+
 export type LIGHT_DARK_MODE =
 	| typeof LIGHT_MODE
 	| typeof DARK_MODE
@@ -91,10 +97,6 @@ export type BlogPostData = {
 	draft?: boolean;
 	image?: string;
 	category?: string;
-	prevTitle?: string;
-	prevSlug?: string;
-	nextTitle?: string;
-	nextSlug?: string;
 };
 
 export type ExpressiveCodeConfig = {

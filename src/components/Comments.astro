@@ -1,0 +1,118 @@
+---
+import I18nKey from "@i18n/i18nKey";
+import { i18n } from "@i18n/translation";
+import { commentConfig, siteConfig } from "../config";
+
+// Waline ships a smaller set of locales than the theme does
+const WALINE_LANGS: Record<string, string> = {
+	zh_cn: "zh-CN",
+	zh_tw: "zh-TW",
+	ja: "jp",
+};
+const lang = WALINE_LANGS[siteConfig.lang.toLowerCase()] ?? "en";
+---
+<div class="card-base px-6 md:px-9 py-6 mb-4 onload-animation">
+    <div class="font-bold transition text-lg text-neutral-900 dark:text-neutral-100 relative ml-4 mb-4
+        before:w-1 before:h-4 before:rounded-md before:bg-[var(--primary)]
+        before:absolute before:left-[-16px] before:top-[5.5px]">
+        {i18n(I18nKey.comments)}
+    </div>
+    <div id="waline" data-server-url={commentConfig.serverURL} data-lang={lang}></div>
+</div>
+
+<style is:global>
+    #waline {
+        --waline-font-size: 0.875rem;
+        --waline-theme-color: var(--primary);
+        --waline-active-color: var(--primary);
+        --waline-color: rgba(0, 0, 0, 0.75);
+        --waline-light-grey: rgba(0, 0, 0, 0.5);
+        --waline-dark-grey: rgba(0, 0, 0, 0.5);
+        --waline-bg-color: transparent;
+        --waline-bg-color-light: var(--btn-regular-bg);
+        --waline-bg-color-hover: var(--btn-regular-bg-hover);
+        --waline-disable-bg-color: var(--btn-regular-bg);
+        --waline-disable-color: rgba(0, 0, 0, 0.3);
+        --waline-border-color: var(--line-divider);
+        --waline-border: 1px solid var(--line-divider);
+        --waline-code-bg-color: var(--codeblock-bg);
+        --waline-info-bg-color: var(--btn-regular-bg);
+        --waline-info-color: rgba(0, 0, 0, 0.5);
+        --waline-bq-color: var(--btn-regular-bg);
+        --waline-badge-color: var(--primary);
+        --waline-avatar-radius: 0.5rem;
+        --waline-box-shadow: none;
+    }
+
+    html.dark #waline {
+        --waline-color: rgba(255, 255, 255, 0.75);
+        --waline-light-grey: rgba(255, 255, 255, 0.5);
+        --waline-dark-grey: rgba(255, 255, 255, 0.5);
+        --waline-disable-color: rgba(255, 255, 255, 0.3);
+        --waline-info-color: rgba(255, 255, 255, 0.5);
+    }
+
+    /* match the rounded controls used everywhere else in the theme */
+    #waline .wl-btn,
+    #waline .wl-editor,
+    #waline .wl-input,
+    #waline .wl-panel {
+        border-radius: 0.5rem;
+    }
+</style>
+
+<script>
+import "@waline/client/style";
+
+type WalineInstance = { destroy: () => void };
+
+let waline: WalineInstance | null = null;
+let observer: IntersectionObserver | null = null;
+
+async function mount(el: HTMLElement) {
+	const { init } = await import("@waline/client/full");
+
+	waline?.destroy();
+	waline = init({
+		el,
+		serverURL: el.dataset.serverUrl as string,
+		lang: el.dataset.lang,
+		dark: "html.dark",
+		path: window.location.pathname,
+	});
+}
+
+function setup() {
+	observer?.disconnect();
+	observer = null;
+	waline?.destroy();
+	waline = null;
+
+	const el = document.getElementById("waline");
+	if (!el) return;
+
+	// the comment bundle is only fetched once the reader scrolls near it
+	observer = new IntersectionObserver(
+		(entries) => {
+			if (!entries.some((entry) => entry.isIntersecting)) return;
+			observer?.disconnect();
+			observer = null;
+			mount(el);
+		},
+		{ rootMargin: "300px" },
+	);
+	observer.observe(el);
+}
+
+setup();
+
+// Swup swaps the page content without reloading, so remount on every visit
+function listenToSwup() {
+	window.swup.hooks.on("page:view", setup);
+}
+if (window?.swup?.hooks) {
+	listenToSwup();
+} else {
+	document.addEventListener("swup:enable", listenToSwup);
+}
+</script>

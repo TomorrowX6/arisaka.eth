@@ -1,4 +1,5 @@
 import type {
+	CommentConfig,
 	ExpressiveCodeConfig,
 	LicenseConfig,
 	NavBarConfig,
@@ -75,6 +76,11 @@ export const profileConfig: ProfileConfig = {
 			url: "https://github.com/TomorrowX6",
 		},
 	],
+};
+
+export const commentConfig: CommentConfig = {
+	enable: true, // Display the Waline comment section at the bottom of each post
+	serverURL: "https://waline.000.moe", // Address of your Waline server
 };
 
 export const licenseConfig: LicenseConfig = {

@@ -4,7 +4,7 @@ published: 2026-07-26
 description: 关于低价区会员订阅的购买参考与支付方式推荐
 image: https://i.ibb.co/HL4CYkdh/image.png
 tags: [Subscription]
-category: subscription
+category: Subscription
 draft: false 
 lang: zh
 ---
