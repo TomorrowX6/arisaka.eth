@@ -12,7 +12,7 @@ lang: zh
 # 为何选GO
 Go是 Google 在 2009 年发布的编程语言，也被称为“21世纪的C语言”
 ### 性能均衡，且易上手
-![](https://i.ibb.co/r2zhx5cm/f8f8f8.jpg)
+![](https://i.ibb.co/FLCvB112/image.png)
 Go 的运行速度通常明显快于 Python、JavaScript 等解释型语言。  
 并且Go 的语法比 Rust、C++、Java 更精简，关键字少，代码结构统一。  
 
