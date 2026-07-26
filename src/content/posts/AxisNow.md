@@ -2,7 +2,7 @@
 title: 利用AxisNow + Cloudflare实现国内自建CDN分流
 published: 2026-07-25
 description: 利用AxisNow + Cloudflare实现国内自建CDN分流，实现国内海外高速访问
-image: https://pic.000.moe/pic/696f391c5b864.jpeg
+image: https://i.ibb.co/nsM8GpBP/696f391c5b864.jpg
 tags: [Cloudflare]
 category: Tutorial
 draft: false 
@@ -20,7 +20,7 @@ AxisNow 是一个企业级边缘应用代理，为网站、应用程序和 API �
 - 虚拟域：该域名是专为 Cloudflare 创建的配置载体。需将 DNS 托管至 CF。
 - 回源域：此域名在虚拟域中配置解析记录指向您的源服务器，并开启小黄云。
 - 调度域：是工作在 DNS 层的解析域名。对于客户端/访客来说，并不需要知道该域名。
-![](https://pic.000.moe/pic/696f391c5b864.jpeg)
+![](https://i.ibb.co/nsM8GpBP/696f391c5b864.jpg)
 
 ## 设置虚拟域（Cloudflare）
 以我自己为例，我有两个域名（000.moe，746434.xyz），000.moe是用于访问的域名，746434.xyz是用于回源的域名
@@ -28,7 +28,7 @@ AxisNow 是一个企业级边缘应用代理，为网站、应用程序和 API �
 2. 添加一个虚拟域，在746434.xyz的DNS记录中添加A记录(source.746434.xyz)并指向你的VPS地址，并且`打开`小黄云
 3. 进入Saas界面（依次点击746434.xyz - SSL/TLS - 自定义主机名），如果你第一次使用，需要先进行外币卡验证
 4. 在回退源填入虚拟域（source.746434.xyz），等待验证成功
-![1768901049791.png](https://pic.000.moe/pic/696f49ba4bd1a.png)
+![1768901049791.png](https://i.ibb.co/NdRGd6SL/696f49ba4bd1a.png)
 
 ## 安装边缘节点（AxisNow）
 AxisNow提供了一键安装脚本，依次点击边缘 - 新增 - 生成并复制，然后粘贴到SSH安装(注意：安装前请确保80 443端口未占用）
@@ -43,7 +43,7 @@ AxisNow提供了一键安装脚本，依次点击边缘 - 新增 - 生成并复�
 3. 地址监控选择默认监控模版：Default China Network 。
 4. 地址选取策略为最小延迟 。
 
-![chrome_abYJbkNdTT.png](https://pic.000.moe/pic/696f4936dbcb7.png)
+![chrome_abYJbkNdTT.png](https://i.ibb.co/d4HfWTCF/696f4936dbcb7.png)
 
 选择AxisNow 托管，新增一个CNAME记录路由（all.alidns-3.com）<br>
 
@@ -59,7 +59,7 @@ AxisNow提供了一键安装脚本，依次点击边缘 - 新增 - 生成并复�
 3. 地址监控关联 无需选择
 4. 地址选取策略 随机
 
-![1768900991471.png](https://pic.000.moe/pic/696f498046cfc.png)
+![1768900991471.png](hhttps://i.ibb.co/xSks4n1C/696f498046cfc.png)
 
 所得`all.alidns-3.com`即为最终调度域，我们所选择的是最简单国外CF，国内反代，边缘节点数量和其他配置自己按需添加，
 
@@ -76,7 +76,7 @@ AxisNow提供了一键安装脚本，依次点击边缘 - 新增 - 生成并复�
 3. 转发配置为实际部署域名或IP，我的博客是放在GitHub上的，所以填miuna-pic.github.io，协议HTTPS，端口443
 4. 添加后如配置正确会自动签发证书
 
-![1768901138579.png](https://pic.000.moe/pic/696f4a1429c4f.png)
+![1768901138579.png](https://i.ibb.co/bjXDSvtD/696f4a1429c4f.png)
 
 以上就是利用AxisNow + Cloudflare实现国内自建CDN分流，网络上有很多Cloudflare Saas教程，我这篇更面向小白，写的很详细，因为我该一开始看文档也看蒙了，其实能分清代理域，虚拟域，回源域，调度域就应该全部理解了<br>
 
