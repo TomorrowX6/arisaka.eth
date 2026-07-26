@@ -1,8 +1,8 @@
 ---
 title: Go语言基础与速查表
-published: 2026-07-26
+published: 2026-07-25
 description: 了解GO语言的优势，以及Go语言基础与速查表
-image: https://i.ibb.co/Pd4PxK9/st-small-507x507-pad-600x600-f8f8f8.jpg
+image: https://i.ibb.co/r2zhx5cm/f8f8f8.jpg
 tags: [Go]
 category: Go
 draft: false 
@@ -12,7 +12,7 @@ lang: zh
 # 为何选GO
 Go是 Google 在 2009 年发布的编程语言，也被称为“21世纪的C语言”
 ### 性能均衡，且易上手
-![](https://i.ibb.co/FLCvB112/image.png)
+![](https://i.ibb.co/r2zhx5cm/f8f8f8.jpg)
 Go 的运行速度通常明显快于 Python、JavaScript 等解释型语言。  
 并且Go 的语法比 Rust、C++、Java 更精简，关键字少，代码结构统一。  
 

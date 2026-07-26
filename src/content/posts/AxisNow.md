@@ -1,6 +1,6 @@
 ---
 title: 利用AxisNow + Cloudflare实现国内自建CDN分流
-published: 2026-07-25
+published: 2026-07-24
 description: 利用AxisNow + Cloudflare实现国内自建CDN分流，实现国内海外高速访问
 image: https://i.ibb.co/nsM8GpBP/696f391c5b864.jpg
 tags: [Cloudflare]
