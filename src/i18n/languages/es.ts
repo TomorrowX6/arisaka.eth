@@ -5,12 +5,14 @@ export const es: Translation = {
 	[Key.home]: "Inicio",
 	[Key.about]: "Sobre mí",
 	[Key.archive]: "Archivo",
+	[Key.friends]: "Amigos",
 	[Key.search]: "Buscar",
 
 	[Key.tags]: "Etiquetas",
 	[Key.categories]: "Categorías",
 	[Key.recentPosts]: "Publicaciones recientes",
 	[Key.calendar]: "Calendario",
+	[Key.music]: "Música",
 
 	[Key.comments]: "Comentarios",
 

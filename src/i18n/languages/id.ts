@@ -5,12 +5,14 @@ export const id: Translation = {
 	[Key.home]: "Beranda",
 	[Key.about]: "Tentang",
 	[Key.archive]: "Arsip",
+	[Key.friends]: "Teman",
 	[Key.search]: "Cari",
 
 	[Key.tags]: "Tag",
 	[Key.categories]: "Kategori",
 	[Key.recentPosts]: "Postingan Terbaru",
 	[Key.calendar]: "Kalender",
+	[Key.music]: "Musik",
 
 	[Key.comments]: "Komentar",
 

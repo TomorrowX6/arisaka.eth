@@ -5,12 +5,14 @@ export const th: Translation = {
 	[Key.home]: "หน้าแรก",
 	[Key.about]: "เกี่ยวกับ",
 	[Key.archive]: "คลัง",
+	[Key.friends]: "ลิงก์เพื่อน",
 	[Key.search]: "ค้นหา",
 
 	[Key.tags]: "ป้ายกำกับ",
 	[Key.categories]: "หมวดหมู่",
 	[Key.recentPosts]: "โพสต์ล่าสุด",
 	[Key.calendar]: "ปฏิทิน",
+	[Key.music]: "เพลง",
 
 	[Key.comments]: "ความคิดเห็น",
 

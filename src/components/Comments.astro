@@ -79,6 +79,8 @@ async function mount(el: HTMLElement) {
 		lang: el.dataset.lang,
 		dark: "html.dark",
 		path: window.location.pathname,
+		// the card already has a "Comments" heading — keep only the count
+		locale: { comment: "" },
 	});
 }
 

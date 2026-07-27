@@ -5,12 +5,14 @@ export const ko: Translation = {
 	[Key.home]: "홈",
 	[Key.about]: "소개",
 	[Key.archive]: "아카이브",
+	[Key.friends]: "친구 링크",
 	[Key.search]: "검색",
 
 	[Key.tags]: "태그",
 	[Key.categories]: "카테고리",
 	[Key.recentPosts]: "최근 게시물",
 	[Key.calendar]: "달력",
+	[Key.music]: "음악",
 
 	[Key.comments]: "댓글",
 

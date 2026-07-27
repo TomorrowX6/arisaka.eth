@@ -2,6 +2,7 @@ import type {
 	CommentConfig,
 	ExpressiveCodeConfig,
 	LicenseConfig,
+	MidiPlayerConfig,
 	NavBarConfig,
 	ProfileConfig,
 	SiteConfig,
@@ -45,11 +46,7 @@ export const navBarConfig: NavBarConfig = {
 		LinkPreset.Home,
 		LinkPreset.Archive,
 		LinkPreset.About,
-		{
-			name: "GitHub",
-			url: "https://github.com/TomorrowX6", // Internal links should not include the base path, as it is automatically added
-			external: true, // Show an external link icon and will open in a new tab
-		},
+		LinkPreset.Friends,
 	],
 };
 
@@ -76,6 +73,14 @@ export const profileConfig: ProfileConfig = {
 			url: "https://github.com/TomorrowX6",
 		},
 	],
+};
+
+export const midiPlayerConfig: MidiPlayerConfig = {
+	enable: true, // Display the MIDI player in the sidebar
+	// Nothing below is downloaded until the visitor presses play
+	soundBank: "/midi/GeneralUserGS.sf3",
+	// Drop .mid files into public/midi — the list regenerates itself on build
+	playlist: "/midi/playlist.json",
 };
 
 export const commentConfig: CommentConfig = {

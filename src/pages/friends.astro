@@ -1,0 +1,177 @@
+---
+import Comments from "@components/Comments.astro";
+import ImageWrapper from "@components/misc/ImageWrapper.astro";
+import I18nKey from "@i18n/i18nKey";
+import { i18n } from "@i18n/translation";
+import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { Icon } from "astro-icon/components";
+import { commentConfig, profileConfig, siteConfig } from "../config";
+import { friendsConfig } from "../friends";
+
+function hostnameOf(url: string): string {
+	try {
+		return new URL(url).hostname.replace(/^www\./, "");
+	} catch {
+		return url;
+	}
+}
+
+const decorated = friendsConfig.links.map((link) => ({
+	...link,
+	hostname: hostnameOf(link.url),
+}));
+
+const groups = [
+	{ status: undefined, title: null, links: decorated.filter((l) => !l.status) },
+	{
+		status: "unreachable",
+		title: "The following sites are unreachable and have lost contact",
+		links: decorated.filter((l) => l.status === "unreachable"),
+	},
+	{
+		status: "banned",
+		title: "The following sites are non-compliant and have been banned",
+		links: decorated.filter((l) => l.status === "banned"),
+	},
+];
+
+const requirements = [
+	"Before applying, please make sure your site has a link to mine. If you remove my link after approval, I will also remove yours and add you to the blacklist.",
+	"If the site is inaccessible for a long time, I will remove your link. You can reapply after recovery.",
+	"Ensure your website has no politically sensitive issues or illegal content, not too many ads, no malware or scripts, and reprinted articles must credit the source.",
+	"Ensure your site has HTTPS enabled globally.",
+	"You need your own independent domain. Public subdomains or free domains are not accepted (e.g. github.io, vercel.app, eu.org, js.cool, .tk, .ml, .cf).",
+	"Commercial and non-personal websites are not accepted.",
+];
+
+const selfUrl = friendsConfig.links[0]?.url ?? "/";
+const selfInfo = [
+	{ label: "Site Title", value: siteConfig.title },
+	{ label: "Site Description", value: siteConfig.subtitle },
+	{ label: "Site URL", value: selfUrl },
+	{ label: "Owner Name", value: profileConfig.name },
+];
+---
+<MainGridLayout title={i18n(I18nKey.friends)} description={i18n(I18nKey.friends)}>
+    <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative min-h-32 mb-4">
+        <div class="card-base z-10 px-6 md:px-9 py-6 relative w-full">
+            <!-- mirrors what the About page's markdown pipeline emits: sectionised
+                 heading with a slug id and the hover "#" anchor. The <section> also
+                 keeps the h1's bottom margin, which prose would otherwise strip off
+                 the container's last child. -->
+            <div class="prose dark:prose-invert prose-base !max-w-none custom-md mt-2">
+                <section>
+                    <h1 id="friends">{i18n(I18nKey.friends)}<a class="anchor" href="#friends"><span class="anchor-icon" data-pagefind-ignore>#</span></a></h1>
+                </section>
+            </div>
+
+            {decorated.length === 0 && (
+                <div class="transition text-50 text-sm py-4">
+                    No links yet — add them to <code class="text-[var(--inline-code-color)] bg-[var(--inline-code-bg)] rounded-md px-1 py-0.5">friendsConfig</code> in <code class="text-[var(--inline-code-color)] bg-[var(--inline-code-bg)] rounded-md px-1 py-0.5">src/friends.ts</code>.
+                </div>
+            )}
+
+            {groups.map((group) => group.links.length > 0 && (
+                <div class="mb-2">
+                    {group.title && <div class="transition text-50 text-sm font-bold mt-6 mb-3">{group.title}</div>}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {group.links.map((link, i) => (
+                            <div class:list={["friend-card onload-animation group relative rounded-xl p-5 transition-all border-[1px] border-[var(--line-divider)] hover:border-[var(--primary)] hover:-translate-y-1", { "opacity-50 grayscale": !!link.status }]} style={`animation-delay: calc(var(--content-delay) + ${i * 50}ms)`}>
+                                <div class="flex items-center gap-4 mb-4">
+                                    <!-- the initial sits behind the avatar, so a dead image URL degrades instead of leaving a hole -->
+                                    <div class="w-16 h-16 rounded-xl shrink-0 relative overflow-hidden flex items-center justify-center text-2xl font-bold transition-transform duration-300 group-hover:scale-110 bg-[var(--btn-regular-bg)] text-[var(--btn-content)] ring-2 ring-black/5 dark:ring-white/10">
+                                        {link.name.trim().charAt(0).toUpperCase()}
+                                        {link.avatar && <div class="absolute inset-0"><ImageWrapper src={link.avatar} alt={link.name} class="w-full h-full"></ImageWrapper></div>}
+                                    </div>
+                                    <div class="overflow-hidden">
+                                        <div class="transition font-bold text-xl text-90 truncate group-hover:text-[var(--primary)]">{link.name}</div>
+                                        <div class="transition text-xs text-30 truncate">{link.hostname}</div>
+                                    </div>
+                                </div>
+                                <div class="transition text-sm text-50 mb-4 line-clamp-2 min-h-10">{link.description}</div>
+                                <div class="flex gap-2">
+                                    <a href={link.url} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${link.name}`} class="btn-regular grow rounded-lg h-9 gap-2 text-sm font-bold active:scale-95">
+                                        <Icon name="fa6-solid:arrow-up-right-from-square" class="text-[0.75rem]"></Icon>
+                                        Visit
+                                    </a>
+                                    <button type="button" class="btn-regular rounded-lg h-9 w-9 shrink-0 active:scale-90" aria-label={`Copy link to ${link.name}`} data-copy-url={link.url}>
+                                        <Icon name="material-symbols:content-copy-outline-rounded" class="text-[1rem]"></Icon>
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+
+    <!-- how to apply -->
+    <div class="card-base px-6 md:px-9 py-6 mb-4">
+        <div class="prose dark:prose-invert prose-base !max-w-none custom-md mt-2">
+            <section>
+                <h2 id="apply">Apply<a class="anchor" href="#apply"><span class="anchor-icon" data-pagefind-ignore>#</span></a></h2>
+            </section>
+        </div>
+
+        <ol class="flex flex-col gap-2 mb-6">
+            {requirements.map((rule, i) => (
+                <li class="flex gap-3 text-sm text-75 transition">
+                    <span class="shrink-0 w-5 h-5 rounded-md text-xs font-bold flex items-center justify-center bg-[var(--btn-regular-bg)] text-[var(--btn-content)]">{i + 1}</span>
+                    <span>{rule}</span>
+                </li>
+            ))}
+        </ol>
+
+        <div class="transition text-50 text-sm font-bold mb-3">Leave a comment below with your details, using mine as a template:</div>
+        <div class="rounded-xl p-5 border-[1px] border-[var(--line-divider)] flex flex-col gap-2">
+            {selfInfo.map((row) => (
+                <div class="flex flex-col sm:flex-row sm:items-baseline gap-1 sm:gap-3 text-sm">
+                    <span class="shrink-0 w-36 text-30 transition">{row.label}</span>
+                    <span class="text-75 transition break-all">{row.value}</span>
+                </div>
+            ))}
+            <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 text-sm">
+                <span class="shrink-0 w-36 text-30 transition">Owner Avatar</span>
+                <div class="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-[var(--btn-regular-bg)]">
+                    <ImageWrapper src={profileConfig.avatar || ""} alt={profileConfig.name} class="w-full h-full"></ImageWrapper>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {commentConfig.enable && <Comments></Comments>}
+</MainGridLayout>
+
+<style>
+    .friend-card:hover {
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+    :global(.dark) .friend-card:hover {
+        box-shadow: none;
+    }
+    [data-copy-url].copied {
+        background: var(--primary);
+        color: var(--deep-text);
+    }
+</style>
+
+<script>
+// delegated so it keeps working after Swup replaces the page content
+document.addEventListener("click", async (event) => {
+	const target = event.target as HTMLElement | null;
+	const button = target?.closest<HTMLElement>("[data-copy-url]");
+	if (!button) return;
+
+	const url = button.dataset.copyUrl;
+	if (!url) return;
+
+	try {
+		await navigator.clipboard.writeText(url);
+		button.classList.add("copied");
+		setTimeout(() => button.classList.remove("copied"), 1200);
+	} catch {
+		// clipboard blocked (insecure context or denied permission) — nothing to do
+	}
+});
+</script>

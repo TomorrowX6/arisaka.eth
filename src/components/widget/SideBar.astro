@@ -1,8 +1,10 @@
 ---
 import type { MarkdownHeading } from "astro";
+import { midiPlayerConfig } from "../../config";
 import I18nKey from "../../i18n/i18nKey";
 import { i18n } from "../../i18n/translation";
 import Calendar from "./Calendar.svelte";
+import MidiPlayer from "./MidiPlayer.svelte";
 import Profile from "./Profile.astro";
 import WidgetLayout from "./WidgetLayout.astro";
 
@@ -23,5 +25,12 @@ const className = Astro.props.class;
                 <Calendar client:only="svelte"></Calendar>
             </div>
         </WidgetLayout>
+        {midiPlayerConfig.enable &&
+            <WidgetLayout name={i18n(I18nKey.music)} id="midi-player" class="onload-animation" style="animation-delay: 200ms">
+                <div class="min-h-[5.5rem]">
+                    <MidiPlayer client:only="svelte"></MidiPlayer>
+                </div>
+            </WidgetLayout>
+        }
     </div>
 </div>

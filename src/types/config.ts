@@ -48,7 +48,22 @@ export enum LinkPreset {
 	Home = 0,
 	Archive = 1,
 	About = 2,
+	Friends = 3,
 }
+
+export type FriendLink = {
+	name: string;
+	url: string;
+	/** Avatar image URL. Falls back to the first letter of the name. */
+	avatar?: string;
+	description?: string;
+	/** Omit for an active link. Listed separately when set. */
+	status?: "unreachable" | "banned";
+};
+
+export type FriendsConfig = {
+	links: FriendLink[];
+};
 
 export type NavBarLink = {
 	name: string;
@@ -75,6 +90,26 @@ export type LicenseConfig = {
 	enable: boolean;
 	name: string;
 	url: string;
+};
+
+export type MidiTrack = {
+	title: string;
+	/** Path to a .mid file, relative to the /public directory */
+	url: string;
+};
+
+export type MidiPlayerConfig = {
+	enable: boolean;
+	/**
+	 * GM sound bank used to synthesize the MIDI files (SF2 / SF3 / DLS).
+	 * Relative to the /public directory. Only fetched once playback starts.
+	 */
+	soundBank: string;
+	/**
+	 * Track list, regenerated from the contents of public/midi by
+	 * `scripts/scan-midi-playlist.mjs` on every dev/build run.
+	 */
+	playlist: string;
 };
 
 export type CommentConfig = {
