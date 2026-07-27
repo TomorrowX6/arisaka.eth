@@ -7,6 +7,7 @@
     "start": "node scripts/scan-midi-playlist.mjs && astro dev",
     "check": "astro check",
     "build": "node scripts/scan-midi-playlist.mjs && astro build && pagefind --site dist",
+    "build:clean": "node scripts/clean-cache.mjs && pnpm build",
     "midi:scan": "node scripts/scan-midi-playlist.mjs",
     "deploy": "pnpm build && node scripts/deploy-ardrive.mjs",
     "deploy:perma": "pnpm build && tsx scripts/deploy-permaweb.ts",

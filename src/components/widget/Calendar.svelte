@@ -1,38 +1,27 @@
 <script lang="ts">
-import { siteConfig } from "../../config";
-import { getMonthHolidays } from "../../utils/holiday-utils";
-
-type DayMark = { names: string[]; statutory: boolean };
-
-const locale = (siteConfig.lang || "en").replace("_", "-");
-
-const today = new Date();
-const todayYear = today.getFullYear();
-const todayMonth = today.getMonth();
-const todayDate = today.getDate();
+import {
+	buildMonthCells,
+	formatMonthTitle,
+	shiftMonthBy,
+	todayDate,
+	todayMonth,
+	todayYear,
+	weekdayNames,
+	weekdayOf,
+} from "../../utils/calendar-utils";
+import {
+	type DayMark,
+	getMonthHolidays,
+	groupHolidaysByDay,
+} from "../../utils/holiday-utils";
 
 let viewYear = todayYear;
 let viewMonth = todayMonth; // 0 - 11
 
-const titleFormatter = new Intl.DateTimeFormat(locale, {
-	year: "numeric",
-	month: "long",
-	timeZone: "UTC",
-});
-const weekdayFormatter = new Intl.DateTimeFormat(locale, {
-	weekday: "short",
-	timeZone: "UTC",
-});
-
-// 2023-01-01 was a Sunday, so this walks a full week from Sunday to Saturday
-const weekdays = Array.from({ length: 7 }, (_, i) =>
-	weekdayFormatter.format(new Date(Date.UTC(2023, 0, 1 + i))),
-);
-
 function shiftMonth(delta: number) {
-	const shifted = new Date(viewYear, viewMonth + delta, 1);
-	viewYear = shifted.getFullYear();
-	viewMonth = shifted.getMonth();
+	const shifted = shiftMonthBy(viewYear, viewMonth, delta);
+	viewYear = shifted.year;
+	viewMonth = shifted.month;
 }
 
 function isToday(day: number, year: number, month: number): boolean {
@@ -48,7 +37,7 @@ function dayClass(
 	if (isToday(day, year, month))
 		return "bg-[var(--primary)] font-bold text-[var(--deep-text)]";
 	if (marks.get(day)?.statutory) return "font-bold text-[var(--primary)]";
-	const weekday = new Date(year, month, day).getDay();
+	const weekday = weekdayOf(year, month, day);
 	return weekday === 0 || weekday === 6 ? "text-30" : "text-75";
 }
 
@@ -64,29 +53,10 @@ function dotClass(
 		: "bg-[var(--primary)]";
 }
 
-$: title = titleFormatter.format(new Date(Date.UTC(viewYear, viewMonth, 1)));
+$: title = formatMonthTitle(viewYear, viewMonth);
 $: holidays = getMonthHolidays(viewYear, viewMonth + 1);
-$: marks = holidays.reduce((map, holiday) => {
-	const mark = map.get(holiday.day);
-	if (mark) {
-		mark.names.push(holiday.name);
-		mark.statutory = mark.statutory || holiday.statutory;
-	} else {
-		map.set(holiday.day, {
-			names: [holiday.name],
-			statutory: holiday.statutory,
-		});
-	}
-	return map;
-}, new Map<number, DayMark>());
-$: cells = [
-	// leading blanks so the 1st lands under its weekday
-	...Array<number | null>(new Date(viewYear, viewMonth, 1).getDay()).fill(null),
-	...Array.from(
-		{ length: new Date(viewYear, viewMonth + 1, 0).getDate() },
-		(_, i) => i + 1,
-	),
-];
+$: marks = groupHolidaysByDay(holidays);
+$: cells = buildMonthCells(viewYear, viewMonth);
 </script>
 
 <div class="pb-1">
@@ -107,7 +77,7 @@ $: cells = [
 
     <!-- weekday header -->
     <div class="grid grid-cols-7">
-        {#each weekdays as weekday}
+        {#each weekdayNames as weekday}
             <div class="h-7 flex items-center justify-center text-xs text-30">{weekday}</div>
         {/each}
     </div>

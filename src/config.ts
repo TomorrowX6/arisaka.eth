@@ -72,6 +72,11 @@ export const profileConfig: ProfileConfig = {
 			icon: "fa6-brands:github",
 			url: "https://github.com/TomorrowX6",
 		},
+		{
+			name: "Email",
+			icon: "fa6-solid:envelope",
+			url: "mailto:azusa@tuta.com",
+		},
 	],
 };
 

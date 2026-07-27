@@ -62,55 +62,122 @@ const lang = WALINE_LANGS[siteConfig.lang.toLowerCase()] ?? "en";
 </style>
 
 <script>
-import "@waline/client/style";
+// Imported as a URL rather than a side-effect so the stylesheet is not tied to
+// the document head Astro builds: Swup swaps the head on every visit, and in dev
+// the styles are injected by Vite, both of which can leave Waline unstyled.
+// Owning the <link> ourselves means we can guarantee it is applied before mount.
+import walineStyleUrl from "@waline/client/style?url";
 
-type WalineInstance = { destroy: () => void };
+type WalineInstance = { el: HTMLElement | null; destroy: () => void };
 
-let waline: WalineInstance | null = null;
-let observer: IntersectionObserver | null = null;
+const STYLE_ID = "waline-style";
 
-async function mount(el: HTMLElement) {
-	const { init } = await import("@waline/client/full");
+function ensureStyles(): Promise<void> {
+	const existing = document.getElementById(STYLE_ID) as HTMLLinkElement | null;
+	if (existing?.sheet) return Promise.resolve();
 
-	waline?.destroy();
-	waline = init({
-		el,
-		serverURL: el.dataset.serverUrl as string,
-		lang: el.dataset.lang,
-		dark: "html.dark",
-		path: window.location.pathname,
-		// the card already has a "Comments" heading — keep only the count
-		locale: { comment: "" },
+	const link = existing ?? document.createElement("link");
+	if (!existing) {
+		link.id = STYLE_ID;
+		link.rel = "stylesheet";
+		link.href = walineStyleUrl;
+		document.head.appendChild(link);
+	}
+
+	return new Promise((resolve) => {
+		const done = () => resolve();
+		link.addEventListener("load", done, { once: true });
+		link.addEventListener("error", done, { once: true });
+		// never block the comments on a stylesheet that refuses to settle
+		setTimeout(done, 3000);
 	});
 }
 
-function setup() {
-	observer?.disconnect();
-	observer = null;
-	waline?.destroy();
+let waline: WalineInstance | null = null;
+let mounting = false;
+
+/**
+ * Swup has usually already thrown away the old comment DOM by the time we get
+ * here, which makes Waline's own teardown throw while removing its nodes. That
+ * exception used to escape setup() and skip the code that mounts the section
+ * again, so the comments went missing on a random subset of visits.
+ */
+function destroyWaline() {
+	try {
+		waline?.destroy();
+	} catch {
+		// the instance is unusable either way
+	}
 	waline = null;
+}
 
+async function mount(el: HTMLElement) {
+	mounting = true;
+	try {
+		const [{ init }] = await Promise.all([
+			import("@waline/client/full"),
+			ensureStyles(),
+		]);
+
+		// the visit may have moved on while the bundle loaded
+		if (!el.isConnected || el.children.length > 0) return;
+
+		destroyWaline();
+		waline = init({
+			el,
+			serverURL: el.dataset.serverUrl as string,
+			lang: el.dataset.lang,
+			dark: "html.dark",
+			path: window.location.pathname,
+			// the card already has a "Comments" heading — keep only the count
+			locale: { comment: "" },
+		});
+	} finally {
+		mounting = false;
+		// A visit that landed while the bundle was loading was ignored because
+		// `mounting` was set. Only retry for a genuinely different node, so a
+		// mount that fails to render cannot loop.
+		const current = document.getElementById("waline");
+		if (current && current !== el) setup();
+	}
+}
+
+/**
+ * Idempotent and driven purely by what is in the DOM rather than by bookkeeping
+ * across visits — Swup fires several hooks per visit and may hand back cached
+ * nodes, so any "have I seen this one before" state ends up wrong eventually.
+ * An empty #waline means there is work to do; anything else means there isn't.
+ *
+ * Mounting is deliberately not deferred until the section scrolls into view:
+ * OverlayScrollbars rebuilds the body scroller on every visit, which made both
+ * IntersectionObserver and scroll listeners miss visits at random. Correctness
+ * beats saving the bundle for readers who never scroll down.
+ */
+function setup() {
 	const el = document.getElementById("waline");
-	if (!el) return;
-
-	// the comment bundle is only fetched once the reader scrolls near it
-	observer = new IntersectionObserver(
-		(entries) => {
-			if (!entries.some((entry) => entry.isIntersecting)) return;
-			observer?.disconnect();
-			observer = null;
-			mount(el);
-		},
-		{ rootMargin: "300px" },
-	);
-	observer.observe(el);
+	if (!el) {
+		destroyWaline();
+		return;
+	}
+	if (mounting || el.children.length > 0) return;
+	void mount(el);
 }
 
 setup();
 
-// Swup swaps the page content without reloading, so remount on every visit
+/**
+ * Swup swaps the page content without reloading, so the section has to be
+ * mounted again on every visit. The hooks can fire while the outgoing markup is
+ * still in the document, so the actual work waits for the frame after the swap.
+ * setup() is idempotent, which makes running it from both hooks harmless.
+ */
+function scheduleSetup() {
+	requestAnimationFrame(() => requestAnimationFrame(setup));
+}
+
 function listenToSwup() {
-	window.swup.hooks.on("page:view", setup);
+	window.swup.hooks.on("content:replace", scheduleSetup);
+	window.swup.hooks.on("page:view", scheduleSetup);
 }
 if (window?.swup?.hooks) {
 	listenToSwup();

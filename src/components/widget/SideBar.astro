@@ -19,7 +19,9 @@ const className = Astro.props.class;
     <div class="flex flex-col w-full gap-4 mb-4">
         <Profile></Profile>
     </div>
-    <div id="sidebar-sticky" class="transition-all duration-700 flex flex-col w-full gap-4 top-4 sticky top-4">
+    <!-- Below lg the sidebar stops being a column and stacks under the content,
+         where these would stretch to full width — so they are phone/tablet-hidden. -->
+    <div id="sidebar-sticky" class="transition-all duration-700 hidden lg:flex flex-col w-full gap-4 top-4 sticky top-4">
         <WidgetLayout name={i18n(I18nKey.calendar)} id="calendar" class="onload-animation" style="animation-delay: 150ms">
             <div class="min-h-[14rem]">
                 <Calendar client:only="svelte"></Calendar>

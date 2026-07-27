@@ -14,6 +14,32 @@ const className = Astro.props.class;
 </div>
 
 <script>
+// Copy-to-clipboard for elements carrying a `data-copy` payload, e.g. the
+// fingerprint on the Tuta identity card. Delegated so it survives Swup visits.
+document.addEventListener("click", async function (e: MouseEvent) {
+    const origin = e.target as Element | null;
+    const copyTarget = origin?.closest("[data-copy]") as HTMLElement | null;
+    if (!copyTarget) return;
+
+    const value = copyTarget.dataset.copy;
+    if (!value) return;
+
+    try {
+        await navigator.clipboard.writeText(value);
+    } catch {
+        return; // clipboard blocked (insecure context or denied permission)
+    }
+
+    // flag every control sharing this payload, so icon and text agree
+    const peers = Array.from(
+        copyTarget.closest(".card-tuta")?.querySelectorAll<HTMLElement>(`[data-copy="${CSS.escape(value)}"]`) ?? [copyTarget],
+    );
+    for (const peer of peers) peer.classList.add("copied");
+    setTimeout(() => {
+        for (const peer of peers) peer.classList.remove("copied");
+    }, 1200);
+});
+
 document.addEventListener("click", function (e: MouseEvent) {
     const target = e.target as Element | null;
     if (target && target.classList.contains("copy-btn")) {

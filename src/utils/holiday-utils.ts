@@ -206,6 +206,26 @@ function computeYear(year: number): Holiday[] {
 
 const yearCache = new Map<number, Holiday[]>();
 
+export type DayMark = { names: string[]; statutory: boolean };
+
+/** Holidays of a month keyed by day, for marking the calendar grid. */
+export function groupHolidaysByDay(holidays: Holiday[]): Map<number, DayMark> {
+	const marks = new Map<number, DayMark>();
+	for (const holiday of holidays) {
+		const mark = marks.get(holiday.day);
+		if (mark) {
+			mark.names.push(holiday.name);
+			mark.statutory = mark.statutory || holiday.statutory;
+		} else {
+			marks.set(holiday.day, {
+				names: [holiday.name],
+				statutory: holiday.statutory,
+			});
+		}
+	}
+	return marks;
+}
+
 /** Holidays of the given month, in date order. `month` is 1 - 12. */
 export function getMonthHolidays(year: number, month: number): Holiday[] {
 	let holidays = yearCache.get(year);
