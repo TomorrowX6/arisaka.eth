@@ -1,7 +1,7 @@
 <script lang="ts">
 // the AudioWorklet processor has to be served as its own file
 import processorUrl from "spessasynth_lib/dist/spessasynth_processor.min.js?url";
-import { onDestroy, onMount } from "svelte";
+import { onDestroy, onMount, tick } from "svelte";
 import { midiPlayerConfig } from "../../config";
 import type { MidiTrack } from "../../types/config";
 
@@ -18,6 +18,7 @@ let currentTime = 0;
 let duration = 0;
 let volume = 0.7;
 
+let listElement: HTMLDivElement | undefined;
 let ctx: AudioContext | undefined;
 let gain: GainNode | undefined;
 // biome-ignore lint/suspicious/noExplicitAny: the sequencer type only exists in the lazily imported module
@@ -157,6 +158,20 @@ function handleSeek() {
 	if (seq && duration > 0) seq.currentTime = currentTime;
 }
 
+/**
+ * The list only shows a handful of its rows at a time, so the track that is
+ * actually playing has to be brought back into view whenever it changes or
+ * the list is reopened. The arguments exist to drive the reactive statement.
+ */
+async function revealCurrent(open: boolean, _current: number) {
+	if (!open) return;
+	await tick();
+	listElement
+		?.querySelector<HTMLElement>("[data-current='true']")
+		?.scrollIntoView({ block: "nearest" });
+}
+
+$: void revealCurrent(showPlaylist, index);
 $: if (gain) gain.gain.value = volume;
 $: empty = tracks.length === 0;
 $: title = status === "error" ? message : (tracks[index]?.title ?? "No tracks");
@@ -248,20 +263,48 @@ onDestroy(() => {
 
     <!-- playlist -->
     {#if tracks.length > 1 && showPlaylist}
-        <div id="midi-playlist" class="mt-2 pt-2 flex flex-col border-t-[1px] border-dashed border-[var(--line-divider)]">
-            {#each tracks as track, i}
-                <button
-                    class="btn-plain rounded-lg h-8 px-2 !justify-start text-xs truncate {i === index ? 'text-[var(--primary)] font-bold' : 'text-75'}"
-                    on:click={() => select(i)}
-                >
-                    {track.title}
-                </button>
-            {/each}
+        <div id="midi-playlist" class="mt-2 pt-2 border-t-[1px] border-dashed border-[var(--line-divider)]">
+            <div class="flex justify-between px-2 pb-1 text-xs text-30 tabular-nums">
+                <span>Playlist</span>
+                <span>{index + 1} / {tracks.length}</span>
+            </div>
+            <!-- capped so a long playlist scrolls inside the widget instead of
+                 stretching the sticky sidebar past the viewport -->
+            <div class="playlist-scroll flex flex-col max-h-[13.5rem] overflow-y-auto" bind:this={listElement}>
+                {#each tracks as track, i}
+                    <button
+                        class="btn-plain rounded-lg h-8 shrink-0 px-2 !justify-start text-xs truncate {i === index ? 'text-[var(--primary)] font-bold' : 'text-75'}"
+                        data-current={i === index}
+                        on:click={() => select(i)}
+                    >
+                        {track.title}
+                    </button>
+                {/each}
+            </div>
         </div>
     {/if}
 </div>
 
 <style>
+    .playlist-scroll {
+        overscroll-behavior: contain;
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-bg) transparent;
+    }
+    .playlist-scroll::-webkit-scrollbar {
+        width: 6px;
+    }
+    .playlist-scroll::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .playlist-scroll::-webkit-scrollbar-thumb {
+        border-radius: 9999px;
+        background: var(--scrollbar-bg);
+    }
+    .playlist-scroll::-webkit-scrollbar-thumb:hover {
+        background: var(--scrollbar-bg-hover);
+    }
+
     .player-range {
         -webkit-appearance: none;
         appearance: none;
