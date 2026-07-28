@@ -2705,6 +2705,46 @@
       "id": "YCcELy9jYy6Yga9Iwq4cyhThPBagiFfjGArMHO3QpCo",
       "size": 29043,
       "contentType": "application/x.arweave-manifest+json"
+    },
+    "file:acb3bddb6cd379c37c8bba1067d935e71e3587ab895ed174578aadd9f4e58380:application/json; charset=utf-8": {
+      "id": "Eb7w23sc1G68rOmmquUP7xgTgpLpPm-hj-mzkmgqskQ",
+      "size": 10369,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "file:3404b6ab81ad3d73e9f72289e4ac441be85bab5b53c2ef0ceafe2a67d522de12:application/octet-stream": {
+      "id": "bVgDYixMXU4atsoNCNQdRtzcEPwLxfMGUEJEWfksiBY",
+      "size": 1039,
+      "contentType": "application/octet-stream"
+    },
+    "file:db6c074fbd7e27400a36b35b80b622af3147f6b0ba1959feb39c452fbf40e9cc:application/octet-stream": {
+      "id": "u-3JxgFUSp4gHH3sbHqR6dZcD3I8dZ7AscRIwMu_TYs",
+      "size": 417,
+      "contentType": "application/octet-stream"
+    },
+    "file:028594cb3f325e98a034c7cc8c821b69704bb85194d641de818f38df867954a2:application/json; charset=utf-8": {
+      "id": "GyTAdT2v_pz5oWw3_zSOPtn_9El8kFiRfThpCNb3G0c",
+      "size": 228,
+      "contentType": "application/json; charset=utf-8"
+    },
+    "file:5a0abfbe8141ad9b2f06b8c277cf0fd3341cc0ce7193b0804c66ee38327c05f6:application/octet-stream": {
+      "id": "S4q9yBlCiJhRnbDWvOnUmg4NL65joNO0p1BPlgowh_k",
+      "size": 133,
+      "contentType": "application/octet-stream"
+    },
+    "file:b92a5c9674bd706012b052dbb8ff1b5f3528a97a62e99100f317af1c3aaaf0a1:text/html; charset=utf-8": {
+      "id": "O0FuJnJBBnGG4lv4tDFvy1Nwepu9opZueuSsxNwlOuo",
+      "size": 44711,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "file:da084e9e49e822c367bc9199586808ab79e7b2cbb17344bb9c73fdfcd9e7342c:text/html; charset=utf-8": {
+      "id": "tv_8LvbO__YgSanBLWhX6UboWW1lf1qExgRz0CHVSZk",
+      "size": 69599,
+      "contentType": "text/html; charset=utf-8"
+    },
+    "manifest:7044255b027db525b1a4f25bb3a4cf3aac678f9f5bdd38ec3ebb928e380dfebf:application/x.arweave-manifest+json": {
+      "id": "3CPtieMRmUkLCVBhNsxyeEM50lHDDbRjToIcQMSG7B0",
+      "size": 29043,
+      "contentType": "application/x.arweave-manifest+json"
     }
   }
 }
