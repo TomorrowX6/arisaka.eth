@@ -182,6 +182,18 @@ async function uploadWebsite(): Promise<string> {
 		planned.push({ relativePath, absolute, size, contentType, objectKey: `file:${digest}:${contentType}` });
 	}
 
+	// arweave.net's gateway cannot resolve a manifest path that contains a
+	// literal space: the file uploads and is listed in the manifest, yet every
+	// request for it falls through to the 404 fallback. Refuse before spending
+	// anything rather than paying to publish files nobody can fetch.
+	const unservable = planned.filter((f) => f.relativePath.includes(" "));
+	if (unservable.length > 0)
+		throw new Error(
+			`${unservable.length} file(s) have a space in their path, which arweave.net cannot serve. ` +
+				"Rename them (spaces -> underscores) and rebuild:\n" +
+				unservable.map((f) => `  ${f.relativePath}`).join("\n"),
+		);
+
 	const pending = planned.filter((f) => !cache.objects[f.objectKey]);
 	const pendingBytes = pending.reduce((sum, f) => sum + f.size, 0);
 	const totalBytes = planned.reduce((sum, f) => sum + f.size, 0);
