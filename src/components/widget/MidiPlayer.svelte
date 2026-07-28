@@ -5,6 +5,32 @@ import { onDestroy, onMount, tick } from "svelte";
 import { midiPlayerConfig } from "../../config";
 import type { MidiTrack } from "../../types/config";
 
+type PlayMode = "sequence" | "shuffle" | "repeat";
+
+// One button cycles through these in order; the sidebar is too narrow to give
+// each mode its own. Icons are material-symbols repeat / shuffle / repeat-one.
+const MODES: { id: PlayMode; label: string; icon: string }[] = [
+	{
+		id: "sequence",
+		label: "Play in order",
+		icon: "m6.85 19l.85.85q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L3.7 18.7q-.15-.15-.213-.325T3.426 18t.063-.375t.212-.325l2.575-2.575q.3-.3.713-.287t.712.312q.275.3.288.7t-.288.7l-.85.85H17v-3q0-.425.288-.712T18 13t.713.288T19 14v3q0 .825-.587 1.413T17 19zm10.3-12H7v3q0 .425-.288.713T6 11t-.712-.288T5 10V7q0-.825.588-1.412T7 5h10.15l-.85-.85q-.3-.3-.288-.7t.288-.7q.3-.3.712-.312t.713.287L20.3 5.3q.15.15.213.325t.062.375t-.062.375t-.213.325l-2.575 2.575q-.3.3-.712.288T16.3 9.25q-.275-.3-.288-.7t.288-.7z",
+	},
+	{
+		id: "shuffle",
+		label: "Shuffle",
+		icon: "M15 20q-.425 0-.712-.288T14 19t.288-.712T15 18h1.6l-2.475-2.475q-.3-.3-.287-.712t.312-.713t.713-.3t.712.3L18 16.55V15q0-.425.288-.712T19 14t.713.288T20 15v4q0 .425-.288.713T19 20zm-10.7-.3q-.275-.275-.275-.7t.275-.7L16.6 6H15q-.425 0-.712-.288T14 5t.288-.712T15 4h4q.425 0 .713.288T20 5v4q0 .425-.288.713T19 10t-.712-.288T18 9V7.4L5.7 19.7q-.275.275-.7.275t-.7-.275m-.025-14Q4 5.425 4 5t.275-.7t.687-.275t.713.275l4.2 4.175q.275.275.288.688t-.288.712q-.275.275-.7.275t-.7-.275z",
+	},
+	{
+		id: "repeat",
+		label: "Repeat one",
+		icon: "M11.5 10.5h-.75q-.325 0-.537-.213T10 9.75t.213-.537T10.75 9H12q.425 0 .713.288T13 10v4.25q0 .325-.213.538T12.25 15t-.537-.213t-.213-.537zM6.85 19l.85.85q.3.3.288.7t-.288.7q-.3.3-.712.313t-.713-.288L3.7 18.7q-.15-.15-.213-.325T3.426 18t.063-.375t.212-.325l2.575-2.575q.3-.3.713-.287t.712.312q.275.3.288.7t-.288.7l-.85.85H17v-3q0-.425.288-.712T18 13t.713.288T19 14v3q0 .825-.587 1.413T17 19zm10.3-12H7v3q0 .425-.288.713T6 11t-.712-.288T5 10V7q0-.825.588-1.412T7 5h10.15l-.85-.85q-.3-.3-.288-.7t.288-.7q.3-.3.712-.312t.713.287L20.3 5.3q.15.15.213.325t.062.375t-.062.375t-.213.325l-2.575 2.575q-.3.3-.712.288T16.3 9.25q-.275-.3-.288-.7t.288-.7z",
+	},
+];
+
+// The synth has no volume control, so its output sits at a fixed level that
+// leaves headroom for the loudest sound-bank patches.
+const OUTPUT_GAIN = 0.7;
+
 let tracks: MidiTrack[] = [];
 
 let status: "idle" | "loading" | "ready" | "error" = "idle";
@@ -16,11 +42,12 @@ let seeking = false;
 let showPlaylist = false;
 let currentTime = 0;
 let duration = 0;
-let volume = 0.7;
+let mode: PlayMode = "shuffle";
+/** Playback order — the indices of `tracks`, permuted when shuffling. */
+let order: number[] = [];
 
 let listElement: HTMLDivElement | undefined;
 let ctx: AudioContext | undefined;
-let gain: GainNode | undefined;
 // biome-ignore lint/suspicious/noExplicitAny: the sequencer type only exists in the lazily imported module
 let seq: any;
 let ticker: ReturnType<typeof setInterval> | undefined;
@@ -30,11 +57,40 @@ onMount(async () => {
 		const response = await fetch(midiPlayerConfig.playlist);
 		if (!response.ok) throw new Error(`playlist: HTTP ${response.status}`);
 		tracks = await response.json();
+		// Shuffling is the default, so the sidebar opens on a random track
+		// rather than always the first one.
+		if (mode === "shuffle" && tracks.length > 0)
+			index = Math.floor(Math.random() * tracks.length);
+		resetOrder();
 	} catch (error) {
 		status = "error";
 		message = error instanceof Error ? error.message : String(error);
 	}
 });
+
+/**
+ * Rebuilds the playback order around whatever is playing. Shuffling permutes
+ * the track list once instead of picking at random on every skip, so a cycle
+ * plays each track exactly once, and keeping the current track at the front
+ * means switching modes never interrupts it.
+ */
+function resetOrder() {
+	const others = tracks.map((_, i) => i).filter((i) => i !== index);
+	if (mode !== "shuffle") {
+		order = tracks.map((_, i) => i);
+		return;
+	}
+	for (let i = others.length - 1; i > 0; i--) {
+		const j = Math.floor(Math.random() * (i + 1));
+		[others[i], others[j]] = [others[j], others[i]];
+	}
+	order = tracks.length > 0 ? [index, ...others] : [];
+}
+
+function cycleMode() {
+	mode = MODES[(MODES.findIndex((m) => m.id === mode) + 1) % MODES.length].id;
+	resetOrder();
+}
 
 function formatTime(seconds: number): string {
 	if (!Number.isFinite(seconds) || seconds < 0) return "0:00";
@@ -74,7 +130,7 @@ async function buildEngine() {
 	await synth.isReady;
 
 	const output = audio.createGain();
-	output.gain.value = volume;
+	output.gain.value = OUTPUT_GAIN;
 	synth.connect(output);
 	output.connect(audio.destination);
 
@@ -85,11 +141,13 @@ async function buildEngine() {
 		currentTime = 0;
 	});
 	sequencer.eventHandler.addEvent("songEnded", "sidebar-player", () => {
-		void skip(1);
+		// Repeat-one governs only what plays next on its own — the skip
+		// buttons still move through the list.
+		if (mode === "repeat") void start();
+		else void skip(1);
 	});
 
 	ctx = audio;
-	gain = output;
 	seq = sequencer;
 }
 
@@ -141,8 +199,12 @@ function toggle() {
 }
 
 async function skip(delta: number) {
-	if (tracks.length === 0) return;
-	index = (index + delta + tracks.length) % tracks.length;
+	if (order.length === 0) return;
+	const position = order.indexOf(index);
+	index =
+		position === -1
+			? order[0]
+			: order[(position + delta + order.length) % order.length];
 	currentTime = 0;
 	if (seq) await start();
 }
@@ -172,7 +234,7 @@ async function revealCurrent(open: boolean, _current: number) {
 }
 
 $: void revealCurrent(showPlaylist, index);
-$: if (gain) gain.gain.value = volume;
+$: currentMode = MODES.find((m) => m.id === mode) ?? MODES[0];
 $: empty = tracks.length === 0;
 $: title = status === "error" ? message : (tracks[index]?.title ?? "No tracks");
 
@@ -240,10 +302,18 @@ onDestroy(() => {
             </svg>
         </button>
 
-        <svg class="w-4 h-4 ml-1 shrink-0 text-30" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M19 11.975q0-2.075-1.1-3.787t-2.95-2.563q-.375-.175-.55-.537t-.05-.738q.15-.4.538-.575t.787 0Q18.1 4.85 19.55 7.063T21 11.974t-1.45 4.913t-3.875 3.287q-.4.175-.788 0t-.537-.575q-.125-.375.05-.737t.55-.538q1.85-.85 2.95-2.562t1.1-3.788M7 15H4q-.425 0-.712-.288T3 14v-4q0-.425.288-.712T4 9h3l3.3-3.3q.475-.475 1.088-.213t.612.938v11.15q0 .675-.612.938T10.3 18.3zm9.5-3q0 1.05-.475 1.988t-1.25 1.537q-.25.15-.513.013T14 15.1V8.85q0-.3.263-.437t.512.012q.775.625 1.25 1.575t.475 2"/>
-        </svg>
-        <input class="player-range grow min-w-0" type="range" min="0" max="1" step="0.01" aria-label="Volume" bind:value={volume} />
+        <div class="grow"></div>
+
+        <button
+            class="btn-plain w-8 h-8 rounded-lg shrink-0"
+            aria-label={`Play mode: ${currentMode.label}`}
+            title={currentMode.label}
+            on:click={cycleMode}
+        >
+            <svg class="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d={currentMode.icon}/>
+            </svg>
+        </button>
 
         {#if tracks.length > 1}
             <button
