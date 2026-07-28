@@ -52,6 +52,14 @@
 		"url": "/midi/%E5%B9%BB%E8%A6%96%E3%81%AE%E5%A4%9C_%EF%BD%9E_Ghostly_Eyes.mid"
 	},
 	{
+		"title": "黄昏の放浪",
+		"url": "/midi/%E9%BB%84%E6%98%8F%E3%81%AE%E6%94%BE%E6%B5%AA.mid"
+	},
+	{
+		"title": "空と風が出会う場所",
+		"url": "/midi/%E7%A9%BA%E3%81%A8%E9%A2%A8%E3%81%8C%E5%87%BA%E4%BC%9A%E3%81%86%E5%A0%B4%E6%89%80.mid"
+	},
+	{
 		"title": "狂気の瞳 ～ Invisible Full Moon",
 		"url": "/midi/%E7%8B%82%E6%B0%97%E3%81%AE%E7%9E%B3_%EF%BD%9E_Invisible_Full_Moon.mid"
 	},
@@ -98,6 +106,10 @@
 	{
 		"title": "無何有の郷 ～ Deep Mountain",
 		"url": "/midi/%E7%84%A1%E4%BD%95%E6%9C%89%E3%81%AE%E9%83%B7_%EF%BD%9E_Deep_Mountain.mid"
+	},
+	{
+		"title": "言葉がでない",
+		"url": "/midi/%E8%A8%80%E8%91%89%E3%81%8C%E3%81%A7%E3%81%AA%E3%81%84.mid"
 	},
 	{
 		"title": "妖々跋扈",
@@ -178,6 +190,18 @@
 	{
 		"title": "flourish",
 		"url": "/midi/flourish.mid"
+	},
+	{
+		"title": "heart",
+		"url": "/midi/heart.mid"
+	},
+	{
+		"title": "junk",
+		"url": "/midi/junk.mid"
+	},
+	{
+		"title": "kagec3",
+		"url": "/midi/kagec3.mid"
 	},
 	{
 		"title": "Mad Mew Mew",
