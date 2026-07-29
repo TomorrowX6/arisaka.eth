@@ -1,0 +1,309 @@
+---
+import { namehash, normalize } from "viem/ens";
+import { provenanceConfig } from "../../config";
+
+// The namehash is a pure function of the name, so it is resolved at build time
+// rather than shipping a keccak implementation to the reader's browser. Every
+// value the card displays is still fetched live.
+const node = namehash(normalize(provenanceConfig.ensName));
+
+const rows = [
+	{ key: "contenthash", label: "ENS Contenthash" },
+	{ key: "article", label: "Article File TX" },
+	{ key: "digest", label: "Content Digest" },
+	{ key: "version", label: "Source Version" },
+];
+---
+<div
+    id="provenance"
+    class="card-base px-6 md:px-9 py-6 mb-4 onload-animation"
+    data-ens-node={node}
+    data-ens-name={provenanceConfig.ensName}
+    data-rpc-urls={JSON.stringify(provenanceConfig.rpcUrls)}
+    data-gateways={JSON.stringify(provenanceConfig.gateways)}
+>
+    <div class="font-bold transition text-lg text-neutral-900 dark:text-neutral-100 relative ml-4 mb-4
+        before:w-1 before:h-4 before:rounded-md before:bg-[var(--primary)]
+        before:absolute before:left-[-16px] before:top-[5.5px]">
+        Provenance
+    </div>
+
+    <dl class="grid gap-x-8 gap-y-1 sm:grid-cols-[max-content_1fr] text-sm">
+        {rows.map(({ key, label }) => (
+            <Fragment>
+                <dt class="transition text-black/50 dark:text-white/50 pt-1">{label}</dt>
+                <!-- ids and hashes have no spaces to wrap on, so they break anywhere
+                     rather than pushing the card wider than its column -->
+                <dd class="provenance-value transition text-black/75 dark:text-white/75 pb-2 sm:pb-1 min-w-0 break-all">
+                    <span data-provenance={key} class="opacity-50">Resolving…</span>
+                </dd>
+            </Fragment>
+        ))}
+    </dl>
+</div>
+
+<style>
+    .provenance-value {
+        font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+            Consolas, "Liberation Mono", "Courier New", monospace;
+    }
+</style>
+
+<script>
+/**
+ * Reads, at page view time, the chain of records that pins this article down:
+ *
+ *   ENS contenthash -> Arweave manifest tx -> this article's file tx -> its hash
+ *
+ * Nothing is baked into the page at build time, so the card reports what the
+ * network actually serves today rather than what was true when it was built.
+ */
+
+// ENS registry, identical on every network it is deployed to
+const REGISTRY = "0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e";
+const RESOLVER_SELECTOR = "0x0178b8bf"; // resolver(bytes32)
+const CONTENTHASH_SELECTOR = "0xbc1c58d1"; // contenthash(bytes32)
+// EIP-1577 multicodec prefix an arweave contenthash carries before its 32 bytes
+const ARWEAVE_PREFIX = "90b2ca05";
+
+type ManifestPaths = Record<string, { id: string }>;
+type Manifest = { paths: ManifestPaths };
+
+/** Runs `attempt` against each source in turn and keeps the first that works. */
+async function firstAnswer<T>(
+	sources: string[],
+	attempt: (source: string) => Promise<T>,
+): Promise<T> {
+	let failure: unknown = new Error("no sources configured");
+	for (const source of sources) {
+		try {
+			return await attempt(source);
+		} catch (error) {
+			failure = error;
+		}
+	}
+	throw failure;
+}
+
+/** Remembers a value across visits, while still allowing a failure to be retried. */
+function cache<A, T>(load: (arg: A) => Promise<T>) {
+	let pending: Promise<T> | null = null;
+	return (arg: A) => {
+		if (!pending)
+			pending = load(arg).catch((error) => {
+				pending = null;
+				throw error;
+			});
+		return pending;
+	};
+}
+
+async function ethCall(rpc: string, to: string, data: string): Promise<string> {
+	const response = await fetch(rpc, {
+		method: "POST",
+		headers: { "content-type": "application/json" },
+		body: JSON.stringify({
+			jsonrpc: "2.0",
+			id: 1,
+			method: "eth_call",
+			params: [{ to, data }, "latest"],
+		}),
+	});
+	if (!response.ok) throw new Error(`rpc responded ${response.status}`);
+	const body = await response.json();
+	if (body.error) throw new Error(body.error.message);
+	return body.result as string;
+}
+
+function base64Url(hex: string): string {
+	const bytes = (hex.match(/../g) ?? []).map((pair) => Number.parseInt(pair, 16));
+	return btoa(String.fromCharCode(...bytes))
+		.replace(/\+/g, "-")
+		.replace(/\//g, "_")
+		.replace(/=+$/, "");
+}
+
+/** Unwraps the ABI-encoded `bytes` and its arweave prefix into a transaction id. */
+function decodeContenthash(encoded: string): string {
+	const body = encoded.slice(2);
+	const length = Number.parseInt(body.slice(64, 128), 16);
+	const hex = body.slice(128, 128 + length * 2);
+	if (!hex.startsWith(ARWEAVE_PREFIX))
+		throw new Error("contenthash does not point at arweave");
+	return base64Url(hex.slice(ARWEAVE_PREFIX.length));
+}
+
+const manifestTx = cache(async ({ node, rpcUrls }: { node: string; rpcUrls: string[] }) =>
+	firstAnswer(rpcUrls, async (rpc) => {
+		const word = await ethCall(rpc, REGISTRY, RESOLVER_SELECTOR + node.slice(2));
+		const resolver = `0x${word.slice(-40)}`;
+		if (/^0x0+$/.test(resolver)) throw new Error("name has no resolver");
+		return decodeContenthash(
+			await ethCall(rpc, resolver, CONTENTHASH_SELECTOR + node.slice(2)),
+		);
+	}),
+);
+
+const manifest = cache(({ tx, gateways }: { tx: string; gateways: string[] }) =>
+	firstAnswer(gateways, async (gateway) => {
+		const response = await fetch(`${gateway}/raw/${tx}`);
+		if (!response.ok) throw new Error(`manifest responded ${response.status}`);
+		const parsed = (await response.json()) as Manifest;
+		if (!parsed?.paths) throw new Error("not a path manifest");
+		return parsed;
+	}),
+);
+
+/** The commit the deployment was built from, tagged onto the manifest at upload. */
+const sourceVersion = cache(({ tx, gateways }: { tx: string; gateways: string[] }) =>
+	firstAnswer(gateways, async (gateway) => {
+		const response = await fetch(`${gateway}/graphql`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({
+				query: `{ transactions(ids: ["${tx}"]) { edges { node { tags { name value } } } } }`,
+			}),
+		});
+		if (!response.ok) throw new Error(`graphql responded ${response.status}`);
+		const body = await response.json();
+		const tags = body?.data?.transactions?.edges?.[0]?.node?.tags ?? [];
+		const version = tags.find((tag: { name: string }) => tag.name === "App-Version")?.value;
+		if (!version) throw new Error("manifest carries no App-Version tag");
+		return version as string;
+	}),
+);
+
+/** Manifest keys are gateway paths, and a post is registered under several. */
+function articleTxOf(paths: ManifestPaths): string {
+	const here = window.location.pathname.replace(/^\/+/, "");
+	const withoutSlash = here.replace(/\/$/, "");
+	const candidates = [
+		here,
+		withoutSlash,
+		`${withoutSlash}/index.html`,
+		here === "" ? "index.html" : "",
+	];
+	for (const candidate of candidates) {
+		const entry = candidate ? paths[candidate] : undefined;
+		if (entry) return entry.id;
+	}
+	throw new Error(`no manifest entry for /${here}`);
+}
+
+/**
+ * Gateways publish a file's SHA-256 in a Content-Digest header, which saves
+ * downloading the article a second time; if one doesn't, hash the bytes here.
+ */
+async function digestOf(tx: string, gateways: string[]): Promise<string> {
+	return firstAnswer(gateways, async (gateway) => {
+		const url = `${gateway}/raw/${tx}`;
+		const head = await fetch(url, { method: "HEAD" });
+		const published = head.headers.get("content-digest")?.match(/sha-256=:(.+):/)?.[1];
+		if (published) {
+			const raw = atob(published);
+			return Array.from(raw, (char) =>
+				char.charCodeAt(0).toString(16).padStart(2, "0"),
+			).join("");
+		}
+		const response = await fetch(url);
+		if (!response.ok) throw new Error(`file responded ${response.status}`);
+		const hash = await crypto.subtle.digest("SHA-256", await response.arrayBuffer());
+		return Array.from(new Uint8Array(hash), (byte) =>
+			byte.toString(16).padStart(2, "0"),
+		).join("");
+	});
+}
+
+type Rendered = { text: string; full: string; href?: string };
+
+async function render(
+	root: HTMLElement,
+	key: string,
+	produce: () => Promise<Rendered>,
+): Promise<void> {
+	const slot = root.querySelector<HTMLElement>(`[data-provenance="${key}"]`);
+	if (!slot) return;
+	try {
+		const { text, full, href } = await produce();
+		const node = href ? document.createElement("a") : document.createElement("span");
+		if (href && node instanceof HTMLAnchorElement) {
+			node.href = href;
+			node.target = "_blank";
+			node.rel = "noopener noreferrer";
+			node.className = "link text-[var(--primary)]";
+		}
+		node.textContent = text;
+		// values are shown in full, so a tooltip is only worth it when the
+		// canonical form says something the visible text doesn't
+		if (full !== text) node.title = full;
+		node.dataset.provenance = key;
+		slot.replaceWith(node);
+	} catch {
+		slot.textContent = "Unavailable";
+	}
+}
+
+async function fill(root: HTMLElement): Promise<void> {
+	if (root.dataset.filled === "true") return;
+	root.dataset.filled = "true";
+
+	const node = root.dataset.ensNode ?? "";
+	const name = root.dataset.ensName ?? "";
+	const rpcUrls: string[] = JSON.parse(root.dataset.rpcUrls ?? "[]");
+	const gateways: string[] = JSON.parse(root.dataset.gateways ?? "[]");
+	const gateway = gateways[0] ?? "https://arweave.net";
+
+	const tx = manifestTx({ node, rpcUrls });
+	const paths = tx.then((id) => manifest({ tx: id, gateways }));
+	const article = paths.then((parsed) => articleTxOf(parsed.paths));
+
+	await Promise.all([
+		render(root, "contenthash", async () => {
+			const id = await tx;
+			return {
+				text: `ar://${id}`,
+				full: `${name} → ar://${id}`,
+				href: `${gateway}/${id}`,
+			};
+		}),
+		render(root, "article", async () => {
+			const id = await article;
+			return { text: id, full: id, href: `${gateway}/raw/${id}` };
+		}),
+		render(root, "digest", async () => {
+			const hash = await digestOf(await article, gateways);
+			return { text: `SHA-256 · ${hash}`, full: `sha256:${hash}` };
+		}),
+		render(root, "version", async () => {
+			const version = await sourceVersion({ tx: await tx, gateways });
+			return { text: version, full: version };
+		}),
+	]);
+}
+
+/**
+ * Driven by what is in the DOM rather than by bookkeeping across visits: Swup
+ * swaps the article on every navigation, so the card that is on screen now is
+ * the one that needs filling in.
+ */
+function setup(): void {
+	const root = document.getElementById("provenance");
+	if (root) void fill(root);
+}
+
+setup();
+
+function scheduleSetup(): void {
+	requestAnimationFrame(() => requestAnimationFrame(setup));
+}
+
+function listenToSwup(): void {
+	window.swup.hooks.on("content:replace", scheduleSetup);
+	window.swup.hooks.on("page:view", scheduleSetup);
+}
+if (window?.swup?.hooks) {
+	listenToSwup();
+} else {
+	document.addEventListener("swup:enable", listenToSwup);
+}
+</script>

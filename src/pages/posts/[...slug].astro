@@ -3,13 +3,14 @@ import path from "node:path";
 import Comments from "@components/Comments.astro";
 import License from "@components/misc/License.astro";
 import Markdown from "@components/misc/Markdown.astro";
+import Provenance from "@components/misc/Provenance.astro";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
 import { getSortedPosts } from "@utils/content-utils";
 import { getDir } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
-import { commentConfig, licenseConfig } from "src/config";
+import { commentConfig, licenseConfig, provenanceConfig } from "src/config";
 import ImageWrapper from "../../components/misc/ImageWrapper.astro";
 import PostMetadata from "../../components/PostMeta.astro";
 import { profileConfig, siteConfig } from "../../config";
@@ -111,6 +112,8 @@ const jsonLd = {
 
         </div>
     </div>
+
+    {provenanceConfig.enable && <Provenance></Provenance>}
 
     {commentConfig.enable && <Comments></Comments>}
 

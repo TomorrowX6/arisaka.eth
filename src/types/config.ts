@@ -118,6 +118,16 @@ export type CommentConfig = {
 	serverURL: string;
 };
 
+export type ProvenanceConfig = {
+	enable: boolean;
+	/** ENS name whose contenthash publishes this site, e.g. example.eth */
+	ensName: string;
+	/** Ethereum JSON-RPC endpoints, tried in order, for reading the contenthash */
+	rpcUrls: string[];
+	/** Arweave gateways, tried in order, for the manifest and the article file */
+	gateways: string[];
+};
+
 export type LIGHT_DARK_MODE =
 	| typeof LIGHT_MODE
 	| typeof DARK_MODE

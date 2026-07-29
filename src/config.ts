@@ -5,6 +5,7 @@ import type {
 	MidiPlayerConfig,
 	NavBarConfig,
 	ProfileConfig,
+	ProvenanceConfig,
 	SiteConfig,
 } from "./types/config";
 import { LinkPreset } from "./types/config";
@@ -91,6 +92,19 @@ export const midiPlayerConfig: MidiPlayerConfig = {
 export const commentConfig: CommentConfig = {
 	enable: true, // Display the Waline comment section at the bottom of each post
 	serverURL: "https://waline.000.moe", // Address of your Waline server
+};
+
+export const provenanceConfig: ProvenanceConfig = {
+	enable: true, // Show where the post is published and how to verify it
+	ensName: "arisaka.eth",
+	// Public endpoints only — this runs in the reader's browser, so nothing here
+	// may need a key. Each list is tried in order until one answers.
+	rpcUrls: [
+		"https://ethereum-rpc.publicnode.com",
+		"https://eth.drpc.org",
+		"https://eth.merkle.io",
+	],
+	gateways: ["https://turbo-gateway.com", "https://arweave.net"],
 };
 
 export const licenseConfig: LicenseConfig = {
