@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 480" width="480" height="480"
+     role="img" aria-label="Arisaka.ETH CTF challenge coin — reverse">
+  <title>Arisaka.ETH CTF Coin — Reverse</title>
+
+  <!-- Metal palette. Override the m-hi / m-lt / m-mid / m-dk / m-dp custom properties
+       from the host page to switch between gold, silver and bronze. -->
+  <defs>
+    <radialGradient id="r-face" cx="32%" cy="24%" r="82%">
+      <stop offset="0%"   stop-color="var(--m-hi, #FBF0C4)"/>
+      <stop offset="34%"  stop-color="var(--m-lt, #E3C566)"/>
+      <stop offset="72%"  stop-color="var(--m-mid, #C39B2B)"/>
+      <stop offset="100%" stop-color="var(--m-dk, #8A6614)"/>
+    </radialGradient>
+
+    <linearGradient id="r-edge" x1="18%" y1="0%" x2="82%" y2="100%">
+      <stop offset="0%"   stop-color="var(--m-lt, #E3C566)"/>
+      <stop offset="38%"  stop-color="var(--m-dk, #8A6614)"/>
+      <stop offset="70%"  stop-color="var(--m-dp, #4A3406)"/>
+      <stop offset="100%" stop-color="var(--m-dk, #8A6614)"/>
+    </linearGradient>
+
+    <linearGradient id="r-sheen" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.30"/>
+      <stop offset="26%"  stop-color="#ffffff" stop-opacity="0.05"/>
+      <stop offset="52%"  stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="80%"  stop-color="#000000" stop-opacity="0.10"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.22"/>
+    </linearGradient>
+
+    <filter id="r-relief" x="-12%" y="-12%" width="124%" height="124%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="1.1" result="b"/>
+      <feSpecularLighting in="b" surfaceScale="2.4" specularConstant="0.85" specularExponent="17"
+                          lighting-color="#ffffff" result="sp">
+        <feDistantLight azimuth="228" elevation="56"/>
+      </feSpecularLighting>
+      <feComposite in="sp" in2="SourceAlpha" operator="in" result="spc"/>
+      <feOffset in="SourceAlpha" dx="1.5" dy="1.7" result="off"/>
+      <feFlood flood-color="#2a1c00" flood-opacity="0.5" result="dk"/>
+      <feComposite in="dk" in2="off" operator="in" result="sh"/>
+      <feComposite in="sh" in2="SourceAlpha" operator="out" result="shOut"/>
+      <feMerge>
+        <feMergeNode in="shOut"/>
+        <feMergeNode in="SourceGraphic"/>
+        <feMergeNode in="spc"/>
+      </feMerge>
+    </filter>
+
+    <path id="r-arc-top"    d="M 47,240 A 193,193 0 0,1 433,240" fill="none"/>
+    <path id="r-arc-bottom" d="M 47,240 A 193,193 0 0,0 433,240" fill="none"/>
+  </defs>
+
+  <!-- ── Planchet ───────────────────────────────────────────────── -->
+  <circle cx="240" cy="240" r="238" fill="url(#r-edge)"/>
+
+  <circle cx="240" cy="240" r="228" fill="none" stroke="var(--m-lt, #E3C566)" stroke-width="20"
+          stroke-dasharray="5 5.8528" opacity="0.5"/>
+  <circle cx="240" cy="240" r="228" fill="none" stroke="var(--m-dp, #4A3406)" stroke-width="20"
+          stroke-dasharray="1 9.8528" stroke-dashoffset="5" opacity="0.22"/>
+
+  <circle cx="241" cy="243" r="217" fill="var(--m-dp, #4A3406)" opacity="0.55"/>
+  <circle cx="240" cy="240" r="217" fill="url(#r-face)"/>
+
+  <!-- ── Engraved rings ─────────────────────────────────────────── -->
+  <g filter="url(#r-relief)">
+    <circle cx="240" cy="240" r="211" fill="none" stroke="var(--m-dk, #8A6614)" stroke-width="1.6" opacity="0.75"/>
+    <circle cx="240" cy="240" r="205" fill="none" stroke="var(--m-dk, #8A6614)" stroke-width="0.9" opacity="0.5"/>
+    <circle cx="240" cy="240" r="170" fill="none" stroke="var(--m-hi, #FBF0C4)" stroke-width="3.4"
+            stroke-linecap="round" stroke-dasharray="0.01 11.126" opacity="0.9"/>
+  </g>
+
+  <!-- ── Legends ────────────────────────────────────────────────── -->
+  <g filter="url(#r-relief)" fill="var(--m-hi, #FBF0C4)"
+     font-family="Georgia, 'Times New Roman', serif" font-size="19" letter-spacing="4.5">
+    <text text-anchor="middle">
+      <textPath href="#r-arc-top" startOffset="50%">AWARDED FOR THE SOLVE</textPath>
+    </text>
+    <text text-anchor="middle">
+      <textPath href="#r-arc-bottom" startOffset="50%">ARISAKA.ETH</textPath>
+    </text>
+  </g>
+
+  <g filter="url(#r-relief)" fill="var(--m-hi, #FBF0C4)">
+    <path d="M 47,240 l 7,-8 7,8 -7,8 z"/>
+    <path d="M 433,240 l -7,-8 -7,8 7,8 z"/>
+  </g>
+
+  <!-- ── Device: the flag itself, struck as terminal output ─────── -->
+  <g filter="url(#r-relief)" text-anchor="middle"
+     font-family="'JetBrains Mono','SF Mono','Cascadia Mono',Consolas,monospace">
+    <text x="240" y="152" font-size="15" letter-spacing="1.4"
+          fill="var(--m-lt, #E3C566)" opacity="0.9">&#62; cat flag.txt</text>
+
+    <text x="240" y="200" font-size="25" letter-spacing="2"
+          fill="var(--m-hi, #FBF0C4)" opacity="0.82">flag{</text>
+    <text x="240" y="256" font-size="40" font-weight="700" textLength="248" lengthAdjust="spacingAndGlyphs"
+          fill="var(--m-hi, #FBF0C4)">arisaka_eth</text>
+    <text x="240" y="292" font-size="25" letter-spacing="2"
+          fill="var(--m-hi, #FBF0C4)" opacity="0.82">}</text>
+
+    <path d="M 172,322 h 136" stroke="var(--m-dk, #8A6614)" stroke-width="1.2" opacity="0.7"/>
+    <path d="M 162,322 l 6,-6 6,6 -6,6 z" fill="var(--m-hi, #FBF0C4)"/>
+    <path d="M 318,322 l -6,-6 -6,6 6,6 z" fill="var(--m-hi, #FBF0C4)"/>
+
+    <text x="240" y="352" font-size="14" letter-spacing="4"
+          fill="var(--m-hi, #FBF0C4)" opacity="0.92">NO. 001 / 100</text>
+  </g>
+
+  <!-- ── Specular sweep ─────────────────────────────────────────── -->
+  <circle cx="240" cy="240" r="238" fill="url(#r-sheen)" style="pointer-events:none"/>
+</svg>

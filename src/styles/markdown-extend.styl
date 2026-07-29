@@ -84,7 +84,13 @@
     margin-right: auto
     max-width: 100%
 
-a.card-github, a.card-ens, a.card-pgp, .card-tuta
+  // Event status. Reuses the caution admonition's red, which already carries
+  // a light and a dark value.
+  .event-status
+    color: var(--admonitions-color-caution)
+    font-weight: 600
+
+a.card-github, a.card-ens, a.card-pgp, .card-tuta, a.card-coin
   display: block
   background: var(--license-block-bg)
   position: relative
@@ -101,7 +107,7 @@ a.card-github, a.card-ens, a.card-pgp, .card-tuta
     .gc-titlebar
       color: var(--btn-content)
 
-    .gc-stars, .gc-forks, .gc-license, .gc-description, .ec-address, .ec-network, .pgp-algo, .pgp-download, .tuta-version
+    .gc-stars, .gc-forks, .gc-license, .gc-description, .ec-address, .ec-network, .pgp-algo, .pgp-download, .tuta-version, .coin-edition, .coin-market
       color: var(--tw-prose-headings)
 
       &:before
@@ -163,7 +169,7 @@ a.card-github, a.card-ens, a.card-pgp, .card-tuta
   .gc-language
     display: none
 
-  .gc-stars, .gc-forks, .gc-license, .github-logo, .ec-address, .ec-network, .ens-logo, .pgp-algo, .pgp-download, .pgp-logo, .tuta-version, .tuta-logo
+  .gc-stars, .gc-forks, .gc-license, .github-logo, .ec-address, .ec-network, .ens-logo, .pgp-algo, .pgp-download, .pgp-logo, .tuta-version, .tuta-logo, .coin-edition, .coin-market, .coin-logo
     font-weight: 500
     font-size: 0.875rem
     opacity: 0.9;
@@ -221,6 +227,29 @@ a.card-github, a.card-ens, a.card-pgp, .card-tuta
       background-color: var(--tw-prose-headings)
       margin-right: 0
       mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='31' height='32' viewBox='0 0 320 512'%3E%3Cpath d='M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z'%3E%3C/path%3E%3C/svg%3E")
+
+  // The coin shares the ETH octahedron with the ENS card — same identity.
+  .coin-logo
+    font-size: 1.25rem
+
+    &:before
+      background-color: var(--tw-prose-headings)
+      margin-right: 0
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='31' height='32' viewBox='0 0 320 512'%3E%3Cpath d='M311.9 260.8L160 353.6 8 260.8 160 0l151.9 260.8zM160 383.4L8 290.6 160 512l152-221.4-152 92.8z'%3E%3C/path%3E%3C/svg%3E")
+
+  .coin-edition
+    &:before
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' aria-hidden='true' height='16' viewBox='0 0 512 512' width='16'%3E%3Cpath d='M256 32a224 224 0 1 0 0 448 224 224 0 1 0 0-448zm0 64a160 160 0 1 1 0 320 160 160 0 1 1 0-320z'%3E%3C/path%3E%3C/svg%3E")
+
+  .coin-market
+    &:before
+      mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' aria-hidden='true' height='16' viewBox='0 0 512 512' width='16'%3E%3Cpath d='M320 0a32 32 0 0 0 0 64h50.7L188.7 246.1a32 32 0 0 0 45.3 45.3L416 109.3V160a32 32 0 0 0 64 0V32a32 32 0 0 0-32-32H320zM80 32C35.8 32 0 67.8 0 112v320c0 44.2 35.8 80 80 80h320c44.2 0 80-35.8 80-80V288a32 32 0 0 0-64 0v144a16 16 0 0 1-16 16H80a16 16 0 0 1-16-16V112a16 16 0 0 1 16-16h144a32 32 0 0 0 0-64H80z'%3E%3C/path%3E%3C/svg%3E")
+
+  // Hex wants monospace, and 42 characters has to be allowed to wrap on a phone
+  // — the PGP fingerprint on this same page already does.
+  .coin-address
+    font-family: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace
+    overflow-wrap: anywhere
 
   .pgp-fingerprint
     font-family: ui-monospace, SFMono-Regular, 'JetBrains Mono', Menlo, Consolas, monospace
@@ -315,6 +344,60 @@ a.card-github, a.card-ens, a.card-pgp, .card-tuta
 
     &.copied
       color: var(--primary)
+
+a.card-coin
+  display: flex
+  align-items: center
+  gap: 1.5rem
+
+  .coin-stage
+    flex: none
+    width: 7.5rem
+    height: 7.5rem
+    perspective: 800px
+
+  .coin-flip
+    position: relative
+    width: 100%
+    height: 100%
+    transform-style: preserve-3d
+    transition: transform 0.9s cubic-bezier(0.3, 0.85, 0.25, 1)
+
+  .coin-face
+    position: absolute
+    inset: 0
+    width: 100%
+    height: 100%
+    margin: 0
+    border-radius: 50%
+    backface-visibility: hidden
+    filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.32))
+
+  .coin-reverse
+    transform: rotateY(180deg)
+
+  // Must grow, or the titlebar only spans the description and space-between
+  // parks the logo mid-card instead of on the right edge.
+  .coin-body
+    flex: 1 1 auto
+    min-width: 0
+
+  &:hover .coin-flip
+    transform: rotateY(180deg)
+
+@media (max-width: 480px)
+  a.card-coin
+    flex-direction: column
+    align-items: flex-start
+    gap: 1rem
+
+// An instant hover flip is worse than none at all.
+@media (prefers-reduced-motion: reduce)
+  a.card-coin .coin-flip
+    transition: none
+
+  a.card-coin:hover .coin-flip
+    transform: none
 
 a.card-github.fetch-waiting, a.card-ens.fetch-waiting
   pointer-events: none
