@@ -5,6 +5,7 @@ import "@fontsource/roboto/700.css";
 
 import ConfigCarrier from "@components/ConfigCarrier.astro";
 import Live2D from "@components/widget/Live2D.astro";
+import Terminal from "@components/widget/Terminal.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
 	AUTO_MODE,
@@ -154,6 +155,7 @@ const bannerOffset =
 	>
 		<ConfigCarrier></ConfigCarrier>
 		<Live2D></Live2D>
+		<Terminal></Terminal>
 		<slot />
 
 		<!-- increase the page height during page transition to prevent the scrolling animation from jumping -->

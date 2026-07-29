@@ -1,0 +1,666 @@
+---
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+import { profileConfig, provenanceConfig, siteConfig } from "../../config";
+import { getSortedPostsList } from "../../utils/content-utils";
+import { formatDateToYYYYMMDD } from "../../utils/date-utils";
+
+// Whatever sits in public/README is mirrored into ~/README. The files are
+// served from the same place, so `open` hands back the real artefact and text
+// files can be read here without a round trip.
+// Resolved from the project root rather than import.meta.url: this component is
+// bundled into dist/chunks for the build, where a relative walk lands outside
+// the project entirely.
+const README_DIR = path.resolve(process.cwd(), "public/README");
+const TEXT_EXTENSIONS = new Set([".md", ".txt", ""]);
+
+const readme = readdirSync(README_DIR, { withFileTypes: true })
+	.filter((entry) => entry.isFile())
+	.map((entry) => entry.name)
+	.sort()
+	.map((name) => {
+		const isText = TEXT_EXTENSIONS.has(path.extname(name).toLowerCase());
+		return {
+			name,
+			url: `/README/${name}`,
+			size: statSync(path.join(README_DIR, name)).size,
+			body: isText ? readFileSync(path.join(README_DIR, name), "utf8").trimEnd() : "",
+			binary: !isText,
+		};
+	});
+
+// The virtual filesystem is built from the real post list, so `ls` and `cat`
+// describe this blog rather than a canned example tree.
+const posts = (await getSortedPostsList()).map((post) => ({
+	slug: post.slug,
+	title: post.data.title,
+	published: formatDateToYYYYMMDD(post.data.published),
+	description: post.data.description ?? "",
+	category: post.data.category ?? "",
+	tags: post.data.tags ?? [],
+}));
+
+const environment = {
+	user: "user",
+	// the ENS label reads like a hostname; the site title ("Arisaka.ETH") would
+	// flatten into "arisakaeth"
+	host: provenanceConfig.ensName.split(".")[0],
+	author: profileConfig.name,
+	title: siteConfig.title,
+	subtitle: siteConfig.subtitle,
+	posts,
+	readme,
+};
+---
+<div
+    id="terminal"
+    class="fixed inset-0 z-[100] hidden items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Terminal"
+    data-environment={JSON.stringify(environment)}
+>
+    <div id="terminal-backdrop" class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+
+    <div class="terminal-window relative flex flex-col overflow-hidden rounded-xl shadow-2xl
+                w-[min(46rem,100%)] h-[min(28rem,calc(100vh-2rem))]">
+        <div class="terminal-bar flex shrink-0 items-center gap-2 px-4 py-2 select-none">
+            <span class="h-3 w-3 rounded-full bg-[#ff5f57]"></span>
+            <span class="h-3 w-3 rounded-full bg-[#febc2e]"></span>
+            <span class="h-3 w-3 rounded-full bg-[#28c840]"></span>
+            <div class="grow text-center text-xs text-white/50">{environment.user}@{environment.host}: ~</div>
+            <button id="terminal-close" class="text-white/50 hover:text-white/90 transition" aria-label="Close terminal">
+                <svg class="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+                    <path fill="currentColor" d="M12 13.4L7.1 18.3q-.275.275-.7.275t-.7-.275t-.275-.7t.275-.7l4.9-4.9l-4.9-4.9q-.275-.275-.275-.7t.275-.7t.7-.275t.7.275l4.9 4.9l4.9-4.9q.275-.275.7-.275t.7.275t.275.7t-.275.7L13.4 12l4.9 4.9q.275.275.275.7t-.275.7t-.7.275t-.7-.275z"/>
+                </svg>
+            </button>
+        </div>
+
+        <!-- one scroll region: the prompt is the last line of the transcript -->
+        <div id="terminal-screen" class="terminal-screen grow overflow-y-auto px-4 py-3 text-[0.8125rem] leading-relaxed">
+            <div id="terminal-output"></div>
+            <div id="terminal-line" class="flex items-baseline gap-2">
+                <span id="terminal-prompt" class="shrink-0 whitespace-pre"></span>
+                <input
+                    id="terminal-input"
+                    class="grow bg-transparent outline-none border-none min-w-0"
+                    autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"
+                    aria-label="Terminal input"
+                />
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .terminal-window {
+        /* the theme's code blocks are dark in both light and dark mode, so a
+           dark terminal stays consistent either way */
+        background: var(--codeblock-bg);
+    }
+    .terminal-bar {
+        background: var(--codeblock-topbar-bg);
+    }
+    .terminal-screen {
+        color: rgba(255, 255, 255, 0.8);
+        user-select: text;
+        cursor: text;
+        /* scrolling the transcript to its end must not start scrolling the page */
+        overscroll-behavior: contain;
+        font-family: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Menlo, Monaco,
+            Consolas, "Liberation Mono", "Courier New", monospace;
+        scrollbar-width: thin;
+        scrollbar-color: var(--scrollbar-bg) transparent;
+    }
+    .terminal-screen::-webkit-scrollbar {
+        width: 6px;
+    }
+    .terminal-screen::-webkit-scrollbar-thumb {
+        border-radius: 9999px;
+        background: var(--scrollbar-bg);
+    }
+    #terminal-input {
+        font: inherit;
+        color: rgba(255, 255, 255, 0.9);
+        caret-color: var(--primary);
+    }
+</style>
+
+<script>
+/**
+ * A small pretend shell. It is opened from the Live2D menu via the
+ * `terminal:open` event, so nothing here needs to know the mascot exists.
+ *
+ * Output is written with textContent only — every line may contain whatever
+ * the visitor typed, and none of it is trusted as markup.
+ */
+
+type Post = {
+	slug: string;
+	title: string;
+	published: string;
+	description: string;
+	category: string;
+	tags: string[];
+};
+
+type ReadmeFile = {
+	name: string;
+	url: string;
+	size: number;
+	body: string;
+	binary: boolean;
+};
+
+type Environment = {
+	user: string;
+	host: string;
+	author: string;
+	title: string;
+	subtitle: string;
+	posts: Post[];
+	readme: ReadmeFile[];
+};
+
+type Entry =
+	| { kind: "dir"; children: Record<string, Entry> }
+	| {
+			kind: "file";
+			body: string;
+			url?: string;
+			binary?: boolean;
+			size?: number;
+			/** A static file rather than a page — must not be routed through Swup. */
+			asset?: boolean;
+	  };
+
+/** Filled in from the environment at boot, so renaming the user moves $HOME. */
+let HOME = ["home", "user"];
+
+let env: Environment;
+let root: Entry;
+let cwd = [...HOME];
+const history: string[] = [];
+let historyCursor = 0;
+
+const dir = (children: Record<string, Entry> = {}): Entry => ({ kind: "dir", children });
+const file = (body: string, url?: string): Entry => ({ kind: "file", body, url });
+
+function buildFilesystem(environment: Environment): Entry {
+	const postFiles: Record<string, Entry> = {};
+	for (const post of environment.posts) {
+		const lines = [
+			`title       : ${post.title}`,
+			`published   : ${post.published}`,
+			post.category ? `category    : ${post.category}` : "",
+			post.tags.length ? `tags        : ${post.tags.join(", ")}` : "",
+			"",
+			post.description || "(no description)",
+			"",
+			`Run \`open posts/${post.slug}.md\` to read it.`,
+		].filter(Boolean);
+		postFiles[`${post.slug}.md`] = file(lines.join("\n"), `/posts/${post.slug}/`);
+	}
+
+	const readmeFiles: Record<string, Entry> = {};
+	for (const entry of environment.readme) {
+		readmeFiles[entry.name] = {
+			kind: "file",
+			body: entry.body,
+			url: entry.url,
+			binary: entry.binary,
+			size: entry.size,
+			asset: true,
+		};
+	}
+
+	return dir({
+		home: dir({
+			[environment.user]: dir({
+				README: dir(readmeFiles),
+				"about.md": file(
+					"The author's page lives at /about/.\nRun `open about.md` to go there.",
+					"/about/",
+				),
+				posts: dir(postFiles),
+			}),
+		}),
+		etc: dir({
+			motd: file(`Welcome to ${environment.host}. Everything here is make-believe.`),
+		}),
+	});
+}
+
+/** Walks a path string into an absolute segment list, or null if it escapes. */
+function resolvePath(input: string): string[] | null {
+	const trimmed = input.trim();
+	let segments: string[];
+	if (trimmed === "~" || trimmed.startsWith("~/")) {
+		segments = [...HOME, ...trimmed.slice(1).split("/")];
+	} else if (trimmed.startsWith("/")) {
+		segments = trimmed.split("/");
+	} else {
+		segments = [...cwd, ...trimmed.split("/")];
+	}
+
+	const resolved: string[] = [];
+	for (const segment of segments) {
+		if (segment === "" || segment === ".") continue;
+		if (segment === "..") {
+			if (resolved.length === 0) return null;
+			resolved.pop();
+			continue;
+		}
+		resolved.push(segment);
+	}
+	return resolved;
+}
+
+function entryAt(path: string[]): Entry | null {
+	let node: Entry = root;
+	for (const segment of path) {
+		if (node.kind !== "dir") return null;
+		const next: Entry | undefined = node.children[segment];
+		if (!next) return null;
+		node = next;
+	}
+	return node;
+}
+
+const displayPath = (path: string[]) => {
+	if (path.length === 0) return "/";
+	const isHome = HOME.every((segment, i) => path[i] === segment);
+	return isHome ? `~${path.slice(HOME.length).map((s) => `/${s}`).join("")}` : `/${path.join("/")}`;
+};
+
+// ---------------------------------------------------------------- rendering
+
+const screen = () => document.getElementById("terminal-screen");
+
+function write(text: string, tone?: "muted" | "accent" | "error"): void {
+	const output = document.getElementById("terminal-output");
+	if (!output) return;
+	const line = document.createElement("div");
+	line.textContent = text;
+	line.style.whiteSpace = "pre-wrap";
+	line.style.wordBreak = "break-word";
+	if (tone === "muted") line.style.color = "rgba(255,255,255,0.45)";
+	if (tone === "accent") line.style.color = "var(--primary)";
+	if (tone === "error") line.style.color = "#ff8a80";
+	output.appendChild(line);
+}
+
+function echoCommand(command: string): void {
+	const output = document.getElementById("terminal-output");
+	if (!output) return;
+	const line = document.createElement("div");
+	const prompt = document.createElement("span");
+	prompt.textContent = `${promptText()} `;
+	prompt.style.color = "var(--primary)";
+	line.appendChild(prompt);
+	line.appendChild(document.createTextNode(command));
+	line.style.whiteSpace = "pre-wrap";
+	line.style.wordBreak = "break-word";
+	output.appendChild(line);
+}
+
+const promptText = () => `${env.user}@${env.host}:${displayPath(cwd)}$`;
+
+function refreshPrompt(): void {
+	const prompt = document.getElementById("terminal-prompt");
+	if (prompt) {
+		prompt.textContent = promptText();
+		prompt.style.color = "var(--primary)";
+	}
+}
+
+function scrollToEnd(): void {
+	const region = screen();
+	if (region) region.scrollTop = region.scrollHeight;
+}
+
+// ---------------------------------------------------------------- commands
+
+function listing(path: string[], node: Entry): void {
+	if (node.kind === "file") {
+		write(path[path.length - 1] ?? "");
+		return;
+	}
+	const names = Object.keys(node.children).sort();
+	if (names.length === 0) return;
+	for (const name of names) {
+		const child = node.children[name];
+		write(child.kind === "dir" ? `${name}/` : name, child.kind === "dir" ? "accent" : undefined);
+	}
+}
+
+function navigate(url: string): void {
+	close();
+	const swup = window.swup;
+	if (swup?.navigate) swup.navigate(url);
+	else window.location.href = url;
+}
+
+const COMMANDS: Record<string, (args: string[]) => void> = {
+	help() {
+		write("Available commands:");
+		write("");
+		for (const [name, description] of [
+			["help", "show this list"],
+			["ls [path]", "list directory contents"],
+			["cd [path]", "change directory"],
+			["pwd", "print working directory"],
+			["cat <file>", "print a file"],
+			["open <file>", "leave the shell and read the real page"],
+			["whoami", "print the current user"],
+			["uname [-a]", "print system information"],
+			["date", "print the current time"],
+			["echo <text>", "write text back"],
+			["neofetch", "system summary"],
+			["history", "show command history"],
+			["clear", "clear the screen"],
+			["exit", "close the terminal"],
+		]) {
+			write(`  ${name.padEnd(14)}${description}`, "muted");
+		}
+	},
+
+	ls(args) {
+		const target = args[0] ?? ".";
+		const path = resolvePath(target);
+		const node = path && entryAt(path);
+		if (!path || !node) {
+			write(`ls: cannot access '${target}': No such file or directory`, "error");
+			return;
+		}
+		listing(path, node);
+	},
+
+	cd(args) {
+		const target = args[0] ?? "~";
+		const path = resolvePath(target);
+		const node = path && entryAt(path);
+		if (!path || !node) {
+			write(`cd: ${target}: No such file or directory`, "error");
+			return;
+		}
+		if (node.kind !== "dir") {
+			write(`cd: ${target}: Not a directory`, "error");
+			return;
+		}
+		cwd = path;
+		refreshPrompt();
+	},
+
+	pwd() {
+		write(`/${cwd.join("/")}`);
+	},
+
+	cat(args) {
+		if (args.length === 0) {
+			write("cat: missing operand", "error");
+			return;
+		}
+		for (const target of args) {
+			const path = resolvePath(target);
+			const node = path && entryAt(path);
+			if (!path || !node) {
+				write(`cat: ${target}: No such file or directory`, "error");
+				continue;
+			}
+			if (node.kind === "dir") {
+				write(`cat: ${target}: Is a directory`, "error");
+				continue;
+			}
+			if (node.binary) {
+				// dumping raw bytes into the transcript helps nobody
+				write(`cat: ${target}: binary file (${node.size ?? 0} bytes)`, "error");
+				write(`Try \`open ${target}\` to download it.`, "muted");
+				continue;
+			}
+			write(node.body);
+		}
+	},
+
+	open(args) {
+		const target = args[0];
+		if (!target) {
+			write("open: missing operand", "error");
+			return;
+		}
+		const path = resolvePath(target);
+		const node = path && entryAt(path);
+		if (!path || !node || node.kind !== "file" || !node.url) {
+			write(`open: ${target}: nothing to open`, "error");
+			return;
+		}
+		if (node.asset) {
+			// A static file is downloaded, never previewed and never routed
+			// through Swup: navigating to it would replace the site with a raw
+			// image, and Swup would choke trying to parse it as a page. The
+			// download attribute is honoured because the file is same-origin,
+			// so the shell and the page behind it both stay put.
+			const name = path[path.length - 1] ?? "";
+			write(`Downloading ${name} …`, "muted");
+			const link = document.createElement("a");
+			link.href = node.url;
+			link.download = name;
+			document.body.appendChild(link);
+			link.click();
+			link.remove();
+			return;
+		}
+		write(`Opening ${node.url} …`, "muted");
+		setTimeout(() => navigate(node.url as string), 250);
+	},
+
+	whoami() {
+		write(env.user);
+	},
+
+	uname(args) {
+		const full = args.includes("-a");
+		write(full ? `Linux ${env.host} 6.8.0-permaweb #1 SMP x86_64 GNU/Linux` : "Linux");
+	},
+
+	date() {
+		write(new Date().toString());
+	},
+
+	echo(args) {
+		write(args.join(" "));
+	},
+
+	history() {
+		history.forEach((entry, i) => write(`  ${String(i + 1).padStart(3)}  ${entry}`, "muted"));
+	},
+
+	neofetch() {
+		const info = [
+			`${env.user}@${env.host}`,
+			"-----------------",
+			`OS      : ${env.title}`,
+			`Host    : Arweave permaweb`,
+			`Kernel  : 6.8.0-permaweb`,
+			`Shell   : bash 5.2 (pretend)`,
+			`Posts   : ${env.posts.length}`,
+			`Author  : ${env.author}`,
+		];
+		const art = [
+			"    .--.    ",
+			"   |o_o |   ",
+			"   |:_/ |   ",
+			"  //   \\ \\  ",
+			" (|     | ) ",
+			"/'\\_   _/`\\ ",
+			"\\___)=(___/ ",
+		];
+		const rows = Math.max(art.length, info.length);
+		for (let i = 0; i < rows; i++) write(`${(art[i] ?? " ".repeat(12))}  ${info[i] ?? ""}`);
+	},
+
+	clear() {
+		const output = document.getElementById("terminal-output");
+		if (output) output.textContent = "";
+	},
+
+	exit() {
+		close();
+	},
+};
+
+COMMANDS.quit = COMMANDS.exit;
+COMMANDS.close = COMMANDS.exit;
+COMMANDS.man = COMMANDS.help;
+
+function run(input: string): void {
+	const command = input.trim();
+	echoCommand(command);
+	if (command === "") return;
+
+	history.push(command);
+	historyCursor = history.length;
+
+	const [name, ...args] = command.split(/\s+/);
+	const handler = COMMANDS[name];
+	if (handler) handler(args);
+	else write(`${name}: command not found`, "error");
+}
+
+// ---------------------------------------------------------------- completion
+
+function complete(value: string): string {
+	const parts = value.split(/\s+/);
+	const fragment = parts[parts.length - 1] ?? "";
+	if (parts.length <= 1) {
+		const matches = Object.keys(COMMANDS).filter((name) => name.startsWith(fragment));
+		return matches.length === 1 ? `${matches[0]} ` : value;
+	}
+
+	const slash = fragment.lastIndexOf("/");
+	const base = slash === -1 ? "" : fragment.slice(0, slash + 1);
+	const stem = slash === -1 ? fragment : fragment.slice(slash + 1);
+	const path = resolvePath(base === "" ? "." : base);
+	const node = path && entryAt(path);
+	if (!node || node.kind !== "dir") return value;
+
+	const matches = Object.keys(node.children).filter((name) => name.startsWith(stem));
+	if (matches.length !== 1) return value;
+	const match = matches[0];
+	const suffix = node.children[match].kind === "dir" ? "/" : " ";
+	parts[parts.length - 1] = base + match + suffix;
+	return parts.join(" ");
+}
+
+// ---------------------------------------------------------------- lifecycle
+
+/**
+ * The page behind the terminal must not scroll while it is open. OverlayScrollbars
+ * makes <html> the scroll viewport, so that is what gets pinned — not <body>, and
+ * not a `position: fixed` trick, which would lose the reading position.
+ */
+let unlockedStyle: { overflow: string; paddingRight: string } | null = null;
+
+function lockPageScroll(): void {
+	if (unlockedStyle) return;
+	const html = document.documentElement;
+	unlockedStyle = { overflow: html.style.overflow, paddingRight: html.style.paddingRight };
+	// where the browser reserves a gutter for a classic scrollbar, hiding it
+	// would shift the page sideways; hold the width open. Overlay scrollbars
+	// report a gutter of 0 and need no compensation.
+	const gutter = window.innerWidth - html.clientWidth;
+	if (gutter > 0) html.style.paddingRight = `${gutter}px`;
+	html.style.overflow = "hidden";
+}
+
+function unlockPageScroll(): void {
+	if (!unlockedStyle) return;
+	const html = document.documentElement;
+	html.style.overflow = unlockedStyle.overflow;
+	html.style.paddingRight = unlockedStyle.paddingRight;
+	unlockedStyle = null;
+}
+
+function open(): void {
+	const panel = document.getElementById("terminal");
+	if (!panel || !panel.classList.contains("hidden")) return;
+	panel.classList.remove("hidden");
+	panel.classList.add("flex");
+	lockPageScroll();
+	document.getElementById("terminal-input")?.focus();
+	scrollToEnd();
+}
+
+function close(): void {
+	const panel = document.getElementById("terminal");
+	if (!panel) return;
+	panel.classList.add("hidden");
+	panel.classList.remove("flex");
+	unlockPageScroll();
+}
+
+function boot(): void {
+	const panel = document.getElementById("terminal");
+	if (!panel || panel.dataset.ready === "true") return;
+	panel.dataset.ready = "true";
+
+	env = JSON.parse(panel.dataset.environment ?? "{}");
+	HOME = ["home", env.user];
+	cwd = [...HOME];
+	root = buildFilesystem(env);
+	refreshPrompt();
+
+	write(`${env.title} — pretend shell. Type \`help\` to get started.`, "muted");
+	write("");
+
+	const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+	input?.addEventListener("keydown", (event) => {
+		if (event.key === "Enter") {
+			const value = input.value;
+			input.value = "";
+			run(value);
+			scrollToEnd();
+			return;
+		}
+		if (event.key === "Tab") {
+			event.preventDefault();
+			input.value = complete(input.value);
+			return;
+		}
+		if (event.key === "ArrowUp") {
+			event.preventDefault();
+			if (historyCursor > 0) input.value = history[--historyCursor] ?? "";
+			return;
+		}
+		if (event.key === "ArrowDown") {
+			event.preventDefault();
+			historyCursor = Math.min(historyCursor + 1, history.length);
+			input.value = history[historyCursor] ?? "";
+			return;
+		}
+		if (event.key === "l" && event.ctrlKey) {
+			event.preventDefault();
+			COMMANDS.clear([]);
+		}
+	});
+
+	// Clicking the screen puts the caret back in the shell, but this listens for
+	// `click` and never calls preventDefault: doing either on mousedown stops the
+	// browser from starting a selection, which made the output impossible to copy.
+	// After a drag the selection is non-empty, so focus is left alone and the
+	// highlight survives long enough to be copied.
+	document.getElementById("terminal-screen")?.addEventListener("click", (event) => {
+		if (window.getSelection()?.toString()) return;
+		if (event.target !== input) input?.focus();
+	});
+
+	document.getElementById("terminal-close")?.addEventListener("click", close);
+	document.getElementById("terminal-backdrop")?.addEventListener("click", close);
+	document.addEventListener("keydown", (event) => {
+		if (event.key === "Escape") close();
+	});
+}
+
+boot();
+window.addEventListener("terminal:open", open);
+</script>
