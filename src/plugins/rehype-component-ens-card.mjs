@@ -23,9 +23,8 @@ export function EnsCardComponent(properties, children) {
 		);
 
 	const name = properties.name;
-	const cardUuid = `EC${Math.random().toString(36).slice(-6)}`; // Collisions are not important
 
-	const nAvatar = h(`div#${cardUuid}-avatar`, { class: "gc-avatar" });
+	const nAvatar = h("div", { class: "gc-avatar", "data-card-field": "avatar" });
 
 	const nTitle = h("div", { class: "gc-titlebar" }, [
 		h("div", { class: "gc-titlebar-left" }, [
@@ -37,48 +36,40 @@ export function EnsCardComponent(properties, children) {
 		h("div", { class: "ens-logo" }),
 	]);
 
-	const nDescription = h(
-		`div#${cardUuid}-description`,
-		{ class: "gc-description" },
-		"Waiting for enstate.rs...",
-	);
-
-	const nAddress = h(
-		`div#${cardUuid}-address`,
-		{ class: "ec-address" },
-		"0x0000...0000",
-	);
+	const nDescription = h("div", { class: "gc-description", "data-card-field": "description" }, "Waiting for enstate.rs...");
+	const nAddress = h("div", { class: "ec-address", "data-card-field": "address" }, "0x0000...0000");
 	const nNetwork = h("div", { class: "ec-network" }, "Ethereum");
 
 	const nScript = h(
-		`script#${cardUuid}-script`,
+		"script",
 		{ type: "text/javascript", defer: true },
 		`
-      fetch('https://enstate.rs/n/${name}', { referrerPolicy: "no-referrer" }).then(response => response.json()).then(data => {
-        document.getElementById('${cardUuid}-description').innerText = data.records?.description || "Ethereum Name Service";
-        document.getElementById('${cardUuid}-address').innerText = data.address ? data.address.slice(0, 6) + '...' + data.address.slice(-4) : "No address";
-        if (data.avatar) {
-          const avatarEl = document.getElementById('${cardUuid}-avatar');
-          avatarEl.style.backgroundImage = 'url(' + data.avatar + ')';
-          avatarEl.style.backgroundColor = 'transparent';
-        }
-        document.getElementById('${cardUuid}-card').classList.remove("fetch-waiting");
-        console.log("[ENS-CARD] Loaded card for ${name} | ${cardUuid}.")
-      }).catch(err => {
-        const c = document.getElementById('${cardUuid}-card');
-        c?.classList.remove("fetch-waiting");
-        c?.classList.add("fetch-error");
-        const desc = document.getElementById('${cardUuid}-description');
-        if (desc) desc.innerText = "Ethereum Name Service";
-        const addr = document.getElementById('${cardUuid}-address');
-        if (addr) addr.innerText = "${name}";
-        console.warn("[ENS-CARD] (Error) Loading card for ${name} | ${cardUuid}.")
-      })
+      (() => {
+        const card = document.currentScript?.closest('a.card-ens');
+        if (!card) return;
+        const field = (name) => card.querySelector('[data-card-field="' + name + '"]');
+
+        fetch('https://enstate.rs/n/${name}', { referrerPolicy: "no-referrer" }).then(response => response.json()).then(data => {
+          const descriptionEl = field('description');
+          if (descriptionEl) descriptionEl.innerText = data.records?.description || "Ethereum Name Service";
+          const addressEl = field('address');
+          if (addressEl) addressEl.innerText = data.address ? data.address.slice(0, 6) + '...' + data.address.slice(-4) : "No address";
+          const avatarEl = field('avatar');
+          if (avatarEl && data.avatar) {
+            avatarEl.style.backgroundImage = 'url(' + data.avatar + ')';
+            avatarEl.style.backgroundColor = 'transparent';
+          }
+          card.classList.remove("fetch-waiting");
+        }).catch(() => {
+          card.classList.remove("fetch-waiting");
+          card.classList.add("fetch-error");
+        });
+      })();
     `,
 	);
 
 	return h(
-		`a#${cardUuid}-card`,
+		"a",
 		{
 			class: "card-ens fetch-waiting no-styling",
 			href: `https://app.ens.domains/${name}`,
