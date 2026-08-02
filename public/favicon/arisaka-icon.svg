@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-label="Arisaka.ETH favicon without flag">
+  <title>Arisaka.ETH favicon</title>
+  <defs>
+    <linearGradient id="bg" x1="96" y1="72" x2="432" y2="440" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="0.42" stop-color="#7c3aed"/>
+      <stop offset="1" stop-color="#312e81"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(244 184) rotate(90) scale(220)">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.34"/>
+      <stop offset="0.55" stop-color="#c4b5fd" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#c4b5fd" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ethTop" x1="188" y1="106" x2="324" y2="248" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#ddd6fe"/>
+    </linearGradient>
+    <linearGradient id="ethBottom" x1="194" y1="258" x2="320" y2="406" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#c4b5fd"/>
+      <stop offset="1" stop-color="#f5f3ff"/>
+    </linearGradient>
+    <linearGradient id="facetLeft" x1="176" y1="174" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f5f3ff" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#ddd6fe" stop-opacity="0.78"/>
+    </linearGradient>
+    <linearGradient id="facetRight" x1="336" y1="174" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.92"/>
+      <stop offset="1" stop-color="#e9ddff" stop-opacity="0.82"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="20" stdDeviation="18" flood-color="#0f0724" flood-opacity="0.32"/>
+    </filter>
+    <filter id="softGlow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" result="b"/>
+      <feColorMatrix in="b" type="matrix" values="1 0 0 0 0.68  0 1 0 0 0.58  0 0 1 0 1  0 0 0 0.45 0"/>
+    </filter>
+  </defs>
+
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#bg)"/>
+  <rect x="32" y="32" width="448" height="448" rx="108" fill="url(#glow)"/>
+  <rect x="44" y="44" width="424" height="424" rx="96" fill="none" stroke="#ffffff" stroke-opacity="0.16" stroke-width="2"/>
+  <rect x="56" y="56" width="400" height="400" rx="88" fill="none" stroke="#c4b5fd" stroke-opacity="0.18" stroke-width="1.5"/>
+
+  <g opacity="0.28" filter="url(#softGlow)">
+    <path d="M256 110L336 250L256 298L176 250Z" fill="#d8b4fe"/>
+    <path d="M256 314L336 266L256 402L176 266Z" fill="#c4b5fd"/>
+  </g>
+
+  <g filter="url(#shadow)">
+    <path d="M256 110L336 250L256 298L176 250Z" fill="url(#ethTop)"/>
+    <path d="M256 314L336 266L256 402L176 266Z" fill="url(#ethBottom)"/>
+    <path d="M256 110L176 250L256 298Z" fill="url(#facetLeft)" fill-opacity="0.82"/>
+    <path d="M256 110L336 250L256 298Z" fill="url(#facetRight)" fill-opacity="0.96"/>
+    <path d="M256 314L176 266L256 402Z" fill="#ede9fe" fill-opacity="0.80"/>
+    <path d="M256 314L336 266L256 402Z" fill="#ffffff" fill-opacity="0.95"/>
+  </g>
+
+  <g opacity="0.95">
+    <circle cx="371" cy="143" r="10" fill="#f5f3ff" fill-opacity="0.92"/>
+    <path d="M371 122v12M371 152v12M350 143h12M380 143h12" stroke="#f5f3ff" stroke-width="6" stroke-linecap="round" opacity="0.85"/>
+  </g>
+
+  <g opacity="0.9" fill="#f5f3ff">
+    <circle cx="142" cy="366" r="4" fill-opacity="0.85"/>
+    <circle cx="164" cy="386" r="2.8" fill-opacity="0.65"/>
+    <circle cx="386" cy="356" r="3.2" fill-opacity="0.55"/>
+  </g>
+</svg>
