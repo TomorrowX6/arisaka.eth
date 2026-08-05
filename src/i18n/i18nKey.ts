@@ -12,6 +12,14 @@ enum I18nKey {
 	music = "music",
 
 	comments = "comments",
+	encryptedArticle = "encryptedArticle",
+	passwordProtected = "passwordProtected",
+	passwordProtectedDescription = "passwordProtectedDescription",
+	passwordHint = "passwordHint",
+	passwordPlaceholder = "passwordPlaceholder",
+	passwordUnlock = "passwordUnlock",
+	passwordUnlocking = "passwordUnlocking",
+	passwordIncorrect = "passwordIncorrect",
 
 	untitled = "untitled",
 	uncategorized = "uncategorized",

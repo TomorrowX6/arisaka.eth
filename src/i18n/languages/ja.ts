@@ -15,6 +15,16 @@ export const ja: Translation = {
 	[Key.music]: "音楽",
 
 	[Key.comments]: "コメント",
+	[Key.encryptedArticle]: "暗号化された記事",
+	[Key.passwordProtected]: "パスワードで保護されています",
+	[Key.passwordProtectedDescription]:
+		"ブラウザーでこの記事を復号するにはパスワードを入力してください。",
+	[Key.passwordHint]: "ヒント",
+	[Key.passwordPlaceholder]: "パスワード",
+	[Key.passwordUnlock]: "ロックを解除",
+	[Key.passwordUnlocking]: "復号中...",
+	[Key.passwordIncorrect]:
+		"パスワードが正しくないか、暗号化されたコンテンツが破損しています。",
 
 	[Key.untitled]: "タイトルなし",
 	[Key.uncategorized]: "カテゴリなし",

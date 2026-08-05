@@ -1,12 +1,14 @@
 ---
 import path from "node:path";
 import Comments from "@components/Comments.astro";
+import EncryptedArticle from "@components/EncryptedArticle.astro";
 import License from "@components/misc/License.astro";
 import Markdown from "@components/misc/Markdown.astro";
 import Provenance from "@components/misc/Provenance.astro";
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 import MainGridLayout from "@layouts/MainGridLayout.astro";
+import { resolveArticlePassword } from "@utils/article-password.server";
 import { getSortedPosts } from "@utils/content-utils";
 import { getDir } from "@utils/url-utils";
 import { Icon } from "astro-icon/components";
@@ -25,9 +27,9 @@ export async function getStaticPaths() {
 }
 
 const { entry } = Astro.props;
-const { Content, headings } = await entry.render();
-
-const { remarkPluginFrontmatter } = await entry.render();
+const { Content, headings, remarkPluginFrontmatter } = await entry.render();
+const isEncrypted = entry.data.encrypted;
+const articlePassword = resolveArticlePassword(entry.data, entry.slug);
 
 const jsonLd = {
 	"@context": "https://schema.org",
@@ -47,29 +49,31 @@ const jsonLd = {
 	// TODO include cover image here
 };
 ---
-<MainGridLayout banner={entry.data.image} title={entry.data.title} description={entry.data.description} lang={entry.data.lang} setOGTypeArticle={true} headings={headings}>
+<MainGridLayout banner={entry.data.image} title={entry.data.title} description={entry.data.description} lang={entry.data.lang} setOGTypeArticle={true} headings={isEncrypted ? [] : headings}>
     <script is:inline slot="head" type="application/ld+json" set:html={JSON.stringify(jsonLd)}></script>
     <div class="flex w-full rounded-[var(--radius-large)] overflow-hidden relative mb-4">
         <div id="post-container" class:list={["card-base z-10 px-6 md:px-9 pt-6 pb-4 relative w-full ",
             {}
         ]}>
-            <!-- word count and reading time -->
-            <div class="flex flex-row text-black/30 dark:text-white/30 gap-5 mb-3 transition onload-animation">
-                <div class="flex flex-row items-center">
-                    <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
-                        <Icon name="material-symbols:notes-rounded"></Icon>
+            <!-- word count and reading time stay private until the article is unlocked -->
+            {!isEncrypted && (
+                <div class="flex flex-row text-black/30 dark:text-white/30 gap-5 mb-3 transition onload-animation">
+                    <div class="flex flex-row items-center">
+                        <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
+                            <Icon name="material-symbols:notes-rounded"></Icon>
+                        </div>
+                        <div class="text-sm">{remarkPluginFrontmatter.words} {" " + i18n(I18nKey.wordsCount)}</div>
                     </div>
-                    <div class="text-sm">{remarkPluginFrontmatter.words} {" " + i18n(I18nKey.wordsCount)}</div>
+                    <div class="flex flex-row items-center">
+                        <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
+                            <Icon name="material-symbols:schedule-outline-rounded"></Icon>
+                        </div>
+                        <div class="text-sm">
+                            {remarkPluginFrontmatter.minutes} {" " + i18n(remarkPluginFrontmatter.minutes === 1 ? I18nKey.minuteCount : I18nKey.minutesCount)}
+                        </div>
+                    </div>
                 </div>
-                <div class="flex flex-row items-center">
-                    <div class="transition h-6 w-6 rounded-md bg-black/5 dark:bg-white/10 text-black/50 dark:text-white/50 flex items-center justify-center mr-2">
-                        <Icon name="material-symbols:schedule-outline-rounded"></Icon>
-                    </div>
-                    <div class="text-sm">
-                        {remarkPluginFrontmatter.minutes} {" " + i18n(remarkPluginFrontmatter.minutes === 1 ? I18nKey.minuteCount : I18nKey.minutesCount)}
-                    </div>
-                </div>
-            </div>
+            )}
 
             <!-- title -->
             <div class="relative onload-animation">
@@ -82,6 +86,7 @@ const jsonLd = {
                     before:absolute before:top-[0.75rem] before:left-[-1.125rem]
                 ">
                     {entry.data.title}
+                    {isEncrypted && <Icon name="material-symbols:lock-outline" class="inline-block ml-2 text-[0.8em] text-[var(--primary)]" title={i18n(I18nKey.encryptedArticle)}></Icon>}
                 </div>
             </div>
 
@@ -105,7 +110,13 @@ const jsonLd = {
 
 
             <Markdown class="mb-6 markdown-content onload-animation">
-                <Content />
+                {isEncrypted ? (
+                    <EncryptedArticle password={articlePassword as string} slug={entry.slug} hint={entry.data.passwordHint}>
+                        <Content />
+                    </EncryptedArticle>
+                ) : (
+                    <Content />
+                )}
             </Markdown>
 
             {licenseConfig.enable && <License title={entry.data.title} slug={entry.slug} pubDate={entry.data.published} class="mb-6 rounded-xl license-container onload-animation"></License>}

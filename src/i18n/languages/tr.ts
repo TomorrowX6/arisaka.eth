@@ -15,6 +15,15 @@ export const tr: Translation = {
 	[Key.music]: "Müzik",
 
 	[Key.comments]: "Yorumlar",
+	[Key.encryptedArticle]: "Şifrelenmiş makale",
+	[Key.passwordProtected]: "Parola korumalı",
+	[Key.passwordProtectedDescription]:
+		"Bu makalenin şifresini tarayıcınızda çözmek için parolayı girin.",
+	[Key.passwordHint]: "İpucu",
+	[Key.passwordPlaceholder]: "Parola",
+	[Key.passwordUnlock]: "Kilidi aç",
+	[Key.passwordUnlocking]: "Şifre çözülüyor...",
+	[Key.passwordIncorrect]: "Parola yanlış veya şifrelenmiş içerik bozuk.",
 
 	[Key.untitled]: "Başlıksız",
 	[Key.uncategorized]: "Katagorisiz",

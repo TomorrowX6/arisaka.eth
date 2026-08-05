@@ -13,18 +13,38 @@ export async function getSortedPosts() {
 	});
 	return sorted;
 }
+export type PublicPostData = Pick<
+	CollectionEntry<"posts">["data"],
+	| "title"
+	| "published"
+	| "updated"
+	| "draft"
+	| "description"
+	| "image"
+	| "tags"
+	| "category"
+	| "lang"
+	| "encrypted"
+>;
 export type PostForList = {
 	slug: string;
-	data: CollectionEntry<"posts">["data"];
+	data: PublicPostData;
 };
 export async function getSortedPostsList(): Promise<PostForList[]> {
 	const sortedFullPosts = await getSortedPosts();
-
-	// delete post.body
-	const sortedPostsList = sortedFullPosts.map((post) => ({
+	return sortedFullPosts.map((post) => ({
 		slug: post.slug,
-		data: post.data,
+		data: {
+			title: post.data.title,
+			published: post.data.published,
+			updated: post.data.updated,
+			draft: post.data.draft,
+			description: post.data.description,
+			image: post.data.image,
+			tags: post.data.tags,
+			category: post.data.category,
+			lang: post.data.lang,
+			encrypted: post.data.encrypted,
+		},
 	}));
-
-	return sortedPostsList;
 }

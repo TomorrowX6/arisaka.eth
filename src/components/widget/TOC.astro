@@ -32,7 +32,7 @@ let heading1Count = 1;
 const maxLevel = siteConfig.toc.depth;
 ---
 {isPostsRoute &&
-<table-of-contents class:list={[className, "group"]}>
+<table-of-contents class:list={[className, "group"]} data-max-level={maxLevel}>
     {headings.filter((heading) => heading.depth < minDepth + maxLevel).map((heading) =>
             <a href={`#${heading.slug}`} class="px-2 flex gap-2 relative transition w-full min-h-9 rounded-xl
         hover:bg-[var(--toc-btn-hover)] active:bg-[var(--toc-btn-active)] py-2
@@ -77,6 +77,89 @@ class TableOfContents extends HTMLElement {
         this.observer = new IntersectionObserver(
             this.markVisibleSection, { threshold: 0 }
         );
+    };
+
+    resetTracking = () => {
+        this.sections.forEach((section) => this.observer.unobserve(section));
+        this.observer.disconnect();
+        this.tocEl?.removeEventListener("click", this.handleAnchorClick);
+        this.headingIdxMap.clear();
+        this.headings = [];
+        this.sections = [];
+        this.tocEntries = [];
+        this.active = [];
+        this.anchorNavTarget = null;
+    };
+
+    clearEncryptedEntries = () => {
+        this.resetTracking();
+        this.querySelectorAll("[data-encrypted-toc-entry]").forEach((entry) => entry.remove());
+        this.activeIndicator = document.getElementById("active-indicator");
+        this.activeIndicator?.classList.add("hidden");
+        this.activeIndicator?.setAttribute("style", "opacity: 0");
+    };
+
+    handleArticleRelocked = () => {
+        this.clearEncryptedEntries();
+    };
+
+    handleArticleDecrypted = (event: Event) => {
+        const container = (event as CustomEvent<{ container?: HTMLElement }>).detail?.container;
+        const content = container?.querySelector<HTMLElement>("[data-decrypted-article]");
+        if (!content) return;
+
+        this.clearEncryptedEntries();
+        const sourceHeadings = Array.from(
+            content.querySelectorAll<HTMLElement>("h1[id], h2[id], h3[id], h4[id], h5[id], h6[id]"),
+        );
+        if (sourceHeadings.length === 0) return;
+
+        const depths = sourceHeadings.map((heading) => Number.parseInt(heading.tagName.slice(1), 10));
+        const minDepth = Math.min(...depths);
+        const maxLevel = Number.parseInt(this.dataset.maxLevel ?? "2", 10);
+        const indicator = this.querySelector<HTMLElement>("#active-indicator");
+        let topLevelIndex = 1;
+
+        sourceHeadings.forEach((heading, index) => {
+            const depth = depths[index];
+            if (depth >= minDepth + maxLevel) return;
+
+            const entry = document.createElement("a");
+            entry.href = `#${encodeURIComponent(heading.id)}`;
+            entry.dataset.encryptedTocEntry = "true";
+            entry.className =
+                "px-2 flex gap-2 relative transition w-full min-h-9 rounded-xl hover:bg-[var(--toc-btn-hover)] active:bg-[var(--toc-btn-active)] py-2";
+
+            const badge = document.createElement("div");
+            badge.className =
+                "transition w-5 h-5 shrink-0 rounded-lg text-xs flex items-center justify-center font-bold";
+            if (depth === minDepth) {
+                badge.classList.add("bg-[var(--toc-badge-bg)]", "text-[var(--btn-content)]");
+                badge.textContent = String(topLevelIndex++);
+            } else {
+                badge.classList.add(depth === minDepth + 1 ? "ml-4" : "ml-8");
+                const dot = document.createElement("div");
+                dot.className =
+                    depth === minDepth + 1
+                        ? "transition w-2 h-2 rounded-[0.1875rem] bg-[var(--toc-badge-bg)]"
+                        : "transition w-1.5 h-1.5 rounded-sm bg-black/5 dark:bg-white/10";
+                badge.append(dot);
+            }
+
+            const label = document.createElement("div");
+            label.className = `transition text-sm ${
+                depth <= minDepth + 1 ? "text-50" : "text-30"
+            }`;
+            label.textContent = (heading.textContent ?? "").replace(/#$/, "");
+            entry.append(badge, label);
+            indicator ? this.insertBefore(entry, indicator) : this.append(entry);
+        });
+
+        indicator?.classList.toggle(
+            "hidden",
+            this.querySelectorAll("[data-encrypted-toc-entry]").length === 0,
+        );
+        this.init();
     };
 
     markVisibleSection = (entries: IntersectionObserverEntry[]) => {
@@ -201,14 +284,15 @@ class TableOfContents extends HTMLElement {
     };
 
     connectedCallback() {
-        // wait for the onload animation to finish, which makes the `getBoundingClientRect` return correct values
-        const element = document.querySelector('.prose');
+        document.addEventListener("article:decrypted", this.handleArticleDecrypted);
+        document.addEventListener("article:relocked", this.handleArticleRelocked);
+
+        // Wait for the onload animation so layout measurements are stable.
+        const element = document.querySelector(".prose");
         if (element) {
-            element.addEventListener('animationend', () => {
-                this.init();
-            }, { once: true });
+            element.addEventListener("animationend", () => this.init(), { once: true });
         } else {
-            console.debug('Animation element not found');
+            this.init();
         }
     };
 
@@ -254,11 +338,9 @@ class TableOfContents extends HTMLElement {
     };
 
     disconnectedCallback() {
-        this.sections.forEach((section) =>
-            this.observer.unobserve(section)
-        );
-        this.observer.disconnect();
-        this.tocEl?.removeEventListener("click", this.handleAnchorClick);
+        document.removeEventListener("article:decrypted", this.handleArticleDecrypted);
+        document.removeEventListener("article:relocked", this.handleArticleRelocked);
+        this.resetTracking();
     };
 }
 

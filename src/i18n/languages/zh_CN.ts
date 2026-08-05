@@ -15,6 +15,14 @@ export const zh_CN: Translation = {
 	[Key.music]: "音乐",
 
 	[Key.comments]: "评论",
+	[Key.encryptedArticle]: "加密文章",
+	[Key.passwordProtected]: "密码保护",
+	[Key.passwordProtectedDescription]: "请输入密码以在浏览器中解密此文章。",
+	[Key.passwordHint]: "提示",
+	[Key.passwordPlaceholder]: "请输入密码",
+	[Key.passwordUnlock]: "解锁",
+	[Key.passwordUnlocking]: "解密中...",
+	[Key.passwordIncorrect]: "密码错误或加密内容已损坏。",
 
 	[Key.untitled]: "无标题",
 	[Key.uncategorized]: "未分类",

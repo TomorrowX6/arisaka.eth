@@ -1,0 +1,372 @@
+---
+import I18nKey from "@i18n/i18nKey";
+import { i18n } from "@i18n/translation";
+import {
+	encryptArticleContent,
+	serializeArticleEncryptionEnvelope,
+} from "@utils/article-crypto";
+import { Icon } from "astro-icon/components";
+
+interface Props {
+	password: string;
+	slug: string;
+	hint?: string;
+}
+
+const { password, slug, hint = "" } = Astro.props;
+const html = await Astro.slots.render("default");
+const envelope = await encryptArticleContent(html, password, slug);
+const serializedEnvelope = serializeArticleEncryptionEnvelope(
+	envelope,
+).replaceAll("<", "\\u003c");
+---
+
+<section
+	class="encrypted-article"
+	data-encrypted-article
+	data-slug={slug}
+	data-error-message={i18n(I18nKey.passwordIncorrect)}
+	data-pagefind-ignore
+>
+	<div class="encryption-panel" data-encryption-panel>
+		<div class="lock-icon" aria-hidden="true">
+			<Icon name="material-symbols:lock-outline"></Icon>
+		</div>
+		<h2>{i18n(I18nKey.passwordProtected)}</h2>
+		<p class="encryption-description">
+			{i18n(I18nKey.passwordProtectedDescription)}
+		</p>
+		{hint && (
+			<p class="password-hint">
+				<span>{i18n(I18nKey.passwordHint)}:</span> {hint}
+			</p>
+		)}
+
+		<form class="unlock-form" data-unlock-form>
+			<label class="sr-only" for="article-password">
+				{i18n(I18nKey.passwordPlaceholder)}
+			</label>
+			<input
+				id="article-password"
+				type="password"
+				required
+				autocomplete="current-password"
+				spellcheck="false"
+				placeholder={i18n(I18nKey.passwordPlaceholder)}
+				data-password-input
+			/>
+			<button
+				type="submit"
+				data-unlock-button
+				data-idle-label={i18n(I18nKey.passwordUnlock)}
+				data-busy-label={i18n(I18nKey.passwordUnlocking)}
+			>
+				{i18n(I18nKey.passwordUnlock)}
+			</button>
+		</form>
+		<p class="unlock-status" data-unlock-status role="alert" aria-live="polite"></p>
+		<noscript>
+			<p class="unlock-status">JavaScript is required to decrypt this article.</p>
+		</noscript>
+	</div>
+
+	<div class="decrypted-article" data-decrypted-article hidden></div>
+	<script
+		is:inline
+		type="application/json"
+		data-article-envelope
+		set:html={serializedEnvelope}
+	></script>
+</section>
+
+<style>
+	.encryption-panel {
+		display: flex;
+		min-height: 20rem;
+		flex-direction: column;
+		align-items: center;
+		justify-content: center;
+		gap: 0.75rem;
+		padding: 3rem 1rem;
+		text-align: center;
+	}
+
+	.encryption-panel[hidden],
+	.decrypted-article[hidden] {
+		display: none;
+	}
+
+	.lock-icon {
+		display: flex;
+		height: 5rem;
+		width: 5rem;
+		align-items: center;
+		justify-content: center;
+		border-radius: 1.25rem;
+		background: color-mix(in srgb, var(--primary) 12%, transparent);
+		color: var(--primary);
+		font-size: 3rem;
+	}
+
+	h2 {
+		margin: 0.25rem 0 0;
+		font-size: 1.25rem;
+		font-weight: 700;
+		color: rgba(0, 0, 0, 0.8);
+	}
+
+	:global(.dark) h2 {
+		color: rgba(255, 255, 255, 0.85);
+	}
+
+	.encryption-description,
+	.password-hint,
+	.unlock-status {
+		margin: 0;
+		font-size: 0.875rem;
+		color: rgba(0, 0, 0, 0.5);
+	}
+
+	:global(.dark) .encryption-description,
+	:global(.dark) .password-hint {
+		color: rgba(255, 255, 255, 0.5);
+	}
+
+	.password-hint span {
+		font-weight: 600;
+	}
+
+	.unlock-form {
+		display: flex;
+		width: min(100%, 24rem);
+		gap: 0.5rem;
+		margin-top: 0.75rem;
+	}
+
+	input,
+	button {
+		min-height: 2.75rem;
+		border: 0;
+		border-radius: 0.625rem;
+		font: inherit;
+	}
+
+	input {
+		min-width: 0;
+		flex: 1;
+		padding: 0.625rem 0.875rem;
+		outline: 2px solid transparent;
+		background: rgba(0, 0, 0, 0.05);
+		color: rgba(0, 0, 0, 0.8);
+		transition: background 0.2s, outline-color 0.2s;
+	}
+
+	input:focus {
+		background: rgba(0, 0, 0, 0.08);
+		outline-color: color-mix(in srgb, var(--primary) 55%, transparent);
+	}
+
+	:global(.dark) input {
+		background: rgba(255, 255, 255, 0.08);
+		color: rgba(255, 255, 255, 0.85);
+	}
+
+	:global(.dark) input:focus {
+		background: rgba(255, 255, 255, 0.12);
+	}
+
+	button {
+		padding: 0.625rem 1rem;
+		background: var(--primary);
+		color: white;
+		font-weight: 600;
+		cursor: pointer;
+		transition: opacity 0.2s, transform 0.1s;
+	}
+
+	button:hover:not(:disabled) {
+		opacity: 0.85;
+	}
+
+	button:active:not(:disabled) {
+		transform: scale(0.97);
+	}
+
+	button:disabled {
+		cursor: wait;
+		opacity: 0.6;
+	}
+
+	:global(.dark) button {
+		color: rgba(0, 0, 0, 0.75);
+	}
+
+	.unlock-status {
+		min-height: 1.25rem;
+		color: #dc2626;
+	}
+
+	:global(.dark) .unlock-status {
+		color: #f87171;
+	}
+
+	.decrypted-article {
+		animation: decrypt-fade-in 0.3s ease-out;
+	}
+
+	@keyframes decrypt-fade-in {
+		from {
+			opacity: 0;
+			transform: translateY(0.5rem);
+		}
+		to {
+			opacity: 1;
+			transform: translateY(0);
+		}
+	}
+
+	@media (width < 640px) {
+		.encryption-panel {
+			min-height: 17rem;
+			padding: 2rem 0;
+		}
+
+		.unlock-form {
+			flex-direction: column;
+		}
+	}
+</style>
+
+<script>
+	import {
+		decryptArticleContent,
+		parseArticleEncryptionEnvelope,
+	} from "@utils/article-crypto";
+
+	type EncryptionWindow = Window & {
+		__fuwariEncryptedArticleBound?: boolean;
+		__fuwariEncryptedArticleSwupBound?: boolean;
+	};
+
+	const encryptionWindow = window as EncryptionWindow;
+	let unlockAttemptId = 0;
+
+	function isCurrentAttempt(container: HTMLElement, attemptId: string): boolean {
+		return container.isConnected && container.dataset.decryptAttempt === attemptId;
+	}
+
+	function setLoading(container: HTMLElement, loading: boolean): void {
+		const input = container.querySelector<HTMLInputElement>("[data-password-input]");
+		const button = container.querySelector<HTMLButtonElement>("[data-unlock-button]");
+		if (input) input.disabled = loading;
+		if (button) {
+			button.disabled = loading;
+			button.textContent = loading ? button.dataset.busyLabel ?? "" : button.dataset.idleLabel ?? "";
+		}
+		container.setAttribute("aria-busy", String(loading));
+	}
+
+	function relock(container: HTMLElement): void {
+		const panel = container.querySelector<HTMLElement>("[data-encryption-panel]");
+		const target = container.querySelector<HTMLElement>("[data-decrypted-article]");
+		const input = container.querySelector<HTMLInputElement>("[data-password-input]");
+		const status = container.querySelector<HTMLElement>("[data-unlock-status]");
+		if (target) {
+			target.replaceChildren();
+			target.hidden = true;
+		}
+		if (panel) panel.hidden = false;
+		if (input) input.value = "";
+		if (status) status.textContent = "";
+		delete container.dataset.unlocked;
+		delete container.dataset.decrypting;
+		delete container.dataset.decryptAttempt;
+		setLoading(container, false);
+		container.dispatchEvent(
+			new CustomEvent("article:relocked", { bubbles: true, detail: { container } }),
+		);
+	}
+
+	function relockAll(): void {
+		for (const container of document.querySelectorAll<HTMLElement>("[data-encrypted-article]")) {
+			relock(container);
+		}
+	}
+
+	async function unlock(form: HTMLFormElement): Promise<void> {
+		const container = form.closest<HTMLElement>("[data-encrypted-article]");
+		if (!container || container.dataset.decrypting === "true") return;
+
+		const input = container.querySelector<HTMLInputElement>("[data-password-input]");
+		const status = container.querySelector<HTMLElement>("[data-unlock-status]");
+		const payload = container.querySelector<HTMLScriptElement>("[data-article-envelope]");
+		const panel = container.querySelector<HTMLElement>("[data-encryption-panel]");
+		const target = container.querySelector<HTMLElement>("[data-decrypted-article]");
+		const password = input?.value ?? "";
+		if (!password || !payload?.textContent || !panel || !target) return;
+
+		const attemptId = String(++unlockAttemptId);
+		container.dataset.decrypting = "true";
+		container.dataset.decryptAttempt = attemptId;
+		if (input) input.value = "";
+		if (status) status.textContent = "";
+		setLoading(container, true);
+		await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+		try {
+			if (!isCurrentAttempt(container, attemptId)) return;
+			const envelope = parseArticleEncryptionEnvelope(payload.textContent);
+			const html = await decryptArticleContent(envelope, password, container.dataset.slug ?? "");
+			if (!isCurrentAttempt(container, attemptId)) return;
+
+			const template = document.createElement("template");
+			template.innerHTML = html;
+			target.replaceChildren(template.content.cloneNode(true));
+			panel.hidden = true;
+			target.hidden = false;
+			container.dataset.unlocked = "true";
+			container.dispatchEvent(
+				new CustomEvent("article:decrypted", { bubbles: true, detail: { container } }),
+			);
+
+			if (window.location.hash) {
+				requestAnimationFrame(() => {
+					const id = decodeURIComponent(window.location.hash.slice(1));
+					document.getElementById(id)?.scrollIntoView();
+				});
+			}
+		} catch {
+			if (!isCurrentAttempt(container, attemptId)) return;
+			if (status) status.textContent = container.dataset.errorMessage ?? "";
+			input?.focus();
+		} finally {
+			if (container.dataset.decryptAttempt === attemptId) {
+				delete container.dataset.decryptAttempt;
+				delete container.dataset.decrypting;
+				setLoading(container, false);
+			}
+		}
+	}
+
+	function handleSubmit(event: Event): void {
+		if (!(event.target instanceof HTMLFormElement) || !event.target.matches("[data-unlock-form]")) {
+			return;
+		}
+		event.preventDefault();
+		void unlock(event.target);
+	}
+
+	function bindSwupRelock(): void {
+		if (encryptionWindow.__fuwariEncryptedArticleSwupBound || !window.swup?.hooks) return;
+		window.swup.hooks.on("visit:start", relockAll);
+		encryptionWindow.__fuwariEncryptedArticleSwupBound = true;
+	}
+
+	if (!encryptionWindow.__fuwariEncryptedArticleBound) {
+		document.addEventListener("submit", handleSubmit);
+		document.addEventListener("swup:enable", bindSwupRelock);
+		window.addEventListener("pagehide", relockAll);
+		encryptionWindow.__fuwariEncryptedArticleBound = true;
+	}
+	bindSwupRelock();
+</script>

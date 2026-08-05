@@ -30,6 +30,7 @@ A static blog template built with [Astro](https://astro.build).
 - [x] [Markdown extended features](https://github.com/saicaca/fuwari?tab=readme-ov-file#-markdown-extended-syntax)
 - [x] Table of contents
 - [x] RSS feed
+- [x] Password-encrypted articles with scrypt and AES-256-GCM
 
 ## 🚀 Getting Started
 
@@ -60,9 +61,14 @@ image: ./cover.jpg
 tags: [Foo, Bar]
 category: Front-end
 draft: false
+encrypted: false
+passwordEnv: '' # Required when encrypted; use a private build environment variable
+passwordHint: ''
 lang: jp      # Set only if the post's language differs from the site's language in `config.ts`
 ---
 ```
+
+See [Article encryption](docs/ARTICLE_ENCRYPTION.md) for password setup, the KEK/DEK envelope, public metadata, and security limitations.
 
 ## 🧩 Markdown Extended Syntax
 
@@ -83,6 +89,7 @@ All commands are run from the root of the project, from a terminal:
 | `pnpm build`               | Build your production site to `./dist/`             |
 | `pnpm preview`             | Preview your build locally, before deploying        |
 | `pnpm check`               | Run checks for errors in your code                  |
+| `pnpm test`                | Run the article-encryption security tests           |
 | `pnpm format`              | Format your code using Biome                        |
 | `pnpm new-post <filename>` | Create a new post                                   |
 | `pnpm astro ...`           | Run CLI commands like `astro add`, `astro check`    |
