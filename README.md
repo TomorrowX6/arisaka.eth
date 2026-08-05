@@ -1,4 +1,5 @@
 <div align="center">
+<img src="public/favicon/arisaka-icon.svg" width='300' alt='logo'>  
 
 # Arisaka.ETH
 
@@ -12,8 +13,6 @@
 [![Arweave](https://img.shields.io/badge/storage-Arweave-222?logo=arweave&logoColor=white)](https://www.arweave.org/)
 [![ENS](https://img.shields.io/badge/routing-ENS-5298FF?logo=ethereum&logoColor=white)](https://ens.domains/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-
-[在线站点](https://arisaka.eth.limo/) · [文章加密说明](docs/ARTICLE_ENCRYPTION.md) · [上游 Fuwari](https://github.com/saicaca/fuwari)
 
 </div>
 
