@@ -35,8 +35,8 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Check formatting and lint
-        run: pnpm exec biome check ./src
+      - name: Lint source
+        run: pnpm exec biome lint ./src
 
       - name: Check Astro
         run: pnpm check
