@@ -1,4 +1,5 @@
 ---
+import { getSecret } from "astro:env/server";
 import path from "node:path";
 import Comments from "@components/Comments.astro";
 import EncryptedArticle from "@components/EncryptedArticle.astro";
@@ -29,7 +30,11 @@ export async function getStaticPaths() {
 const { entry } = Astro.props;
 const { Content, headings, remarkPluginFrontmatter } = await entry.render();
 const isEncrypted = entry.data.encrypted;
-const articlePassword = resolveArticlePassword(entry.data, entry.slug);
+const articlePassword = resolveArticlePassword(
+	entry.data,
+	entry.slug,
+	getSecret,
+);
 
 const jsonLd = {
 	"@context": "https://schema.org",
