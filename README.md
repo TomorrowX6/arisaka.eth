@@ -237,9 +237,13 @@ passwordHint: "公开可见的可选提示"
 ---
 ```
 
-```sh
-PRIVATE_NOTES_PASSWORD='一段高熵口令' pnpm build
+本地可将密码写入已被 Git 忽略的 `.env`，或只供生产构建使用的 `.env.production`：
+
+```dotenv
+PRIVATE_NOTES_PASSWORD=一段高熵口令
 ```
+
+随后正常运行 `pnpm dev` 或 `pnpm build`。页面通过 `astro:env/server` 的 `getSecret()` 在服务端按名称读取密码；CI 仍应通过 Actions Secrets 映射同名环境变量。
 
 也支持 `password` 内联字段，但它只适合源代码仓库本身为私有的场景。
 

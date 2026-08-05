@@ -19,7 +19,19 @@ passwordHint: "A public, optional hint"
 ---
 ```
 
-Set the variable before starting or building the site:
+Store the secret in Astro's Git-ignored `.env` file (all modes) or `.env.production` (production builds only):
+
+```dotenv
+PRIVATE_NOTES_PASSWORD=use-a-long-random-passphrase
+```
+
+Then start or build the site normally:
+
+```sh
+pnpm build
+```
+
+The post renderer resolves the dynamic name with the server-only `getSecret()` API from `astro:env/server`, so the value remains available to Astro without becoming client code. Exporting the variable in the shell is also supported and is the recommended approach for CI:
 
 ```sh
 PRIVATE_NOTES_PASSWORD='use-a-long-random-passphrase' pnpm build

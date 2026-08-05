@@ -4,16 +4,19 @@ export interface ArticlePasswordConfig {
 	passwordEnv?: string;
 }
 
+export type ArticlePasswordSecretLookup = (name: string) => string | undefined;
+
 const ENVIRONMENT_NAME_PATTERN = /^[A-Z_][A-Z0-9_]*$/;
 
 /**
  * Resolve an encrypted post password without exposing it to browser code.
  * Environment-backed passwords are recommended for repositories visible to readers.
+ * Pass astro:env/server's getSecret so Astro-loaded .env values remain server-only.
  */
 export function resolveArticlePassword(
 	config: ArticlePasswordConfig,
 	slug: string,
-	environment: NodeJS.ProcessEnv = process.env,
+	lookupSecret: ArticlePasswordSecretLookup,
 ): string | undefined {
 	if (!config.encrypted) return undefined;
 
@@ -35,7 +38,7 @@ export function resolveArticlePassword(
 		);
 	}
 
-	const password = environment[environmentName];
+	const password = lookupSecret(environmentName);
 	if (!password) {
 		throw new Error(
 			`Encrypted post "${slug}" requires the ${environmentName} environment variable`,
