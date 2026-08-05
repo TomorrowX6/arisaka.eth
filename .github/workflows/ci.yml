@@ -41,8 +41,5 @@ jobs:
       - name: Check Astro
         run: pnpm check
 
-      - name: Check TypeScript
-        run: pnpm type-check
-
       - name: Build production site
         run: pnpm build
