@@ -15,6 +15,15 @@ export const vi: Translation = {
 	[Key.music]: "Âm nhạc",
 
 	[Key.comments]: "Bình luận",
+	[Key.encryptedArticle]: "Bài viết được mã hóa",
+	[Key.passwordProtected]: "Được bảo vệ bằng mật khẩu",
+	[Key.passwordProtectedDescription]:
+		"Nhập mật khẩu để giải mã bài viết này trong trình duyệt.",
+	[Key.passwordHint]: "Gợi ý",
+	[Key.passwordPlaceholder]: "Mật khẩu",
+	[Key.passwordUnlock]: "Mở khóa",
+	[Key.passwordUnlocking]: "Đang giải mã...",
+	[Key.passwordIncorrect]: "Mật khẩu sai hoặc nội dung mã hóa đã bị hỏng.",
 
 	[Key.untitled]: "Không tiêu đề",
 	[Key.uncategorized]: "Chưa phân loại",

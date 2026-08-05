@@ -15,6 +15,15 @@ export const en: Translation = {
 	[Key.music]: "Music",
 
 	[Key.comments]: "Comments",
+	[Key.encryptedArticle]: "Encrypted article",
+	[Key.passwordProtected]: "Password protected",
+	[Key.passwordProtectedDescription]:
+		"Enter the password to decrypt this article in your browser.",
+	[Key.passwordHint]: "Hint",
+	[Key.passwordPlaceholder]: "Password",
+	[Key.passwordUnlock]: "Unlock",
+	[Key.passwordUnlocking]: "Decrypting...",
+	[Key.passwordIncorrect]: "Incorrect password or damaged encrypted content.",
 
 	[Key.untitled]: "Untitled",
 	[Key.uncategorized]: "Uncategorized",

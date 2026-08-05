@@ -15,6 +15,15 @@ export const id: Translation = {
 	[Key.music]: "Musik",
 
 	[Key.comments]: "Komentar",
+	[Key.encryptedArticle]: "Artikel terenkripsi",
+	[Key.passwordProtected]: "Dilindungi kata sandi",
+	[Key.passwordProtectedDescription]:
+		"Masukkan kata sandi untuk mendekripsi artikel ini di browser Anda.",
+	[Key.passwordHint]: "Petunjuk",
+	[Key.passwordPlaceholder]: "Kata sandi",
+	[Key.passwordUnlock]: "Buka kunci",
+	[Key.passwordUnlocking]: "Mendekripsi...",
+	[Key.passwordIncorrect]: "Kata sandi salah atau konten terenkripsi rusak.",
 
 	[Key.untitled]: "Tanpa Judul",
 	[Key.uncategorized]: "Tanpa Kategori",

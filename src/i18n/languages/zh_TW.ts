@@ -15,6 +15,14 @@ export const zh_TW: Translation = {
 	[Key.music]: "音樂",
 
 	[Key.comments]: "評論",
+	[Key.encryptedArticle]: "加密文章",
+	[Key.passwordProtected]: "密碼保護",
+	[Key.passwordProtectedDescription]: "請輸入密碼以在瀏覽器中解密此文章。",
+	[Key.passwordHint]: "提示",
+	[Key.passwordPlaceholder]: "請輸入密碼",
+	[Key.passwordUnlock]: "解鎖",
+	[Key.passwordUnlocking]: "解密中...",
+	[Key.passwordIncorrect]: "密碼錯誤或加密內容已損壞。",
 
 	[Key.untitled]: "無標題",
 	[Key.uncategorized]: "未分類",

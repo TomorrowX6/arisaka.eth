@@ -15,6 +15,14 @@ export const th: Translation = {
 	[Key.music]: "เพลง",
 
 	[Key.comments]: "ความคิดเห็น",
+	[Key.encryptedArticle]: "บทความที่เข้ารหัส",
+	[Key.passwordProtected]: "ป้องกันด้วยรหัสผ่าน",
+	[Key.passwordProtectedDescription]: "ป้อนรหัสผ่านเพื่อถอดรหัสบทความนี้ในเบราว์เซอร์",
+	[Key.passwordHint]: "คำใบ้",
+	[Key.passwordPlaceholder]: "รหัสผ่าน",
+	[Key.passwordUnlock]: "ปลดล็อก",
+	[Key.passwordUnlocking]: "กำลังถอดรหัส...",
+	[Key.passwordIncorrect]: "รหัสผ่านไม่ถูกต้องหรือเนื้อหาที่เข้ารหัสเสียหาย",
 
 	[Key.untitled]: "ไม่ได้ตั้งชื่อ",
 	[Key.uncategorized]: "ไม่ได้จัดหมวดหมู่",

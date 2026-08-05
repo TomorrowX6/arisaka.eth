@@ -377,6 +377,7 @@ function init() {
 
 /* Load settings when entering the site */
 init();
+document.addEventListener("article:decrypted", initCustomScrollbar);
 
 const setup = () => {
 	// TODO: temp solution to change the height of the banner
@@ -562,6 +563,12 @@ const setup = () => {
 		{ before: true },
 	)
 }
+
+const refreshPhotoSwipe = () => {
+	lightbox?.destroy?.()
+	createPhotoSwipe()
+}
+document.addEventListener("article:decrypted", refreshPhotoSwipe)
 
 if (window.swup) {
 	setup()

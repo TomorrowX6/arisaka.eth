@@ -49,7 +49,10 @@ description: ''
 image: ''
 tags: []
 category: ''
-draft: false 
+draft: false
+encrypted: false
+passwordEnv: ''
+passwordHint: ''
 lang: ''
 ---
 `

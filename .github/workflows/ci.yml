@@ -38,6 +38,9 @@ jobs:
       - name: Lint source
         run: pnpm exec biome lint ./src
 
+      - name: Test encryption
+        run: pnpm test
+
       - name: Check Astro
         run: pnpm check
 
