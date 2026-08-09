@@ -7,9 +7,11 @@ export async function getSortedPosts() {
 	});
 
 	const sorted = allBlogPosts.sort((a, b) => {
-		const dateA = new Date(a.data.published);
-		const dateB = new Date(b.data.published);
-		return dateA > dateB ? -1 : 1;
+		const dateDifference =
+			new Date(b.data.published).getTime() - new Date(a.data.published).getTime();
+		if (dateDifference !== 0) return dateDifference;
+		if (a.slug === b.slug) return 0;
+		return a.slug < b.slug ? -1 : 1;
 	});
 	return sorted;
 }
