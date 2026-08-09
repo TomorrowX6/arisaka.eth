@@ -2,8 +2,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { profileConfig, provenanceConfig, siteConfig } from "../../config";
-import { getSortedPostsList } from "../../utils/content-utils";
-import { formatDateToYYYYMMDD } from "../../utils/date-utils";
+import { url } from "../../utils/url-utils";
 
 // Whatever sits in public/README is mirrored into ~/README. The files are
 // served from the same place, so `open` hands back the real artefact and text
@@ -29,17 +28,6 @@ const readme = readdirSync(README_DIR, { withFileTypes: true })
 		};
 	});
 
-// The virtual filesystem is built from the real post list, so `ls` and `cat`
-// describe this blog rather than a canned example tree.
-const posts = (await getSortedPostsList()).map((post) => ({
-	slug: post.slug,
-	title: post.data.title,
-	published: formatDateToYYYYMMDD(post.data.published),
-	description: post.data.description ?? "",
-	category: post.data.category ?? "",
-	tags: post.data.tags ?? [],
-}));
-
 const environment = {
 	user: "user",
 	// the ENS label reads like a hostname; the site title ("Arisaka.ETH") would
@@ -48,7 +36,7 @@ const environment = {
 	author: profileConfig.name,
 	title: siteConfig.title,
 	subtitle: siteConfig.subtitle,
-	posts,
+	postsUrl: url("/terminal-posts.json"),
 	readme,
 };
 ---
@@ -158,6 +146,7 @@ type Environment = {
 	author: string;
 	title: string;
 	subtitle: string;
+	postsUrl: string;
 	posts: Post[];
 	readme: ReadmeFile[];
 };
@@ -182,6 +171,7 @@ let root: Entry;
 let cwd = [...HOME];
 const history: string[] = [];
 let historyCursor = 0;
+let postsRequest: Promise<void> | null = null;
 
 const dir = (children: Record<string, Entry> = {}): Entry => ({ kind: "dir", children });
 const file = (body: string, url?: string): Entry => ({ kind: "file", body, url });
@@ -229,6 +219,43 @@ function buildFilesystem(environment: Environment): Entry {
 			motd: file(`Welcome to ${environment.host}. Everything here is make-believe.`),
 		}),
 	});
+}
+
+function isPost(value: unknown): value is Post {
+	if (!value || typeof value !== "object") return false;
+	const post = value as Record<string, unknown>;
+	return (
+		typeof post.slug === "string" &&
+		typeof post.title === "string" &&
+		typeof post.published === "string" &&
+		typeof post.description === "string" &&
+		typeof post.category === "string" &&
+		Array.isArray(post.tags) &&
+		post.tags.every((tag) => typeof tag === "string")
+	);
+}
+
+/** Keep content-derived data out of every page and fetch it only when needed. */
+function loadPosts(): Promise<void> {
+	if (postsRequest) return postsRequest;
+	postsRequest = fetch(env.postsUrl, { cache: "no-cache" })
+		.then((response) => {
+			if (!response.ok) throw new Error(`HTTP ${response.status}`);
+			return response.json();
+		})
+		.then((value: unknown) => {
+			if (!Array.isArray(value) || !value.every(isPost)) {
+				throw new Error("invalid response");
+			}
+			env.posts = value;
+			root = buildFilesystem(env);
+		})
+		.catch((error: unknown) => {
+			postsRequest = null;
+			console.error("Unable to load terminal post index", error);
+			write("terminal: unable to load post index", "error");
+		});
+	return postsRequest;
 }
 
 /** Walks a path string into an absolute segment list, or null if it escapes. */
@@ -560,6 +587,7 @@ function complete(value: string): string {
  * not a `position: fixed` trick, which would lose the reading position.
  */
 let unlockedStyle: { overflow: string; paddingRight: string } | null = null;
+let previouslyFocused: HTMLElement | null = null;
 
 function lockPageScroll(): void {
 	if (unlockedStyle) return;
@@ -581,13 +609,28 @@ function unlockPageScroll(): void {
 	unlockedStyle = null;
 }
 
-function open(): void {
+async function open(): Promise<void> {
 	const panel = document.getElementById("terminal");
 	if (!panel || !panel.classList.contains("hidden")) return;
+	previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 	panel.classList.remove("hidden");
 	panel.classList.add("flex");
+	panel.setAttribute("aria-busy", "true");
 	lockPageScroll();
-	document.getElementById("terminal-input")?.focus();
+
+	const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+	if (input) {
+		input.disabled = true;
+		input.placeholder = "Loading post index…";
+	}
+	document.getElementById("terminal-close")?.focus();
+	await loadPosts();
+	panel.removeAttribute("aria-busy");
+	if (input) {
+		input.disabled = false;
+		input.placeholder = "";
+	}
+	if (!panel.classList.contains("hidden")) input?.focus();
 	scrollToEnd();
 }
 
@@ -597,6 +640,8 @@ function close(): void {
 	panel.classList.add("hidden");
 	panel.classList.remove("flex");
 	unlockPageScroll();
+	previouslyFocused?.focus();
+	previouslyFocused = null;
 }
 
 function boot(): void {
@@ -604,7 +649,8 @@ function boot(): void {
 	if (!panel || panel.dataset.ready === "true") return;
 	panel.dataset.ready = "true";
 
-	env = JSON.parse(panel.dataset.environment ?? "{}");
+	const serialized = JSON.parse(panel.dataset.environment ?? "{}") as Omit<Environment, "posts">;
+	env = { ...serialized, posts: [] };
 	HOME = ["home", env.user];
 	cwd = [...HOME];
 	root = buildFilesystem(env);
@@ -622,7 +668,7 @@ function boot(): void {
 			scrollToEnd();
 			return;
 		}
-		if (event.key === "Tab") {
+		if (event.key === "Tab" && !event.shiftKey) {
 			event.preventDefault();
 			input.value = complete(input.value);
 			return;
@@ -657,7 +703,29 @@ function boot(): void {
 	document.getElementById("terminal-close")?.addEventListener("click", close);
 	document.getElementById("terminal-backdrop")?.addEventListener("click", close);
 	document.addEventListener("keydown", (event) => {
-		if (event.key === "Escape") close();
+		if (event.key === "Escape") {
+			close();
+			return;
+		}
+		if (event.key !== "Tab" || event.defaultPrevented || panel.classList.contains("hidden")) return;
+
+		const focusable = Array.from(
+			panel.querySelectorAll<HTMLElement>("button:not([disabled]), input:not([disabled])"),
+		);
+		if (focusable.length === 0) {
+			event.preventDefault();
+			return;
+		}
+		const first = focusable[0];
+		const last = focusable[focusable.length - 1];
+		const active = document.activeElement;
+		if (event.shiftKey && (active === first || !panel.contains(active))) {
+			event.preventDefault();
+			last.focus();
+		} else if (!event.shiftKey && (active === last || !panel.contains(active))) {
+			event.preventDefault();
+			first.focus();
+		}
 	});
 }
 
