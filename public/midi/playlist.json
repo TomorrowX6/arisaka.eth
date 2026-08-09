@@ -172,6 +172,10 @@
 		"url": "/midi/%E7%AB%B9%E5%8F%96%E9%A3%9B%E7%BF%94_%EF%BD%9E_Lunatic_Princess.mid"
 	},
 	{
+		"title": "All the same",
+		"url": "/midi/All_the_same.mid"
+	},
+	{
 		"title": "amane",
 		"url": "/midi/amane.mid"
 	},
@@ -180,8 +184,16 @@
 		"url": "/midi/Andante_Spianato_and_Grande_Polonaise_Brillante_Op._22.mid"
 	},
 	{
+		"title": "Antecoder",
+		"url": "/midi/Antecoder.mid"
+	},
+	{
 		"title": "Arabesque No1",
 		"url": "/midi/Arabesque_No1.mid"
+	},
+	{
+		"title": "ASUKA 88",
+		"url": "/midi/ASUKA_88.mid"
 	},
 	{
 		"title": "Autumn The Four Seasons",
@@ -200,8 +212,24 @@
 		"url": "/midi/Barcarolle_Op._60.mid"
 	},
 	{
+		"title": "Bass Antics",
+		"url": "/midi/Bass_Antics.mid"
+	},
+	{
+		"title": "Behind Mute Lips",
+		"url": "/midi/Behind_Mute_Lips.mid"
+	},
+	{
+		"title": "Bond",
+		"url": "/midi/Bond.mid"
+	},
+	{
 		"title": "Brahms Lullaby",
 		"url": "/midi/Brahms_Lullaby.mid"
+	},
+	{
+		"title": "Breakout",
+		"url": "/midi/Breakout.mid"
 	},
 	{
 		"title": "Bridal Chorus",
@@ -214,6 +242,10 @@
 	{
 		"title": "Carnaval Op. 9",
 		"url": "/midi/Carnaval_Op._9.mid"
+	},
+	{
+		"title": "Cassette Cafe",
+		"url": "/midi/Cassette_Cafe.mid"
 	},
 	{
 		"title": "Cello Suite No1 Prelude",
@@ -240,12 +272,40 @@
 		"url": "/midi/Clair_de_Lune.mid"
 	},
 	{
+		"title": "Club Penguin",
+		"url": "/midi/Club_Penguin.mid"
+	},
+	{
+		"title": "Dance",
+		"url": "/midi/Dance.mid"
+	},
+	{
 		"title": "Dance of the Sugar Plum Fairy",
 		"url": "/midi/Dance_of_the_Sugar_Plum_Fairy.mid"
 	},
 	{
 		"title": "Dante Sonata",
 		"url": "/midi/Dante_Sonata.mid"
+	},
+	{
+		"title": "DATA (FL Studio Remix)",
+		"url": "/midi/DATA_(FL_Studio_Remix).mid"
+	},
+	{
+		"title": "Deep Inside (Original Mix) - Arrangement",
+		"url": "/midi/Deep_Inside_(Original_Mix)_-_Arrangement.mid"
+	},
+	{
+		"title": "Deep Inside (Original Mix) - Arrangement 2",
+		"url": "/midi/Deep_Inside_(Original_Mix)_-_Arrangement_2.mid"
+	},
+	{
+		"title": "Dynamics (Original Mix) - Arrangement",
+		"url": "/midi/Dynamics_(Original_Mix)_-_Arrangement.mid"
+	},
+	{
+		"title": "Dynamics (Original Mix) - Respaldo",
+		"url": "/midi/Dynamics_(Original_Mix)_-_Respaldo.mid"
 	},
 	{
 		"title": "Eine Kleine Nachtmusik 1st Movement",
@@ -272,6 +332,14 @@
 		"url": "/midi/Etude_Tableau_Op._39_No._5.mid"
 	},
 	{
+		"title": "Exoplanet - Arrangement",
+		"url": "/midi/Exoplanet_-_Arrangement.mid"
+	},
+	{
+		"title": "Exoplanet - Arrangement 2",
+		"url": "/midi/Exoplanet_-_Arrangement_2.mid"
+	},
+	{
 		"title": "Fairy Tale in D Minor Op. 54",
 		"url": "/midi/Fairy_Tale_in_D_Minor_Op._54.mid"
 	},
@@ -286,6 +354,10 @@
 	{
 		"title": "Fantasy Op. 28",
 		"url": "/midi/Fantasy_Op._28.mid"
+	},
+	{
+		"title": "Fausta",
+		"url": "/midi/Fausta.mid"
 	},
 	{
 		"title": "Feux d'artifice",
@@ -308,12 +380,36 @@
 		"url": "/midi/Fur_Elise.mid"
 	},
 	{
+		"title": "Future Bass",
+		"url": "/midi/Future_Bass.mid"
+	},
+	{
+		"title": "Future House - Arrangement",
+		"url": "/midi/Future_House_-_Arrangement.mid"
+	},
+	{
+		"title": "Future House - Different Chords",
+		"url": "/midi/Future_House_-_Different_Chords.mid"
+	},
+	{
+		"title": "Goldener Schnitt",
+		"url": "/midi/Goldener_Schnitt.mid"
+	},
+	{
 		"title": "Gymnopedie No1",
 		"url": "/midi/Gymnopedie_No1.mid"
 	},
 	{
 		"title": "heart",
 		"url": "/midi/heart.mid"
+	},
+	{
+		"title": "I'll Be Your Madonna",
+		"url": "/midi/I'll_Be_Your_Madonna.mid"
+	},
+	{
+		"title": "I'm Awake",
+		"url": "/midi/I'm_Awake.mid"
 	},
 	{
 		"title": "Isolde's Liebestod",
@@ -324,8 +420,16 @@
 		"url": "/midi/It%E2%80%99s_TV_Time!(Kyara).mid"
 	},
 	{
+		"title": "J-Cycle",
+		"url": "/midi/J-Cycle.mid"
+	},
+	{
 		"title": "Jardins sous la pluie",
 		"url": "/midi/Jardins_sous_la_pluie.mid"
+	},
+	{
+		"title": "Jump!",
+		"url": "/midi/Jump!.mid"
 	},
 	{
 		"title": "junk",
@@ -336,6 +440,14 @@
 		"url": "/midi/kagec3.mid"
 	},
 	{
+		"title": "Keep It Simple - 2015",
+		"url": "/midi/Keep_It_Simple_-_2015.mid"
+	},
+	{
+		"title": "Knock Me Out",
+		"url": "/midi/Knock_Me_Out.mid"
+	},
+	{
 		"title": "L'Isle Joyeuse",
 		"url": "/midi/L'Isle_Joyeuse.mid"
 	},
@@ -344,8 +456,20 @@
 		"url": "/midi/La_Campanella.mid"
 	},
 	{
+		"title": "Leap of Faith",
+		"url": "/midi/Leap_of_Faith.mid"
+	},
+	{
 		"title": "Liebestraum No3",
 		"url": "/midi/Liebestraum_No3.mid"
+	},
+	{
+		"title": "LIFE",
+		"url": "/midi/LIFE.mid"
+	},
+	{
+		"title": "Light Realm (Original Mix)",
+		"url": "/midi/Light_Realm_(Original_Mix).mid"
 	},
 	{
 		"title": "Little Fugue in G Minor BWV578",
@@ -358,6 +482,14 @@
 	{
 		"title": "Mad Mew Mew",
 		"url": "/midi/Mad_Mew_Mew.mid"
+	},
+	{
+		"title": "majicalljarr",
+		"url": "/midi/majicalljarr.mid"
+	},
+	{
+		"title": "Menagerie",
+		"url": "/midi/Menagerie.mid"
 	},
 	{
 		"title": "Minuet in G Major BWV114",
@@ -380,12 +512,24 @@
 		"url": "/midi/Morning_Mood.mid"
 	},
 	{
+		"title": "Move me",
+		"url": "/midi/Move_me.mid"
+	},
+	{
+		"title": "Nahash (Original Mix)",
+		"url": "/midi/Nahash_(Original_Mix).mid"
+	},
+	{
 		"title": "natume",
 		"url": "/midi/natume.mid"
 	},
 	{
 		"title": "New World Symphony Largo",
 		"url": "/midi/New_World_Symphony_Largo.mid"
+	},
+	{
+		"title": "No Need To Be Afraid",
+		"url": "/midi/No_Need_To_Be_Afraid.mid"
 	},
 	{
 		"title": "Nocturne No20 C Sharp Minor",
@@ -404,8 +548,16 @@
 		"url": "/midi/Ode_to_Joy_Piano.mid"
 	},
 	{
+		"title": "One Day (Funky Mix)",
+		"url": "/midi/One_Day_(Funky_Mix).mid"
+	},
+	{
 		"title": "onestop",
 		"url": "/midi/onestop.mid"
+	},
+	{
+		"title": "Optimum Momentum",
+		"url": "/midi/Optimum_Momentum.mid"
 	},
 	{
 		"title": "Pathetique Sonata 2nd Movement",
@@ -468,16 +620,44 @@
 		"url": "/midi/Prelude_in_D_Major_Op._23_No._4.mid"
 	},
 	{
+		"title": "Pure Alkaline (FL Demo Edit)",
+		"url": "/midi/Pure_Alkaline_(FL_Demo_Edit).mid"
+	},
+	{
 		"title": "Raindrop Prelude Op28 No15",
 		"url": "/midi/Raindrop_Prelude_Op28_No15.mid"
+	},
+	{
+		"title": "Rainy Days (Original Mix)",
+		"url": "/midi/Rainy_Days_(Original_Mix).mid"
+	},
+	{
+		"title": "RawFL",
+		"url": "/midi/RawFL.mid"
+	},
+	{
+		"title": "Real Bass (Original Mix)",
+		"url": "/midi/Real_Bass_(Original_Mix).mid"
+	},
+	{
+		"title": "Red Rani",
+		"url": "/midi/Red_Rani.mid"
 	},
 	{
 		"title": "Reflets dans l'eau",
 		"url": "/midi/Reflets_dans_l'eau.mid"
 	},
 	{
+		"title": "Release Me",
+		"url": "/midi/Release_Me.mid"
+	},
+	{
 		"title": "Revolutionary Etude Op. 10 No. 12",
 		"url": "/midi/Revolutionary_Etude_Op._10_No._12.mid"
+	},
+	{
+		"title": "Right Night feeling",
+		"url": "/midi/Right_Night_feeling.mid"
 	},
 	{
 		"title": "Rondo Alla Turca",
@@ -504,6 +684,14 @@
 		"url": "/midi/Scherzo_No._2_Op._31.mid"
 	},
 	{
+		"title": "Sometime (Instrumental)",
+		"url": "/midi/Sometime_(Instrumental).mid"
+	},
+	{
+		"title": "Sometime (Vocal)",
+		"url": "/midi/Sometime_(Vocal).mid"
+	},
+	{
 		"title": "Symphonic Etudes Op. 13",
 		"url": "/midi/Symphonic_Etudes_Op._13.mid"
 	},
@@ -520,6 +708,10 @@
 		"url": "/midi/The_Blue_Danube.mid"
 	},
 	{
+		"title": "The HYBRID Collage (v2.0)",
+		"url": "/midi/The_HYBRID_Collage_(v2.0).mid"
+	},
+	{
 		"title": "The Lark",
 		"url": "/midi/The_Lark.mid"
 	},
@@ -530,6 +722,14 @@
 	{
 		"title": "THE WORLD REVOLVING",
 		"url": "/midi/THE_WORLD_REVOLVING.mid"
+	},
+	{
+		"title": "TimeFlies",
+		"url": "/midi/TimeFlies.mid"
+	},
+	{
+		"title": "To Make the End of Battle",
+		"url": "/midi/To_Make_the_End_of_Battle.mid"
 	},
 	{
 		"title": "Toccata and Fugue in D Minor",
@@ -560,6 +760,10 @@
 		"url": "/midi/U.N.%E3%82%AA%E3%83%BC%E3%82%A8%E3%83%B3%E3%81%AF%E5%BD%BC%E5%A5%B3%E3%81%AA%E3%81%AE%E3%81%8B%EF%BC%9F.mid"
 	},
 	{
+		"title": "Umi no Mieru Machi",
+		"url": "/midi/Umi_no_Mieru_Machi.mid"
+	},
+	{
 		"title": "Venezia e Napoli",
 		"url": "/midi/Venezia_e_Napoli.mid"
 	},
@@ -570,6 +774,10 @@
 	{
 		"title": "Winter Wind Etude Op. 25 No. 11",
 		"url": "/midi/Winter_Wind_Etude_Op._25_No._11.mid"
+	},
+	{
+		"title": "Your Destiny4 GUGSv2",
+		"url": "/midi/Your_Destiny4_GUGSv2.mid"
 	},
 	{
 		"title": "アルティメットトゥルース",
