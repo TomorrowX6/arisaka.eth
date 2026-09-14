@@ -24,7 +24,7 @@ import path from "node:path";
 import { TurboFactory } from "@ardrive/turbo-sdk";
 import { encode } from "@ensdomains/content-hash";
 import * as dotenv from "dotenv";
-import { contentType as charsetFor, lookup as lookupMime } from "mime-types";
+import { MANIFEST_TYPE, buildManifest, contentTypeOf, createCacheWriter, hashText, loadCache as readCache, pendingFiles } from "./lib/permaweb-cache.mjs";
 import { type Hex, createPublicClient, createWalletClient, http, parseAbi } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
@@ -98,22 +98,11 @@ async function sha256File(filePath: string): Promise<string> {
 	return hash.digest("hex");
 }
 
-const sha256Text = (value: string) => createHash("sha256").update(value).digest("hex");
-
 async function loadCache(): Promise<DeploymentCache> {
-	if (force || !existsSync(CACHE_FILE)) return { version: 1, objects: {} };
-	try {
-		const parsed = JSON.parse(await fs.readFile(CACHE_FILE, "utf8")) as DeploymentCache;
-		if (parsed.version === 1 && typeof parsed.objects === "object") return parsed;
-		console.log("Cache version mismatch — starting fresh.");
-	} catch {
-		console.log("Cache unreadable — starting fresh.");
-	}
-	return { version: 1, objects: {} };
+	return readCache(CACHE_FILE, force);
 }
 
-const saveCache = (cache: DeploymentCache) =>
-	fs.writeFile(CACHE_FILE, `${JSON.stringify(cache, null, 2)}\n`, "utf8");
+const saveCache = createCacheWriter(CACHE_FILE);
 
 /** Run fn over items with at most `limit` in flight, preserving failures. */
 async function pool<T>(items: T[], limit: number, fn: (item: T) => Promise<void>) {
@@ -167,17 +156,7 @@ async function uploadWebsite(): Promise<string> {
 	for (const relativePath of relativeFiles) {
 		const absolute = path.join(buildDirectory, ...relativePath.split("/"));
 		const { size } = await fs.stat(absolute);
-		// Must be lookup(), not contentType(): mime-types treats any string
-		// containing "/" as an already-formed MIME type, so contentType() would
-		// echo back paths like "_astro/foo.css" and browsers reject the asset.
-		const mimeType = lookupMime(relativePath);
-		const withCharset = typeof mimeType === "string" ? charsetFor(mimeType) : false;
-		const contentType =
-			typeof withCharset === "string"
-				? withCharset
-				: typeof mimeType === "string"
-					? mimeType
-					: "application/octet-stream";
+		const contentType = contentTypeOf(relativePath);
 		const digest = await sha256File(absolute);
 		planned.push({ relativePath, absolute, size, contentType, objectKey: `file:${digest}:${contentType}` });
 	}
@@ -194,13 +173,15 @@ async function uploadWebsite(): Promise<string> {
 				unservable.map((f) => `  ${f.relativePath}`).join("\n"),
 		);
 
-	const pending = planned.filter((f) => !cache.objects[f.objectKey]);
+	const pending: Planned[] = pendingFiles(planned, cache);
+	const cachedCount = planned.filter((file) => cache.objects[file.objectKey]).length;
+	const duplicateCount = planned.length - cachedCount - pending.length;
 	const pendingBytes = pending.reduce((sum, f) => sum + f.size, 0);
 	const totalBytes = planned.reduce((sum, f) => sum + f.size, 0);
 
 	console.log(`${planned.length} files in ${buildDirectory} (${mb(totalBytes)})`);
-	console.log(`  reuse  : ${planned.length - pending.length} unchanged (${mb(totalBytes - pendingBytes)} skipped)`);
-	console.log(`  upload : ${pending.length} new or changed (${mb(pendingBytes)})`);
+	console.log(`  reuse  : ${cachedCount} cached + ${duplicateCount} duplicate paths (${mb(totalBytes - pendingBytes)} skipped)`);
+	console.log(`  upload : ${pending.length} distinct new or changed objects (${mb(pendingBytes)})`);
 	const walletFile = process.env.ARWEAVE_WALLET_FILE?.trim() || "wallet.json";
 	console.log(
 		`  payer  : ${existsSync(walletFile) ? `Arweave keyfile (${walletFile})` : (paidBy ?? "deploy wallet itself")}`,
@@ -208,6 +189,11 @@ async function uploadWebsite(): Promise<string> {
 
 	if (dryRun) {
 		for (const f of pending) console.log(`         + ${f.relativePath} (${mb(f.size)})`);
+		if (pending.length === 0) {
+			const manifestKey = `manifest:${hashText(JSON.stringify(buildManifest(planned, cache)))}:${MANIFEST_TYPE}`;
+			const existing = cache.objects[manifestKey];
+			console.log(existing ? `  manifest: reuse ${existing.id}` : "  manifest: new (file paths or aliases changed)");
+		} else console.log("  manifest: generated after the pending uploads");
 		console.log("\n--dry-run: nothing uploaded.");
 		process.exit(0);
 	}
@@ -261,33 +247,9 @@ async function uploadWebsite(): Promise<string> {
 				"Successful uploads are cached; re-run to retry only the failures.",
 		);
 
-	const manifestPaths: Record<string, { id: string }> = {};
-	for (const file of planned) manifestPaths[file.relativePath] = { id: cache.objects[file.objectKey].id };
-
-	// ar.io gateways match manifest paths exactly — a request for "/about/" is
-	// NOT resolved to "about/index.html", it falls through to the fallback. Astro
-	// emits trailing-slash URLs, so register both directory forms as aliases.
-	for (const [pathname, entry] of Object.entries({ ...manifestPaths })) {
-		if (!pathname.endsWith("/index.html")) continue;
-		const directory = pathname.slice(0, -"/index.html".length);
-		if (!directory) continue;
-		manifestPaths[directory] ??= entry;
-		manifestPaths[`${directory}/`] ??= entry;
-	}
-
-	const manifest: Record<string, unknown> = {
-		manifest: "arweave/paths",
-		version: "0.2.0",
-		index: { path: "index.html" },
-		paths: manifestPaths,
-		// ar.io gateways serve this for unknown paths; falling back to the site
-		// entry keeps deep links working instead of returning a bare 404.
-		fallback: { id: (manifestPaths["404.html"] ?? manifestPaths["index.html"]).id },
-	};
-
-	const manifestJson = JSON.stringify(manifest);
-	const manifestContentType = "application/x.arweave-manifest+json";
-	const manifestKey = `manifest:${sha256Text(manifestJson)}:${manifestContentType}`;
+	const manifestJson = JSON.stringify(buildManifest(planned, cache));
+	const manifestContentType = MANIFEST_TYPE;
+	const manifestKey = `manifest:${hashText(manifestJson)}:${manifestContentType}`;
 
 	let manifestEntry = cache.objects[manifestKey];
 	if (manifestEntry) {
