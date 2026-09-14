@@ -1,0 +1,31 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "arisaka-live2d-chat",
+  "account_id": "7e91b0eadb038a578d12d625c9ed006b",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "secrets": { "required": ["DEEPSEEK_API_KEY", "IP_HASH_SECRET"] },
+  "vars": {
+    "ALLOWED_ORIGINS": "https://arisaka.eth.limo"
+  },
+  "durable_objects": {
+    "bindings": [{ "name": "CHAT_QUOTA", "class_name": "ChatQuota" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["ChatQuota"] }],
+  "env": {
+    "local": {
+      "name": "arisaka-live2d-chat-local",
+      "secrets": { "required": ["DEEPSEEK_API_KEY", "IP_HASH_SECRET"] },
+      "vars": {
+        "ALLOWED_ORIGINS": "http://127.0.0.1:4321,http://localhost:4321"
+      },
+      "durable_objects": {
+        "bindings": [{ "name": "CHAT_QUOTA", "class_name": "ChatQuota" }]
+      }
+    }
+  }
+}

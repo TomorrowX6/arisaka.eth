@@ -39,6 +39,8 @@ export default defineConfig({
 		}),
 		swup({
 			theme: false,
+			// Live2D keeps animating; navigation must not wait for an idle frame.
+			loadOnIdle: false,
 			animationClass: "transition-swup-", // see https://swup.js.org/options/#animationselector
 			// the default value `transition-` cause transition delay
 			// when the Tailwind class `transition-all` is used
