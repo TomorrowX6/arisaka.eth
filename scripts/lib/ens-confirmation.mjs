@@ -2,15 +2,17 @@ import { setTimeout as pause } from "node:timers/promises";
 
 export const ENS_CONFIRMATION_TIMEOUT_MS = 10 * 60_000;
 
-async function observeEns(clients, readRequest, hash) {
+async function observeEns(clients, readRequest, hash, minimumBlock = -1n) {
 	const observations = await Promise.allSettled(
 		clients.map(async (client) => {
-			const [chainId, blockNumber] = await Promise.all([
+			const [chainId, reportedBlock] = await Promise.all([
 				client.getChainId(),
 				client.getBlockNumber({ cacheTime: 0 }),
 			]);
 			if (chainId !== 1)
 				throw new Error("ENS confirmation requires Ethereum Mainnet");
+			const blockNumber =
+				reportedBlock > minimumBlock ? reportedBlock : minimumBlock;
 			const [record, receipt] = await Promise.allSettled([
 				client.readContract({ ...readRequest, blockNumber }),
 				hash ? client.getTransactionReceipt({ hash }) : Promise.resolve(null),
@@ -32,41 +34,57 @@ const matches = (actual, expected) =>
 
 // Compare records at explicit block heights so a lagging RPC cannot make an old
 // target look current after it has been replaced by a newer deployment.
-function newestRecords(observations) {
-	const newest = observations.reduce(
+function newestRecords(observations, minimumBlock = -1n) {
+	const blockNumber = observations.reduce(
 		(height, entry) =>
 			entry.blockNumber > height ? entry.blockNumber : height,
-		-1n,
+		minimumBlock,
 	);
-	return observations.filter(
+	const records = observations.filter(
 		(entry) =>
-			entry.blockNumber === newest && typeof entry.contenthash === "string",
+			entry.blockNumber === blockNumber &&
+			typeof entry.contenthash === "string",
 	);
+	return { blockNumber, records };
 }
 
 // Check every configured reader before sending: the write RPC can lag behind a
 // transaction already confirmed elsewhere, especially after a workflow retry.
+// Retry transient failures at or above the highest observed block, including on
+// lagging readers. Losing the newer reader must never make an older record current.
 export async function ensTargetIsCurrent({
 	clients,
 	readRequest,
 	expectedContentHash,
+	sleep = pause,
 }) {
-	const observations = await observeEns(clients, readRequest);
-	const latest = newestRecords(observations);
-	if (!latest.length) {
-		throw new Error(
-			"Cannot read ENS contenthash from a Mainnet RPC; no transaction was sent.",
+	let minimumBlock = -1n;
+	for (let attempt = 1; ; attempt += 1) {
+		const observations = await observeEns(
+			clients,
+			readRequest,
+			undefined,
+			minimumBlock,
 		);
-	}
-	const matching = latest.filter((entry) =>
-		matches(entry.contenthash, expectedContentHash),
-	);
-	if (matching.length && matching.length !== latest.length) {
-		throw new Error(
-			"Mainnet RPCs disagree about the latest ENS contenthash; no transaction was sent.",
+		const latest = newestRecords(observations, minimumBlock);
+		minimumBlock = latest.blockNumber;
+		const matching = latest.records.filter((entry) =>
+			matches(entry.contenthash, expectedContentHash),
 		);
+		const unavailable = !latest.records.length;
+		const conflicting =
+			matching.length > 0 && matching.length !== latest.records.length;
+		if (!unavailable && !conflicting)
+			return matching.length === latest.records.length;
+		if (attempt >= 3) {
+			throw new Error(
+				unavailable
+					? "Cannot read ENS contenthash from a Mainnet RPC; no transaction was sent."
+					: "Mainnet RPCs disagree about the latest ENS contenthash; no transaction was sent.",
+			);
+		}
+		await sleep(1_000);
 	}
-	return matching.length === latest.length;
 }
 
 export async function requireNoPendingTransactions(client, address) {
@@ -105,7 +123,7 @@ export async function confirmEnsUpdate({
 		const confirmed = observations.find(
 			(entry) => entry.receipt?.status === "success",
 		);
-		const latest = newestRecords(observations);
+		const { records: latest } = newestRecords(observations);
 		if (confirmed) {
 			if (
 				latest.some(

@@ -60,17 +60,149 @@ test("an old matching record cannot override a newer different record", async ()
 	);
 });
 
+test("preflight retries a transient primary RPC read failure", async () => {
+	const clock = timer();
+	let primaryReads = 0;
+	const primary = reader({
+		readContract: async () => {
+			primaryReads += 1;
+			if (primaryReads === 1) return unavailable();
+			return expectedContentHash;
+		},
+	});
+	const fallback = reader({
+		getBlockNumber: async () => 99n,
+		readContract: async ({ blockNumber }: { blockNumber: bigint }) =>
+			blockNumber === 99n ? "0x00" : unavailable(),
+	});
+	assert.equal(
+		await ensTargetIsCurrent({
+			...options,
+			clients: [primary, fallback],
+			sleep: clock.sleep,
+		}),
+		true,
+	);
+	assert.equal(primaryReads, 2);
+	assert.equal(clock.now(), 1_000);
+});
+
+for (const isCurrent of [true, false]) {
+	test(`preflight reads the newest block through a lagging fallback when the target ${isCurrent ? "matches" : "differs"}`, async () => {
+		const clock = timer();
+		const fallbackReads: bigint[] = [];
+		const fallback = reader({
+			getBlockNumber: async () => 99n,
+			readContract: async ({ blockNumber }: { blockNumber: bigint }) => {
+				fallbackReads.push(blockNumber);
+				const latest = blockNumber === 100n;
+				return latest === isCurrent ? expectedContentHash : "0x00";
+			},
+		});
+		assert.equal(
+			await ensTargetIsCurrent({
+				...options,
+				clients: [reader({ readContract: unavailable }), fallback],
+				sleep: clock.sleep,
+			}),
+			isCurrent,
+		);
+		assert.deepEqual(fallbackReads, [99n, 100n]);
+		assert.equal(clock.now(), 1_000);
+	});
+}
+
+for (const allReadersFailOnRetry of [false, true]) {
+	test(`preflight retains the highest block after ${allReadersFailOnRetry ? "all readers disappear for a retry" : "the primary disappears"}`, async () => {
+		const clock = timer();
+		let primaryHeads = 0;
+		let fallbackHeads = 0;
+		const fallbackReads: bigint[] = [];
+		const primary = reader({
+			getBlockNumber: async () => {
+				primaryHeads += 1;
+				return primaryHeads === 1 ? 100n : unavailable();
+			},
+			readContract: unavailable,
+		});
+		const fallback = reader({
+			getBlockNumber: async () => {
+				fallbackHeads += 1;
+				return allReadersFailOnRetry && fallbackHeads === 2
+					? unavailable()
+					: 99n;
+			},
+			readContract: async ({ blockNumber }: { blockNumber: bigint }) => {
+				fallbackReads.push(blockNumber);
+				return blockNumber === 99n ? expectedContentHash : unavailable();
+			},
+		});
+		await assert.rejects(
+			ensTargetIsCurrent({
+				...options,
+				clients: [primary, fallback],
+				sleep: clock.sleep,
+			}),
+			/Cannot read ENS/,
+		);
+		assert.equal(primaryHeads, 3);
+		assert.equal(fallbackHeads, 3);
+		assert.deepEqual(
+			fallbackReads,
+			allReadersFailOnRetry ? [99n, 100n] : [99n, 100n, 100n],
+		);
+		assert.equal(clock.now(), 2_000);
+	});
+}
+
+test("preflight retries conflicting latest records before deciding", async () => {
+	const clock = timer();
+	let fallbackReads = 0;
+	const fallback = reader({
+		readContract: async () => {
+			fallbackReads += 1;
+			return fallbackReads === 1 ? "0x00" : expectedContentHash;
+		},
+	});
+	assert.equal(
+		await ensTargetIsCurrent({
+			...options,
+			clients: [
+				reader({ readContract: async () => expectedContentHash }),
+				fallback,
+			],
+			sleep: clock.sleep,
+		}),
+		true,
+	);
+	assert.equal(fallbackReads, 2);
+	assert.equal(clock.now(), 1_000);
+});
+
 test("unavailable or conflicting readers cannot authorize another ENS write", async () => {
+	const clock = timer();
+	let failedReads = 0;
 	await assert.rejects(
 		ensTargetIsCurrent({
 			...options,
-			clients: [reader({ readContract: unavailable })],
+			sleep: clock.sleep,
+			clients: [
+				reader({
+					readContract: async () => {
+						failedReads += 1;
+						return unavailable();
+					},
+				}),
+			],
 		}),
 		/Cannot read ENS/,
 	);
+	assert.equal(failedReads, 3);
+	assert.equal(clock.now(), 2_000);
 	await assert.rejects(
 		ensTargetIsCurrent({
 			...options,
+			sleep: clock.sleep,
 			clients: [
 				reader(),
 				reader({ readContract: async () => expectedContentHash }),
@@ -78,9 +210,11 @@ test("unavailable or conflicting readers cannot authorize another ENS write", as
 		}),
 		/RPCs disagree/,
 	);
+	assert.equal(clock.now(), 4_000);
 	await assert.rejects(
 		ensTargetIsCurrent({
 			...options,
+			sleep: clock.sleep,
 			clients: [
 				reader({
 					getChainId: async () => 11155111,
@@ -90,6 +224,7 @@ test("unavailable or conflicting readers cannot authorize another ENS write", as
 		}),
 		/Mainnet/,
 	);
+	assert.equal(clock.now(), 6_000);
 });
 
 test("confirmation can arrive after the old three-minute timeout", async () => {
