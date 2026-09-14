@@ -1,0 +1,4 @@
+# Copy to .dev.vars.local for local development only. Never put these in Astro.
+# Production values belong in Cloudflare Worker Secrets.
+DEEPSEEK_API_KEY=replace-with-local-development-key
+IP_HASH_SECRET=replace-with-at-least-32-random-bytes

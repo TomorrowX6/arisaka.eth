@@ -1,0 +1,111 @@
+{
+ "version": "1.0.0",
+ "model": "roro.moc3",
+ "textures": [
+  "texture_00.png",
+  "texture_01.png"
+ ],
+ "motions": {
+  "clear": [
+   {
+    "file": "motions/roro_section_clear.motion3.json",
+    "fade_in": 0,
+    "fade_out": 100,
+    "sound": "",
+    "text": ""
+   }
+  ],
+  "idle": [
+   {
+    "file": "motions/roro_idle.motion3.json",
+    "fade_in": 100,
+    "fade_out": 100,
+    "sound": "",
+    "text": ""
+   }
+  ],
+  "note": [
+   {
+    "file": "motions/roro_note_fail.motion3.json",
+    "fade_in": 100,
+    "fade_out": 100,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_note_success.motion3.json",
+    "fade_in": 0,
+    "fade_out": 100,
+    "sound": "",
+    "text": ""
+   }
+  ],
+  "song": [
+   {
+    "file": "motions/roro_song_fail_intro.motion3.json",
+    "fade_in": 200,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_song_fail_loop.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_song_success_intro.motion3.json",
+    "fade_in": 200,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_song_success_loop.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   }
+  ],
+  "tap": [
+   {
+    "file": "motions/roro_emotion_pet_1_intro.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_emotion_pet_1_loop.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_emotion_pet_1_outro.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_emotion_pet_2_loop.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   },
+   {
+    "file": "motions/roro_emotion_pet_2_outro.motion3.json",
+    "fade_in": 0,
+    "fade_out": 0,
+    "sound": "",
+    "text": ""
+   }
+  ]
+ }
+}
