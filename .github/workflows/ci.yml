@@ -38,7 +38,7 @@ jobs:
       - name: Lint source
         run: pnpm exec biome lint ./src
 
-      - name: Test encryption
+      - name: Test encryption, anime rotation, and incremental deployment
         run: pnpm test
 
       - name: Check Astro
@@ -46,3 +46,12 @@ jobs:
 
       - name: Build production site
         run: pnpm build
+
+      - name: Install chat Worker dependencies
+        run: pnpm --dir workers/live2d-chat install --frozen-lockfile
+
+      - name: Check and test chat Worker
+        run: |
+          pnpm --dir workers/live2d-chat check
+          pnpm --dir workers/live2d-chat test
+          pnpm --dir workers/live2d-chat build

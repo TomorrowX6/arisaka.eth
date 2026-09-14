@@ -21,6 +21,14 @@ import { defaultFavicons } from "../constants/icon";
 import type { Favicon } from "../types/config";
 import { pathsEqual, url } from "../utils/url-utils";
 import "katex/dist/katex.css";
+// Load the site theme explicitly instead of relying on the image asset glob.
+import "../styles/variables.styl";
+import "../styles/markdown.css";
+import "../styles/markdown-extend.styl";
+import "../styles/transition.css";
+import "../styles/expressive-code.css";
+import "../styles/photoswipe.css";
+import "../styles/scrollbar.css";
 
 interface Props {
 	title?: string;

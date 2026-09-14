@@ -11,6 +11,7 @@ on:
       - "astro.config.mjs"
       - "package.json"
       - "pnpm-lock.yaml"
+      - ".github/workflows/permaweb.yml"
 
 # Needed to push the refreshed upload cache back to the branch.
 permissions:
@@ -40,6 +41,13 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # A queued run may have been triggered before the preceding deployment
+      # committed its cache. Keep the source revision, but reuse its uploads.
+      - name: Restore latest upload cache
+        env:
+          CACHE_BRANCH: ${{ github.ref_name }}
+        run: node scripts/ci-permaweb-cache.mjs restore "$CACHE_BRANCH"
+
       - name: Write Arweave keyfile
         env:
           ARWEAVE_WALLET_JSON: ${{ secrets.ARWEAVE_WALLET_JSON }}
@@ -52,6 +60,7 @@ jobs:
           node -e 'const k=require("./wallet.json"); if(!k.n||!k.d) throw new Error("wallet.json is not an Arweave JWK"); console.log("keyfile ok")'
 
       - name: Build and deploy
+        id: deploy
         env:
           DEPLOY_EVM_PRIVATE_KEY: ${{ secrets.DEPLOY_EVM_PRIVATE_KEY }}
           ETH_RPC_URL: ${{ secrets.ETH_RPC_URL }}
@@ -64,21 +73,21 @@ jobs:
         if: always()
         run: rm -f wallet.json
 
-      # Persist the map of content hashes to transaction IDs. Committed rather
-      # than cached with actions/cache, whose entries expire after 7 days idle —
-      # that would make every deploy after a quiet week pay to re-upload the
-      # whole site. Runs even on failure so files already paid for are recorded.
-      # This commit touches no path in the trigger filter above, so it cannot
-      # retrigger the workflow.
+      # Retain a recovery copy even if pushing the permanent cache fails.
+      - name: Preserve upload cache artifact
+        if: ${{ always() && steps.deploy.outcome != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: permaweb-upload-cache-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .permaweb-cache.json
+          include-hidden-files: true
+          if-no-files-found: ignore
+
+      # Merge into the latest branch in a temporary worktree. Only the cache is
+      # committed, including after a partial upload; source commits are retained.
+      # This path is excluded from the trigger, so the commit cannot redeploy.
       - name: Commit upload cache
-        if: always()
-        run: |
-          if git diff --quiet -- .permaweb-cache.json; then
-            echo "cache unchanged, nothing to commit"
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .permaweb-cache.json
-          git commit -m "chore: update permaweb upload cache [skip ci]"
-          git push origin HEAD:${{ github.ref_name }}
+        if: ${{ always() && steps.deploy.outcome != 'skipped' }}
+        env:
+          CACHE_BRANCH: ${{ github.ref_name }}
+        run: node scripts/ci-permaweb-cache.mjs persist "$CACHE_BRANCH"

@@ -53,7 +53,8 @@ Markdown / Astro
 
 与普通“把 `dist/` 上传到某个平台”相比，这套流程额外处理了：
 
-- 按内容哈希复用已成功记录的上传，减少重复上传与付费；
+- 按 SHA-256 与 MIME 类型复用已成功记录的上传，同一批次的相同内容也只上传一次；
+- 并发上传时串行、原子写入缓存，中断后只重试尚未成功的内容；
 - 为 Astro 的尾斜杠路由补齐 Manifest 别名；
 - 正确标记 HTML、CSS、JavaScript、WASM、Pagefind、Live2D 等 MIME 类型；
 - 将 `GITHUB_SHA`（本地缺省为时间戳）写入 Manifest 的 `App-Version` 标签；
@@ -118,6 +119,8 @@ pnpm midi:scan
 ### 4. Live2D 与虚拟终端
 
 桌面端会加载本地 Live2D 模型。角色菜单可打开一个不会离开页面的终端窗口，终端实现了真实的命令解析、历史记录、Tab 补全与虚拟文件系统。
+
+角色也可与访客聊天：公开文章每 10 秒向 Cloudflare Worker 请求下一条 AI 话题，Worker 为每篇文章缓存 39 条简短开场白；非文章页面从 1,490 条有作品出处的动漫语录中按偏好抽取，每轮缓存 39 条、同样每 10 秒更换一句。优先催泪、百合、恋爱、日常、治愈及神作题材，输入或等待回复时暂停。发送按钮为输入框内的绿色圆形上箭头。配置、运行与缓存说明见 [Roro 聊天后端](workers/live2d-chat/README.md)，语料来源和更新方式见 [动漫语料说明](src/data/README.md)。
 
 ```text
 ~/README/       ← public/README 中的真实文件
@@ -288,6 +291,10 @@ pnpm deploy:perma
 > [!WARNING]
 > 永远不要提交 `wallet.json`、`.env*` 或任何私钥。`.permaweb-cache.json` 只保存公开的内容哈希、交易 ID 与 MIME 信息，故意提交到仓库以复用已确认的上传并尽量减少重复付费。
 
+缓存格式损坏时，发布会在上传前停止，不会静默丢弃缓存并重新付费上传全站。`--force` 才会显式忽略旧缓存。文件改名或删除会更新 Manifest 路径；内容和 MIME 未变的文件仍复用原交易，历史缓存保留供以后使用。`--dry-run` 同时报告文件复用数量和 Manifest 计划。
+
+GitHub Actions 串行执行发布，在上传前合并目标分支的最新缓存，避免排队任务使用旧快照。上传后的缓存通过独立 worktree 合并到最新分支；推送发生竞争时自动重试，保留期间的新源码提交。即使上传或回写失败，工作流也会保存缓存 artifact，便于恢复已成功上传的记录。
+
 GitHub Actions 发布工作流使用以下仓库 Secrets：
 
 - `ARWEAVE_WALLET_JSON`
@@ -308,6 +315,8 @@ pnpm exec tsx scripts/grant-ens-delegate.ts 0xDELEGATE_ADDRESS --revoke
 pnpm build
 node scripts/sync-cache-from-manifest.mjs <manifest-txid>
 ```
+
+恢复脚本会从网关下载 Manifest 引用的每个不同交易，流式计算远端文件的 SHA-256、大小和 MIME，确认后才写入缓存。路径相同但内容或 MIME 不同的本地文件不会误用旧交易；改名文件可通过内容哈希复用。原有历史记录会保留，旧版按路径误配的记录会修正；所有远端验证成功后才原子保存，失败时原缓存保持不变。需要明确丢弃损坏缓存再恢复时，可追加 `--force`。
 
 ### 兼容上传器
 
@@ -359,6 +368,7 @@ node scripts/sync-cache-from-manifest.mjs <manifest-txid>
 
 - UI、内容集合与基础博客能力来自 [saicaca/fuwari](https://github.com/saicaca/fuwari)；
 - 文章解锁交互参考了 [LyraVoid/Mizuki](https://github.com/LyraVoid/Mizuki)，密码学信封在本项目中重新设计；
+- 动漫语录来自 Hitokoto，选集与同步脚本采用 AGPL-3.0-only，来源和完整许可见 [语料说明](src/data/README.md)；
 - 感谢 Astro、Arweave、ENS、ArDrive、SpessaSynth、Waline 及所有开源依赖。
 
 > [!NOTE]

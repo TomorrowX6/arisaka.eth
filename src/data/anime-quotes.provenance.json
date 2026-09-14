@@ -1,0 +1,35 @@
+{
+  "repository": "https://github.com/hitokoto-osc/sentences-bundle",
+  "revision": "e92f39455e28fb893651ff67c938ee1465f0aa21",
+  "version": "d9bac18373beb90f",
+  "sourceFiles": [
+    "https://github.com/hitokoto-osc/sentences-bundle/blob/e92f39455e28fb893651ff67c938ee1465f0aa21/sentences/a.json",
+    "https://github.com/hitokoto-osc/sentences-bundle/blob/e92f39455e28fb893651ff67c938ee1465f0aa21/sentences/b.json",
+    "https://github.com/hitokoto-osc/sentences-bundle/blob/e92f39455e28fb893651ff67c938ee1465f0aa21/sentences/c.json"
+  ],
+  "license": "AGPL-3.0-only",
+  "counts": {
+    "total": 1490,
+    "preferred": 558,
+    "sources": 659,
+    "themes": {
+      "催泪": 227,
+      "百合": 38,
+      "恋爱": 314,
+      "日常": 59,
+      "治愈": 92,
+      "神作": 256
+    },
+    "categories": {
+      "a": 1345,
+      "b": 95,
+      "c": 50
+    },
+    "rawCounts": {
+      "a": 1465,
+      "b": 110,
+      "c": 1165
+    }
+  },
+  "selection": "Anime and manga, plus matching visual novels; attributed text of 4–60 characters, deduplicated without truncation. Preference tags are editorial priorities for this blog; source attribution is retained from the community dataset."
+}

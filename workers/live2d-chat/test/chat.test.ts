@@ -134,25 +134,51 @@ describe("public API security boundary", () => {
     expect(body.tools).toBeUndefined();
   });
 
-  it("limits requests before calling DeepSeek", async () => {
+  it("allows more than ten requests per minute, ignoring legacy minute counters", async () => {
+    await runInDurableObject(visitorQuota(), async (_instance, state) => {
+      state.storage.sql.exec("CREATE TABLE IF NOT EXISTS attempts (at INTEGER NOT NULL)");
+      for (let i = 0; i < 10; i++) state.storage.sql.exec("INSERT INTO attempts (at) VALUES (?)", Date.now());
+    });
     mockUpstream();
-    for (let i = 0; i < POLICY.perMinute; i++) expect((await dispatch(request())).status).toBe(200);
-    const response = await dispatch(request());
-    expect(response.status).toBe(429);
-    expect(Number(response.headers.get("Retry-After"))).toBeGreaterThan(0);
-    expect(fetch).toHaveBeenCalledTimes(POLICY.perMinute);
+    for (let i = 0; i < 25; i++) expect((await dispatch(request())).status).toBe(200);
+    expect(fetch).toHaveBeenCalledTimes(25);
   });
 
-  it("counts invalid submissions as attempts without consuming model calls", async () => {
-    for (let i = 0; i < POLICY.perMinute; i++) expect((await dispatch(request("{invalid json"))).status).toBe(400);
-    const response = await dispatch(request());
-    expect(response.status).toBe(429);
-    expect(await response.json()).toEqual({ error: "rate_limited" });
+  it("rejects invalid input without creating a minute lockout or consuming model calls", async () => {
+    for (let i = 0; i < 12; i++) expect((await dispatch(request("{invalid json"))).status).toBe(400);
     const used = await runInDurableObject(visitorQuota(), async (_instance, state) => {
       return state.storage.sql.exec<{ used: number }>("SELECT COALESCE(SUM(used), 0) AS used FROM daily").one().used;
     });
     expect(used).toBe(0);
     expect(fetch).not.toHaveBeenCalled();
+    mockUpstream();
+    expect((await dispatch(request())).status).toBe(200);
+  });
+
+  it("allows two pending calls per IP with no global concurrency cap", async () => {
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => { release = resolve; });
+    vi.mocked(fetch).mockImplementation(async () => {
+      await pending;
+      return Response.json(deepseekReply());
+    });
+    const calls: Promise<Response>[] = [dispatch(request()), dispatch(request())];
+    try {
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+      const personal = await dispatch(request());
+      expect(personal.status).toBe(429);
+      expect(await personal.json()).toEqual({ error: "visitor_limit" });
+      expect(Number(personal.headers.get("Retry-After"))).toBeGreaterThan(0);
+      calls.push(dispatch(request(validInput, { "CF-Connecting-IP": "203.0.113.11" })),
+        dispatch(request(validInput, { "CF-Connecting-IP": "203.0.113.11" })));
+      await vi.waitFor(() => expect(fetch).toHaveBeenCalledTimes(4));
+      release();
+      expect((await Promise.all(calls)).map((response) => response.status)).toEqual([200, 200, 200, 200]);
+      expect((await dispatch(request())).status).toBe(200);
+    } finally {
+      release();
+      await Promise.allSettled(calls);
+    }
   });
 
   it("allows the last personal daily model call and then blocks only that IP", async () => {
@@ -247,9 +273,12 @@ describe("DeepSeek output boundary", () => {
   });
 });
 
-describe("page summaries and token savings", () => {
+describe("page topics and token savings", () => {
   const page = { title: "测试文章", path: "/posts/example/", text: "这是一篇介绍 Live2D 的公开文章。" };
   const summaryInput = { ...validInput, intent: "summary", page };
+  const topics = Array.from({ length: POLICY.corpusSize }, (_, i) => ({ text: `有趣细节 ${i}：Live2D 的小知识`, emotion: "happy" as const }));
+  const corpus = deepseekReply({ topics });
+  const prefixed = topics.map((topic) => ({ ...topic, text: `主人，${topic.text}` }));
 
   it.each([
     { ...page, path: "https://internal.example/secrets" },
@@ -264,16 +293,37 @@ describe("page summaries and token savings", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("reuses an identical summary without another DeepSeek call", async () => {
-    const calls = mockUpstream();
-    expect(await (await dispatch(request(summaryInput))).json()).toEqual(reply);
-    expect(await (await dispatch(request(summaryInput))).json()).toEqual(reply);
-    expect(calls.filter(({ url }) => url.endsWith("/chat/completions"))).toHaveLength(1);
-    expect(calls).toHaveLength(1);
+  it("generates a corpus once and serves one validated opener", async () => {
+    const calls = mockUpstream(corpus);
+    const response = await dispatch(request(summaryInput));
+    expect(response.status).toBe(200);
+    expect(prefixed).toContainEqual(await response.json());
+    const generation = JSON.parse(String(calls[0].init?.body));
+    expect(generation.max_tokens).toBe(POLICY.corpusOutputTokens);
+    expect(generation.messages.map((entry: { role: string }) => entry.role)).toEqual(["system", "user"]);
+    expect(generation.messages[1].content).toContain(String(POLICY.corpusSize));
   });
 
-  it("serves cached summaries after model quota is exhausted but still limits attempts", async () => {
-    mockUpstream();
+  it("serves cached openers without another DeepSeek call", async () => {
+    const calls = mockUpstream(corpus);
+    for (let i = 0; i < 5; i++) {
+      const response = await dispatch(request(summaryInput));
+      expect(response.status).toBe(200);
+      expect(prefixed).toContainEqual(await response.json());
+    }
+    expect(calls.filter(({ url }) => url.endsWith("/chat/completions"))).toHaveLength(1);
+  });
+
+  it("never serves the same opener twice in a row", async () => {
+    mockUpstream(corpus);
+    const first = await (await dispatch(request(summaryInput))).json();
+    const second = await (await dispatch(request(summaryInput))).json();
+    expect(second).not.toEqual(first);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("serves cached openers after model quota is exhausted without a minute limit", async () => {
+    mockUpstream(corpus);
     expect((await dispatch(request(summaryInput))).status).toBe(200);
     const budget = env.CHAT_QUOTA.getByName(`budget:${new Date().toISOString().slice(0, 10)}`);
     await runInDurableObject(budget, async (_instance, state) => {
@@ -282,26 +332,61 @@ describe("page summaries and token savings", () => {
     await runInDurableObject(visitorQuota(), async (_instance, state) => {
       state.storage.sql.exec("UPDATE daily SET used = ?", POLICY.perDay);
     });
-    for (let i = 1; i < POLICY.perMinute; i++) expect((await dispatch(request(summaryInput))).status).toBe(200);
-    const rejected = await dispatch(request(summaryInput));
-    expect(rejected.status).toBe(429);
-    expect(await rejected.json()).toEqual({ error: "rate_limited" });
+    for (let i = 0; i < 25; i++) expect((await dispatch(request(summaryInput))).status).toBe(200);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("does not let altered page content poison the cache for the same URL", async () => {
-    const calls = mockUpstream();
+    const calls = mockUpstream(corpus);
     await dispatch(request(summaryInput));
     await dispatch(request({ ...summaryInput, page: { ...page, text: "不同的页面内容" } }));
     expect(calls.filter(({ url }) => url.endsWith("/chat/completions"))).toHaveLength(2);
   });
 
   it("requires an allowed origin even for cached content", async () => {
-    mockUpstream();
+    mockUpstream(corpus);
     await dispatch(request(summaryInput));
-    const calls = mockUpstream();
+    const calls = mockUpstream(corpus);
     expect((await dispatch(request(summaryInput, { Origin: "https://evil.example" }))).status).toBe(403);
     expect(calls).toHaveLength(0);
+  });
+
+  it.each([
+    deepseekReply(reply),
+    deepseekReply({ topics: [] }),
+    deepseekReply({ topics: "not-a-list" }),
+    deepseekReply({ topics: topics.slice(0, 20) }),
+    deepseekReply({ topics: topics.slice(0, POLICY.corpusSize - 1) }),
+    deepseekReply({ topics: [...topics.slice(0, -1), topics[0]] }),
+    deepseekReply({ topics: [...topics.slice(0, -1), { text: `主人，${"长".repeat(POLICY.maxTopicChars)}`, emotion: "happy" }] }),
+    deepseekReply({ topics, command: "unexpected" }),
+  ])("rejects unusable corpora", async (generation) => {
+    mockUpstream(generation);
+    const response = await dispatch(request(summaryInput));
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ error: "invalid_reply" });
+  });
+
+  it("drops invalid extras only when 39 distinct short openers remain", async () => {
+    const mixed = [{ text: "长".repeat(200), emotion: "happy" }, null, topics[0], ...topics];
+    mockUpstream(deepseekReply({ topics: mixed }));
+    const response = await dispatch(request(summaryInput));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { text: string };
+    expect(body.text.length).toBeLessThanOrEqual(POLICY.maxTopicChars);
+  });
+
+  it.each([null, "", " ", 1, "长".repeat(POLICY.maxTopicChars + 1)])("rejects malformed previous-topic hints", async (previousTopic) => {
+    expect((await dispatch(request({ ...summaryInput, previousTopic }))).status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("uses a previous-topic hint only for selection, never in the model prompt", async () => {
+    const calls = mockUpstream(corpus);
+    const previousTopic = "主人，这是上一次的独特开场白。";
+    expect((await dispatch(request({ ...summaryInput, previousTopic }))).status).toBe(200);
+    expect(String(calls[0].init?.body)).not.toContain(previousTopic);
+    expect((await dispatch(request({ ...validInput, previousTopic }))).status).toBe(400);
   });
 
   it("keeps long article bodies out of follow-up chats", async () => {
@@ -315,20 +400,73 @@ describe("page summaries and token savings", () => {
     expect((await dispatch(request({ ...validInput, context: { title: page.title, path: page.path, summary: "x".repeat(1001) } }))).status).toBe(400);
   });
 
-  it("does not include other conversation history in a page-summary request", async () => {
+  it("does not include other conversation history in a page-topics request", async () => {
     expect((await dispatch(request({ ...summaryInput, history: [{ role: "user", text: "private chat" }, { role: "model", text: "reply" }] }))).status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("preserves cached summaries through eviction and expires them", async () => {
-    const cache = env.CHAT_QUOTA.getByName("summary-cache-test");
-    await cache.writeSummary(reply);
+  it("preserves the cached corpus through eviction and expires it", async () => {
+    const cache = env.CHAT_QUOTA.getByName("corpus-cache-test");
+    await cache.writeCorpus(prefixed);
     await evictDurableObject(cache);
-    expect(await cache.readSummary()).toEqual(reply);
+    expect(await cache.readCorpus()).toEqual(prefixed);
+    const first = await cache.pickCorpus();
+    const second = await cache.pickCorpus();
+    expect(prefixed).toContainEqual(first);
+    expect(prefixed).toContainEqual(second);
+    expect(second).not.toEqual(first);
     await runInDurableObject(cache, async (_instance, state) => { state.storage.sql.exec("UPDATE summary SET expires = ?", Date.now() - 1); });
-    expect(await cache.readSummary()).toBeNull();
+    expect(await cache.readCorpus()).toBeNull();
+    expect(await cache.pickCorpus()).toBeNull();
     expect(await runDurableObjectAlarm(cache)).toBe(true);
-    expect(await cache.readSummary()).toBeNull();
+    expect(await cache.readCorpus()).toBeNull();
+  });
+
+  it("draws all 39 openers before repeating, including across eviction", async () => {
+    const cache = env.CHAT_QUOTA.getByName("corpus-rotation-test");
+    await cache.writeCorpus(prefixed);
+    const drawn: string[] = [];
+    for (let i = 0; i < POLICY.corpusSize; i++) {
+      if (i === 10) await evictDurableObject(cache);
+      const opener = await cache.pickCorpus();
+      expect(opener).not.toBeNull();
+      drawn.push(opener!.text);
+    }
+    expect(new Set(drawn).size).toBe(POLICY.corpusSize);
+    expect((await cache.pickCorpus())?.text).not.toBe(drawn.at(-1));
+  });
+
+  it("excludes the visitor's last opener when other visitors have advanced the corpus", async () => {
+    const cache = env.CHAT_QUOTA.getByName("corpus-interleaved-visitors");
+    await cache.writeCorpus(prefixed);
+    await runInDurableObject(cache, async (_instance, state) => {
+      state.storage.sql.exec("UPDATE summary SET value = ?", JSON.stringify({ topics: prefixed, remaining: [0], last: 1 }));
+    });
+    const opener = await cache.pickCorpus(prefixed[0].text);
+    expect(prefixed).toContainEqual(opener);
+    expect(opener).not.toEqual(prefixed[0]);
+    expect(opener).not.toEqual(prefixed[1]);
+  });
+
+  it("preserves one corpus during concurrent writes and draws atomically", async () => {
+    const cache = env.CHAT_QUOTA.getByName("corpus-concurrency-test");
+    await cache.writeCorpus(prefixed);
+    const first = await cache.pickCorpus();
+    await Promise.all(Array.from({ length: 3 }, () => cache.writeCorpus(prefixed.map((topic) => ({ ...topic, text: topic.text + "！" })))));
+    const rest = await Promise.all(Array.from({ length: POLICY.corpusSize - 1 }, () => cache.pickCorpus()));
+    expect(new Set([first, ...rest].map((topic) => topic?.text)).size).toBe(POLICY.corpusSize);
+    expect(await cache.readCorpus()).toEqual(prefixed);
+  });
+
+  it.each(["not-json", JSON.stringify(reply), JSON.stringify({ topics: prefixed.slice(0, 8), last: 0 }), JSON.stringify({ topics: prefixed.slice(0, 20), last: 0 })])("regenerates malformed or obsolete stored corpora", async (value) => {
+    const cache = env.CHAT_QUOTA.getByName("corpus-obsolete-test");
+    await cache.writeCorpus(prefixed);
+    await runInDurableObject(cache, async (_instance, state) => {
+      state.storage.sql.exec("UPDATE summary SET value = ?", value);
+    });
+    expect(await cache.pickCorpus()).toBeNull();
+    await cache.writeCorpus(prefixed);
+    expect(await cache.readCorpus()).toEqual(prefixed);
   });
 
   it.each(["这篇文章介绍了 Live2D。", "一起来看看吧！", "Roro 来陪你啦 (｡･ω･｡)", "陪你一起读喵～"])("adds the requested address while preserving the natural ending: %s", async (text) => {
@@ -339,12 +477,20 @@ describe("page summaries and token savings", () => {
 });
 
 describe("durable quota accounting", () => {
+  it("enforces the daily total atomically without a global concurrency limit", async () => {
+    const quota = env.CHAT_QUOTA.getByName("daily-only-budget");
+    const decisions = await Promise.all(Array.from({ length: 8 }, () => quota.reserve(5)));
+    expect(decisions.filter((decision) => decision.ok)).toHaveLength(5);
+    for (const decision of decisions) if (decision.ok) await quota.release(decision.lease);
+    expect((await quota.reserve(5)).ok).toBe(false);
+  });
+
   it("atomically grants no more than the configured concurrent capacity", async () => {
     const quota = env.CHAT_QUOTA.getByName("concurrency");
-    const decisions = await Promise.all(Array.from({ length: 25 }, () => quota.reserve(100, 3)));
-    expect(decisions.filter((decision) => decision.ok)).toHaveLength(3);
+    const decisions = await Promise.all(Array.from({ length: 25 }, () => quota.reserve(100, POLICY.perIpConcurrent)));
+    expect(decisions.filter((decision) => decision.ok)).toHaveLength(2);
     for (const decision of decisions) if (decision.ok && decision.lease) await quota.release(decision.lease);
-    expect((await quota.reserve(100, 3)).ok).toBe(true);
+    expect((await quota.reserve(100, POLICY.perIpConcurrent)).ok).toBe(true);
   });
 
   it("preserves daily usage across object eviction and lease release", async () => {
@@ -383,14 +529,10 @@ describe("durable quota accounting", () => {
     expect((await quota.reserve(2, 1)).ok).toBe(false);
   });
 
-  it("persists the minute limit across eviction and expires old bookkeeping", async () => {
-    const quota = env.CHAT_QUOTA.getByName("attempts");
-    for (let i = 0; i < POLICY.perMinute; i++) expect((await quota.attempt()).ok).toBe(true);
-    await evictDurableObject(quota);
-    expect((await quota.attempt()).ok).toBe(false);
-    await runInDurableObject(quota, async (_instance, state) => { state.storage.sql.exec("UPDATE attempts SET at = ?", Date.now() - 60_001); });
-    expect((await quota.attempt()).ok).toBe(true);
+  it("reinitializes quota storage after old bookkeeping is cleaned up", async () => {
+    const quota = env.CHAT_QUOTA.getByName("quota-cleanup");
+    expect((await quota.reserve(2, 1)).ok).toBe(true);
     expect(await runDurableObjectAlarm(quota)).toBe(true);
-    expect((await quota.attempt()).ok).toBe(true);
+    expect((await quota.reserve(2, 1)).ok).toBe(true);
   });
 });
