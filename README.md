@@ -295,6 +295,10 @@ pnpm deploy:perma
 
 GitHub Actions 串行执行发布，在上传前合并目标分支的最新缓存，避免排队任务使用旧快照。上传后的缓存通过独立 worktree 合并到最新分支；推送发生竞争时自动重试，保留期间的新源码提交。即使上传或回写失败，工作流也会保存缓存 artifact，便于恢复已成功上传的记录。
 
+ENS 更新前会通过主 RPC 与只读备用 RPC 核对最新区块的 `contenthash`，已指向目标 Manifest 时跳过交易；部署钱包尚有待确认交易时停止，避免重跑重复发送。发出交易后最多等待 10 分钟，同时检查回执和目标记录，RPC 暂时读不到原交易回执时也可确认已经生效的更新。真实回滚或始终无法确认仍会失败，上传缓存会保留。
+
+只读备用 RPC 默认使用 `https://ethereum-rpc.publicnode.com`，可通过 `ETH_RPC_FALLBACK_URLS` 指定逗号分隔的其他主网 RPC，设为空字符串可禁用备用节点；签名与广播始终使用 `ETH_RPC_URL`。若流程在等待 ENS 确认时失败，可等待链上确认后重跑：工作流会同步最新缓存，复用文件及 Manifest，再核对 ENS 是否已经更新。
+
 GitHub Actions 发布工作流使用以下仓库 Secrets：
 
 - `ARWEAVE_WALLET_JSON`

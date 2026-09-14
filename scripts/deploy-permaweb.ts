@@ -29,6 +29,7 @@ import { type Hex, createPublicClient, createWalletClient, http, parseAbi } from
 import { privateKeyToAccount } from "viem/accounts";
 import { mainnet } from "viem/chains";
 import { namehash, normalize } from "viem/ens";
+import { confirmEnsUpdate, ensTargetIsCurrent, requireNoPendingTransactions } from "./lib/ens-confirmation.mjs";
 
 // Base config, plus any extra env file passed with --env-file (useful when the
 // EVM key already lives somewhere else and should not be copied around).
@@ -283,6 +284,10 @@ async function updateEnsContentHash(manifestTransactionId: string): Promise<void
 
 	const publicClient = createPublicClient({ chain: mainnet, transport: http(rpcUrl) });
 	const walletClient = createWalletClient({ account, chain: mainnet, transport: http(rpcUrl) });
+	const fallbackUrls = (process.env.ETH_RPC_FALLBACK_URLS ?? "https://ethereum-rpc.publicnode.com")
+		.split(",").map((url) => url.trim()).filter((url) => url && url !== rpcUrl);
+	const readers = [...new Set([rpcUrl, ...fallbackUrls])].map((url) =>
+		createPublicClient({ chain: mainnet, transport: http(url, { timeout: 10_000, retryCount: 0 }) }));
 
 	const chainId = await publicClient.getChainId();
 	if (chainId !== 1) throw new Error(`ETH_RPC_URL is not Ethereum Mainnet; returned chain ID ${chainId}`);
@@ -307,17 +312,18 @@ async function updateEnsContentHash(manifestTransactionId: string): Promise<void
 	// @ensdomains/content-hash returns hex without the 0x prefix.
 	const encodedContentHash = `0x${encode("arweave", manifestTransactionId)}` as Hex;
 
-	const currentContentHash = await publicClient.readContract({
+	const readRequest = {
 		address: resolverAddress,
 		abi: resolverAbi,
 		functionName: "contenthash",
 		args: [node],
-	});
+	} as const;
 
-	if (currentContentHash.toLowerCase() === encodedContentHash.toLowerCase()) {
+	if (await ensTargetIsCurrent({ clients: readers, readRequest, expectedContentHash: encodedContentHash })) {
 		console.log(`ENS contenthash already points at ar://${manifestTransactionId} — no transaction sent.`);
 		return;
 	}
+	await requireNoPendingTransactions(publicClient, account.address);
 
 	console.log(`\nUpdating ${ensName}`);
 	console.log(`  resolver : ${resolverAddress}`);
@@ -342,9 +348,17 @@ async function updateEnsContentHash(manifestTransactionId: string): Promise<void
 
 	const hash = await walletClient.writeContract(request);
 	console.log(`  tx sent  : ${hash}`);
-	const receipt = await publicClient.waitForTransactionReceipt({ hash, confirmations: 1 });
-	if (receipt.status !== "success") throw new Error(`ENS transaction reverted: ${hash}`);
-	console.log(`  confirmed in block ${receipt.blockNumber}`);
+	let lastProgressMs = -30_000;
+	const confirmation = await confirmEnsUpdate({
+		clients: readers, readRequest, expectedContentHash: encodedContentHash, hash,
+		onPending: ({ elapsedMs }: { elapsedMs: number }) => {
+			if (elapsedMs - lastProgressMs < 30_000) return;
+			lastProgressMs = elapsedMs;
+			console.log(`  awaiting confirmation (${Math.floor(elapsedMs / 1000)}s elapsed)`);
+		},
+	});
+	if (confirmation.via === "receipt") console.log(`  confirmed in block ${confirmation.receipt.blockNumber}`);
+	else console.log("  confirmed ENS contenthash on Mainnet (transaction receipt not yet returned by RPC)");
 }
 
 async function main(): Promise<void> {

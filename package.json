@@ -15,7 +15,7 @@
     "preview": "astro preview",
     "astro": "astro",
     "type-check": "tsc --noEmit --isolatedDeclarations",
-    "test": "tsx --test --test-concurrency=1 tests/article-crypto.test.ts tests/article-password.test.ts tests/live2d-quotes.test.ts tests/permaweb-cache.test.ts",
+    "test": "tsx --test --test-concurrency=1 tests/article-crypto.test.ts tests/article-password.test.ts tests/live2d-quotes.test.ts tests/permaweb-cache.test.ts tests/ens-confirmation.test.ts",
     "new-post": "node scripts/new-post.js",
     "format": "biome format --write ./src",
     "lint": "biome check --write ./src",
