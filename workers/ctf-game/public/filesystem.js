@@ -63,6 +63,7 @@ export function fileType(name) {
   if (/\.(wav|mp3|ogg|mid)$/i.test(name)) return { icon: 'audio', label: '音频' };
   if (/\.(m?js|cjs|ts)$/i.test(name)) return { icon: 'script', label: 'JavaScript' };
   if (/\.pdf$/i.test(name)) return { icon: 'pdf', label: 'PDF 文档' };
+  if (/\.vcd$/i.test(name)) return { icon: 'binary', label: '数字波形' };
   if (/\.(wasm|bin|zip)$/i.test(name)) return { icon: 'binary', label: '二进制文件' };
   return { icon: 'text', label: /\.json$/i.test(name) ? 'JSON 文档' : '文本文档' };
 }

@@ -145,7 +145,7 @@ export function createSystem(controls) {
       return;
     }
     const kind = mode === 'hex' ? 'hex' : /(?:callgrind|cachegrind)(?:\.out)?(?:\.\d+)?$|\.callgrind$/i.test(path) ? 'profiler' : /\.(zip|tar|gz|tgz)$/i.test(path) ? 'archive'
-      : /\.(pcap|pcapng|cap)$/i.test(path) ? 'packets' : /\.(db|sqlite|sqlite3)$/i.test(path) ? 'database'
+      : /\.vcd$/i.test(path) ? 'logic' : /\.(pcap|pcapng|cap)$/i.test(path) ? 'packets' : /\.(db|sqlite|sqlite3)$/i.test(path) ? 'database'
       : /\.(png|jpe?g|webp)$/i.test(path) ? 'imageviewer' : /\.(wav|mp3|ogg|flac)$/i.test(path) ? 'media'
       : /\.(bin|elf|wasm|o)$/i.test(path) ? 'hex' : null;
     if (mode !== 'edit' && kind && applications[kind]) { await applications[kind].open(path); return; }

@@ -26,6 +26,8 @@ export const applications = [
   { id: 'logs', name: 'KSystemLog', description: '桌面活动日志', category: '系统', aliases: 'journal log audit 日志 活动 记录' },
   { id: 'paint', name: 'KolourPaint', description: '像素图像编辑器', category: '多媒体', aliases: 'paint draw image pixel 绘图 画图 像素 图像' },
   { id: 'profiler', name: 'KCachegrind', description: '性能数据与调用关系', category: '开发', aliases: 'profile profiler callgrind cachegrind trace 函数 性能 调用' },
+  { id: 'pipeline', name: '数据工坊', description: '字节转换与可复用配方', category: '开发', aliases: 'pipeline recipe hex base64 xor gzip transform 数据 编码 解码 转换 配方' },
+  { id: 'logic', name: '逻辑分析仪', description: 'VCD 数字波形与 SPI 解码', category: '开发', aliases: 'logic analyzer vcd spi waveform signal 硬件 逻辑 波形 时序 总线' },
   { id: 'colors', name: 'KColorChooser', description: '取色与调色板', category: '图形', aliases: 'color colour palette rgb hsv cmyk 颜色 取色 调色板' },
   { id: 'screenshot', name: 'Spectacle', description: '屏幕截图', category: '工具', aliases: 'screenshot capture 截图' },
   { id: 'discover', name: 'Discover', description: '应用程序目录', category: '系统', aliases: 'apps software application 应用 软件' },

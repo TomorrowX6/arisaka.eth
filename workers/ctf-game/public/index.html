@@ -15,6 +15,7 @@
   <link rel="stylesheet" href="/utilities.css">
   <link rel="stylesheet" href="/workspace-tools.css">
   <link rel="stylesheet" href="/developer-tools.css">
+  <link rel="stylesheet" href="/professional-tools.css">
   <link rel="stylesheet" href="/motion.css">
   <link rel="stylesheet" href="/runtime-apps.css">
   <script src="/vendor/jsQR.js" defer></script>
@@ -84,7 +85,7 @@
           </div>
           <aside id="file-information" hidden><div id="file-info-icon"></div><strong id="file-info-name"></strong><div id="file-info-preview"></div><dl><dt>类型：</dt><dd id="file-info-type"></dd><dt>大小：</dt><dd id="file-info-size"></dd><dt>位置：</dt><dd id="file-info-location"></dd></dl></aside>
         </div>
-        <footer class="statusbar"><span id="file-count">0 个文件</span><button id="files-info" type="button" data-icon="document-properties" title="信息面板 (F11)" aria-label="信息面板"></button><label class="zoom-control"><span>缩放：</span><input id="files-zoom" type="range" min="32" max="96" step="8" value="56" aria-label="图标大小"></label><span id="files-storage"></span><span id="save-status" hidden></span><span id="progress-count" hidden></span><progress id="progress-bar" max="10" value="0" hidden></progress></footer>
+        <footer class="statusbar"><span id="file-count">0 个文件</span><button id="files-proofs" type="button" hidden>通关记录</button><button id="files-info" type="button" data-icon="document-properties" title="信息面板 (F11)" aria-label="信息面板"></button><label class="zoom-control"><span>缩放：</span><input id="files-zoom" type="range" min="32" max="96" step="8" value="56" aria-label="图标大小"></label><span id="files-storage"></span><span id="save-status" hidden></span><span id="progress-count" hidden></span><progress id="progress-bar" max="10" value="0" hidden></progress></footer>
       </div>
     </section>
 
@@ -164,7 +165,7 @@
     </section>
 
     <section id="completion" class="window" data-window="proof" data-title="通关凭证" data-width="690" data-height="510" hidden>
-      <div class="window-body completion-body"><h1 tabindex="-1">10 / 10</h1><label for="proof-output">通关凭证</label><textarea id="proof-output" rows="4" readonly spellcheck="false"></textarea><div class="button-row"><button id="download-proof" class="button primary" type="button">保存</button><button id="copy-proof" class="button" type="button">复制</button><button id="revisit-button" class="button" type="button">返回</button></div>
+      <div class="window-body completion-body"><h1 tabindex="-1">通关凭证</h1><label for="proof-cases">已完成记录</label><select id="proof-cases" aria-label="已完成关卡记录"></select><label for="proof-output">通关凭证</label><textarea id="proof-output" rows="4" readonly spellcheck="false"></textarea><div class="button-row"><button id="download-proof" class="button primary" type="button">保存</button><button id="copy-proof" class="button" type="button">复制</button><button id="revisit-button" class="button" type="button">返回</button></div>
         <details class="proof-verify"><summary>验证凭证</summary><form id="verify-form"><label class="sr-only" for="verify-input">凭证</label><textarea id="verify-input" rows="3" maxlength="2048" required spellcheck="false"></textarea><button class="button" type="submit">验证</button><p id="verify-result" role="status"></p></form></details>
       </div>
     </section>

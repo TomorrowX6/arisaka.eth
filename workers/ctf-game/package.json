@@ -8,10 +8,10 @@
   },
   "scripts": {
     "generate": "node scripts/build-challenges.mjs",
-    "dev": "pnpm generate && node scripts/setup-local.mjs && wrangler dev --env local --port 8788",
+    "dev": "pnpm generate --sync-entrance && node scripts/setup-local.mjs && wrangler dev --env local --port 8788",
     "types": "wrangler types && node scripts/runtime-types.mjs",
     "check": "pnpm generate && pnpm types && tsc --noEmit",
-    "test": "pnpm generate && node --test --test-concurrency=1 test/puzzles.test.mjs test/expert.test.mjs test/toolkit.test.mjs test/deployment.test.mjs test/recovery.test.mjs test/runtimes.test.mjs test/runtime-deployment.test.mjs test/yesplaymusic-build.test.mjs && vitest run",
+    "test": "pnpm generate && node --test --test-concurrency=1 test/puzzles.test.mjs test/expert.test.mjs test/professional.test.mjs test/analysis-apps.test.mjs test/toolkit.test.mjs test/deployment.test.mjs test/recovery.test.mjs test/runtimes.test.mjs test/runtime-deployment.test.mjs test/yesplaymusic-build.test.mjs && vitest run",
     "test:browser": "node scripts/test-browser.mjs test/browser.test.mjs",
     "test:campaign": "node scripts/test-browser.mjs test/campaign.test.mjs",
     "test:e2e": "node scripts/test-browser.mjs",

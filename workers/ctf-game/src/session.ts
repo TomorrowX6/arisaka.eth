@@ -12,6 +12,7 @@ type GameRow = { version: string; stage: number; started_at: number; completed_a
 type StageRow = { stage: number; attempts: number; solved_at: number | null; failures: number; retry_at: number; last_failure: number };
 type ShopRow = { cards: number; stands: number; redeemed: number };
 type QuoteRow = { id: string; quantity: number; cost: number; expires: number; used: number };
+type CompletionMilestone = { edition: string; cases: number; completedAt: number; attempts: number };
 export type Failure = { ok: false; status: number; error: string; retryAt?: number };
 const fail = (status: number, error: string): Failure => ({ ok: false, status, error });
 
@@ -52,6 +53,30 @@ export class GameSession extends DurableObject<Env> {
     return this.ctx.storage.sql.exec<GameRow>("SELECT version, stage, started_at, completed_at FROM game WHERE id = 1").one();
   }
 
+  private migrate() {
+    if (!this.active()) return;
+    const saved = this.game();
+    if (saved.version === manifest.version) return;
+    const predecessor = manifest.compatibleEditions.find(edition => edition.version === saved.version);
+    if (!predecessor || saved.stage < 1 || saved.stage > predecessor.cases + 1) return;
+    this.ctx.storage.transactionSync(() => {
+      const game = this.game();
+      if (game.version !== predecessor.version) return;
+      if (game.completed_at !== null && game.stage === predecessor.cases + 1) {
+        const history = this.ctx.storage.kv.get<CompletionMilestone[]>("completionMilestones") ?? [];
+        if (!history.some(item => item.edition === game.version)) {
+          const attempts = this.ctx.storage.sql.exec<{ total: number }>("SELECT COALESCE(SUM(attempts), 0) AS total FROM stages WHERE stage <= ?", predecessor.cases).one().total;
+          history.push({ edition: game.version, cases: predecessor.cases, completedAt: game.completed_at, attempts });
+          this.ctx.storage.kv.put("completionMilestones", history);
+        }
+      }
+      for (let stage = predecessor.cases + 1; stage <= caseCount; stage++) {
+        this.ctx.storage.sql.exec("INSERT OR IGNORE INTO stages (stage) VALUES (?)", stage);
+      }
+      this.ctx.storage.sql.exec("UPDATE game SET version = ?, completed_at = NULL WHERE id = 1", manifest.version);
+    });
+  }
+
   private gate(stage: number): Failure | null {
     if (!this.active()) return fail(401, "会话已失效");
     const game = this.game();
@@ -63,6 +88,7 @@ export class GameSession extends DurableObject<Env> {
 
   state() {
     if (!this.active()) return { started: false as const };
+    this.migrate();
     const game = this.game();
     const stages = this.ctx.storage.sql.exec<StageRow>("SELECT * FROM stages ORDER BY stage").toArray();
     return {
@@ -73,6 +99,7 @@ export class GameSession extends DurableObject<Env> {
       total: caseCount,
       startedAt: game.started_at,
       completedAt: game.completed_at,
+      milestones: this.ctx.storage.kv.get<CompletionMilestone[]>("completionMilestones") ?? [],
       attempts: stages.reduce((sum, row) => sum + row.attempts, 0),
       stages: stages.map((row) => ({
         id: row.stage, attempts: row.attempts,
@@ -82,6 +109,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   access(stage: number) {
+    this.migrate();
     const blocked = this.gate(stage);
     if (blocked) return blocked;
     const record = this.ctx.storage.sql.exec<StageRow>("SELECT * FROM stages WHERE stage = ?", stage).one();
@@ -89,6 +117,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   async lab(stage: number, action: string, data: Record<string, unknown>) {
+    this.migrate();
     const blocked = this.gate(stage);
     if (blocked) return blocked;
     const config = (manifest.labs as Record<string, GcmConfig | PaddingConfig | CurveConfig | WotsConfig>)[stage];
@@ -117,6 +146,7 @@ export class GameSession extends DurableObject<Env> {
     if (!Number.isInteger(stage) || stage < 1 || stage > caseCount || !/^[a-z0-9]{20}$/.test(code)) {
       return fail(400, "通行码应为 20 位小写字母或数字。");
     }
+    this.migrate();
     // Hash before entering the synchronous transaction. Recheck progress inside it.
     const submitted = await digest("afterglow:" + manifest.version + ":" + stage + ":" + code);
     return this.ctx.storage.transactionSync(() => {
@@ -141,6 +171,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   shop() {
+    this.migrate();
     const blocked = this.gate(4);
     if (blocked) return blocked;
     const row = this.ctx.storage.sql.exec<ShopRow>("SELECT cards, stands, redeemed FROM shop WHERE id = 1").one();
@@ -148,6 +179,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   quote(item: string, quantity: number) {
+    this.migrate();
     const blocked = this.gate(4);
     if (blocked) return blocked;
     if (item !== "stand" || !Number.isInteger(quantity) || quantity === 0 || Math.abs(quantity) > 9) {
@@ -167,6 +199,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   checkout(id: string) {
+    this.migrate();
     return this.ctx.storage.transactionSync(() => {
       const blocked = this.gate(4);
       if (blocked) return blocked;
@@ -184,6 +217,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   redeem() {
+    this.migrate();
     return this.ctx.storage.transactionSync(() => {
       const blocked = this.gate(4);
       if (blocked) return blocked;
@@ -196,6 +230,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   resetShop() {
+    this.migrate();
     const blocked = this.gate(4);
     if (blocked) return blocked;
     this.ctx.storage.transactionSync(() => {

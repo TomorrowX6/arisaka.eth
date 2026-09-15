@@ -14,6 +14,7 @@ const publicFiles = new Set([
   "/fonts/noto-sans-latin.woff2", "/fonts/hack-regular.woff2", "/fonts/attribution.json",
   "/fonts/Noto-OFL.txt", "/fonts/Hack-LICENSE.txt", "/fonts/noto-sans-sc.woff2", "/fonts/NotoCJK-OFL.txt",
   "/developer-tools.js", "/developer-tools.css", "/profiler.js",
+  "/professional-tools.js", "/professional-tools.css", "/data-pipeline.js", "/logic-data.js", "/analysis-worker.js",
   "/transport.js", "/python-runner.js", "/recovery.js",
   "/runtime-apps.js", "/runtime-apps.css", "/runtime-config.json", "/icons/runtime-attribution.txt",
   "/icons/firefox.webp", "/icons/yesplaymusic.webp",
@@ -335,11 +336,17 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === "/api/shop/reset" && request.method === "POST") return rpcReply(await session.resetShop());
   if (path === "/api/proof" && request.method === "GET") {
     const state = await session.state();
-    if (!state.started || state.outdated || state.stage !== caseCount + 1 || !state.completedAt) throw new HttpError(403, "未通关");
+    if (!state.started || state.outdated) throw new HttpError(403, "未通关");
+    const requested = url.searchParams.get("cases");
+    const milestone = requested && /^[1-9][0-9]{0,2}$/.test(requested)
+      ? state.milestones.find(item => item.cases === Number(requested)) : undefined;
+    if (requested !== null && !milestone && requested !== String(caseCount)) throw new HttpError(404, "凭证不存在");
+    if (!milestone && (state.stage !== caseCount + 1 || !state.completedAt)) throw new HttpError(403, "未通关");
+    const completedAt = milestone?.completedAt ?? state.completedAt!;
     const completion = {
-      format: "afterglow-completion-v1" as const, edition: state.edition, player: (await digest(id)).slice(0, 12),
-      completedAt: state.completedAt, elapsedMs: state.completedAt - state.startedAt,
-      attempts: state.attempts, cases: caseCount,
+      format: "afterglow-completion-v1" as const, edition: milestone?.edition ?? state.edition, player: (await digest(id)).slice(0, 12),
+      completedAt, elapsedMs: completedAt - state.startedAt,
+      attempts: milestone?.attempts ?? state.attempts, cases: milestone?.cases ?? caseCount,
     };
     return json({ completion, proof: await createProof(env.SESSION_SECRET, completion) });
   }

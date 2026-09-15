@@ -1,16 +1,18 @@
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { unstable_dev } from 'wrangler';
-import { build, root } from './build-challenges.mjs';
 import { verifyDeployment } from './deployment-health.mjs';
 
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const files = process.argv.slice(2);
-if (!files.length) files.push('test/browser.test.mjs', 'test/runtime-apps.browser.test.mjs', 'test/campaign.test.mjs');
-let worker, tests, interrupted;
+if (!files.length) files.push('test/browser.test.mjs', 'test/runtime-apps.browser.test.mjs', 'test/analysis-apps.browser.test.mjs', 'test/campaign.test.mjs');
+let worker, tests, builder, interrupted;
 const interrupt = signal => {
   interrupted = signal;
+  builder?.kill(signal);
   tests?.kill(signal);
 };
 const onInterrupt = () => interrupt('SIGINT');
@@ -28,8 +30,18 @@ try {
     url = parsed.origin;
     manifest = JSON.parse(await readFile(resolve(root, 'src/generated/manifest.json'), 'utf8'));
   } else {
-    // Keep development saves and the committed blog entrance untouched.
-    ({ manifest } = await build({ syncEntrance: false }));
+    // Generate in a short-lived process. Large temporary evidence/bundle heaps
+    // must not compete with Chromium on 2 GiB development machines. The CLI's
+    // default leaves the paired blog entrance and development saves untouched.
+    builder = spawn(process.execPath, ['scripts/build-challenges.mjs'], { cwd: root, stdio: 'inherit', windowsHide: true });
+    const built = await new Promise((resolveExit, reject) => {
+      builder.once('error', reject);
+      builder.once('exit', code => resolveExit(code));
+    });
+    builder = undefined;
+    if (interrupted) throw new Error('Browser tests interrupted');
+    if (built !== 0) throw new Error('Browser fixture generation failed');
+    manifest = JSON.parse(await readFile(resolve(root, 'src/generated/manifest.json'), 'utf8'));
     worker = await unstable_dev(resolve(root, 'src/index.ts'), {
       config: resolve(root, 'wrangler.jsonc'), env: 'local',
       ip: '127.0.0.1', port: 0, inspectorPort: 0, local: true, persist: false,
