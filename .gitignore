@@ -46,6 +46,11 @@ yarn.lock
 .idea
 *.iml
 
+# Local session histories may contain credentials and must never be published.
+rollout-*.jsonl
+SOURCE-MANIFEST.sha256
+SOURCE-PACKAGE.md
+
 # Cloudflare local state and secrets
 .wrangler/
 .dev.vars*

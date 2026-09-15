@@ -1,0 +1,40 @@
+[
+  {
+    "file": "nuvole.png",
+    "name": "Nuvole (Dark)",
+    "authors": ["Krystian Zajdel"],
+    "license": "CC-BY-SA-4.0",
+    "source": "https://raw.githubusercontent.com/KDE/breeze/v6.3.5/wallpapers/Next/contents/images_dark/2560x1440.png",
+    "modifications": "None."
+  },
+  {
+    "file": "mountain.jpg",
+    "name": "Mountain",
+    "authors": [
+      "Andy Betts"
+    ],
+    "license": "CC-BY-SA-4.0",
+    "source": "https://raw.githubusercontent.com/KDE/plasma-workspace-wallpapers/ecb335db21697b078b3350abbcff7bef1edca252/Mountain/contents/images/5120x2880.png",
+    "modifications": "Resized to 2560 × 1440 and encoded as JPEG."
+  },
+  {
+    "file": "flow.jpg",
+    "name": "Flow",
+    "authors": [
+      "Sandra Smukaste"
+    ],
+    "license": "CC-BY-SA-4.0",
+    "source": "https://raw.githubusercontent.com/KDE/plasma-workspace-wallpapers/ecb335db21697b078b3350abbcff7bef1edca252/Flow/contents/images/5120x2880.jpg",
+    "modifications": "Resized to 2560 × 1440 and encoded as JPEG."
+  },
+  {
+    "file": "scarlet.jpg",
+    "name": "Scarlet Tree",
+    "authors": [
+      "axo1otl"
+    ],
+    "license": "CC-BY-SA-4.0",
+    "source": "https://raw.githubusercontent.com/KDE/plasma-workspace-wallpapers/ecb335db21697b078b3350abbcff7bef1edca252/ScarletTree/contents/images/5120x2880.png",
+    "modifications": "Resized to 2560 × 1440 and encoded as JPEG."
+  }
+]

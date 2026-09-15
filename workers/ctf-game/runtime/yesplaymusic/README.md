@@ -1,0 +1,13 @@
+This directory builds the original YesPlayMusic 0.4.10 Vue application from commit `df075cca247eab7bf8686155cb8cc9a1f4c7e271`. Its MIT license and source attribution are included in the generated `LICENSE.txt` and `NOTICE.txt`.
+
+Run `node scripts/build-yesplaymusic.mjs` from `workers/ctf-game` with Node 22 and npm available. The builder downloads and checks the pinned source archive, automatically runs `npm ci --ignore-scripts` against this directory's committed lockfile when needed, applies the small web adapters, and compiles the upstream components with Vue CLI 4. The OpenSSL compatibility option is restricted to the build child process.
+
+The default output is `runtime/dist/yesplaymusic`. The exported `buildYesPlayMusic({ directory, cache })` accepts the application output directory directly; its default cache is `.private/yesplaymusic`. Every public file is listed with its SHA-256 and size in `manifest.json`. Cache reuse checks every emitted file, and changes to the source pin, build script, lockfile, or adapters cause a fresh build. Generated source is temporary under `.build/` and removed after compilation. No source maps, environment files, Electron application code, or dependency directories are published.
+
+The synchronous `bridge.js` installs profile-scoped local/session storage and IndexedDB before Vue starts. History routes use `/yesplaymusic/profiles/<profile>/`; shared static assets use `/yesplaymusic/`. The fetch adapter posts JSON parameters to the same profile's `api/` path, omits browser HTTP cookies, and sends only that profile's saved cookie values in `X-YesPlayMusic-Cookie`. Cloud uploads retain multipart file data. The original theme and language settings remain available, with dark appearance and Chinese selected for new profiles. Analytics and service-worker registration are disabled.
+
+Guest and signed-in audio both use the API's song URL endpoint, retaining the player's handling of unavailable and preview-only songs. Song-detail requests for large playlists are split into batches of at most 1,000 IDs and recombined before reaching the upstream UI.
+
+Run `node --test test/yesplaymusic-build.test.mjs` for the source, storage, cookie, and request checks. Set `YESPLAYMUSIC_BROWSER=1` to also exercise the compiled upstream UI in Chromium with deterministic API fixtures; this checks startup, profile routing, browser storage, reset and reopen behavior. It does not establish that a live upstream audio stream plays.
+
+Vue CLI may report the upstream component stylesheet ordering and bundle-size advisories. The generated files remain below the hosting limit of 25 MiB each.

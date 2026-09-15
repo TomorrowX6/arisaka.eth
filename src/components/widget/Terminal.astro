@@ -115,6 +115,8 @@ const environment = {
 </style>
 
 <script>
+import { decryptTerminalText, terminalEntrance } from "../../utils/terminal-crypto";
+
 /**
  * A small pretend shell. It is opened from the Live2D menu via the
  * `terminal:open` event, so nothing here needs to know the mascot exists.
@@ -172,6 +174,9 @@ let cwd = [...HOME];
 const history: string[] = [];
 let historyCursor = 0;
 let postsRequest: Promise<void> | null = null;
+let pendingDecryption: string | null = null;
+let decryptionGeneration = 0;
+const decryptedEntrances = new Set<string>();
 
 const dir = (children: Record<string, Entry> = {}): Entry => ({ kind: "dir", children });
 const file = (body: string, url?: string): Entry => ({ kind: "file", body, url });
@@ -336,7 +341,7 @@ const promptText = () => `${env.user}@${env.host}:${displayPath(cwd)}$`;
 function refreshPrompt(): void {
 	const prompt = document.getElementById("terminal-prompt");
 	if (prompt) {
-		prompt.textContent = promptText();
+		prompt.textContent = pendingDecryption === null ? promptText() : "Password:";
 		prompt.style.color = "var(--primary)";
 	}
 }
@@ -363,6 +368,10 @@ function listing(path: string[], node: Entry): void {
 
 function navigate(url: string): void {
 	close();
+	if (terminalEntrance(url)) {
+		window.location.assign(url);
+		return;
+	}
 	const swup = window.swup;
 	if (swup?.navigate) swup.navigate(url);
 	else window.location.href = url;
@@ -378,6 +387,7 @@ const COMMANDS: Record<string, (args: string[]) => void> = {
 			["cd [path]", "change directory"],
 			["pwd", "print working directory"],
 			["cat <file>", "print a file"],
+			["decrypt <file>", "decrypt a file"],
 			["open <file>", "leave the shell and read the real page"],
 			["whoami", "print the current user"],
 			["uname [-a]", "print system information"],
@@ -455,6 +465,10 @@ const COMMANDS: Record<string, (args: string[]) => void> = {
 			write("open: missing operand", "error");
 			return;
 		}
+		if (decryptedEntrances.has(target)) {
+			navigate(target);
+			return;
+		}
 		const path = resolvePath(target);
 		const node = path && entryAt(path);
 		if (!path || !node || node.kind !== "file" || !node.url) {
@@ -479,6 +493,23 @@ const COMMANDS: Record<string, (args: string[]) => void> = {
 		}
 		write(`Opening ${node.url} …`, "muted");
 		setTimeout(() => navigate(node.url as string), 250);
+	},
+
+	decrypt(args) {
+		const path = args.length === 1 ? resolvePath(args[0]) : null;
+		const node = path && entryAt(path);
+		if (!node || node.kind !== "file" || node.binary || !node.body.startsWith("v1.")) {
+			write("decrypt: invalid file", "error");
+			return;
+		}
+		pendingDecryption = node.body;
+		decryptionGeneration++;
+		const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+		if (input) {
+			input.type = "password";
+			input.setAttribute("aria-label", "Password");
+		}
+		refreshPrompt();
 	},
 
 	whoami() {
@@ -540,7 +571,56 @@ COMMANDS.quit = COMMANDS.exit;
 COMMANDS.close = COMMANDS.exit;
 COMMANDS.man = COMMANDS.help;
 
+async function decryptInput(password: string): Promise<void> {
+	const envelope = pendingDecryption;
+	if (envelope === null) return;
+	const generation = decryptionGeneration;
+	const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+	if (input) input.disabled = true;
+	try {
+		const plaintext = await decryptTerminalText(envelope, password);
+		if (generation !== decryptionGeneration) return;
+		const entrance = terminalEntrance(plaintext);
+		if (entrance) {
+			decryptedEntrances.add(entrance);
+			const line = document.createElement("div");
+			const link = document.createElement("a");
+			link.textContent = entrance;
+			link.href = entrance;
+			link.dataset.swupIgnore = "";
+			link.style.overflowWrap = "anywhere";
+			link.style.color = "var(--primary)";
+			link.addEventListener("click", (event) => {
+				event.preventDefault();
+				navigate(entrance);
+			});
+			line.appendChild(link);
+			document.getElementById("terminal-output")?.appendChild(line);
+		} else {
+			write(plaintext);
+		}
+	} catch {
+		if (generation === decryptionGeneration) write("decrypt: failed", "error");
+	} finally {
+		if (generation === decryptionGeneration) {
+			pendingDecryption = null;
+			if (input) {
+				input.type = "text";
+				input.disabled = false;
+				input.setAttribute("aria-label", "Terminal input");
+				input.focus();
+			}
+			refreshPrompt();
+			scrollToEnd();
+		}
+	}
+}
+
 function run(input: string): void {
+	if (pendingDecryption !== null) {
+		void decryptInput(input);
+		return;
+	}
 	const command = input.trim();
 	echoCommand(command);
 	if (command === "") return;
@@ -639,6 +719,16 @@ function close(): void {
 	if (!panel) return;
 	panel.classList.add("hidden");
 	panel.classList.remove("flex");
+	pendingDecryption = null;
+	decryptionGeneration++;
+	const input = document.getElementById("terminal-input") as HTMLInputElement | null;
+	if (input) {
+		input.value = "";
+		input.type = "text";
+		input.disabled = false;
+		input.setAttribute("aria-label", "Terminal input");
+	}
+	refreshPrompt();
 	unlockPageScroll();
 	previouslyFocused?.focus();
 	previouslyFocused = null;
@@ -656,9 +746,6 @@ function boot(): void {
 	root = buildFilesystem(env);
 	refreshPrompt();
 
-	write(`${env.title} — pretend shell. Type \`help\` to get started.`, "muted");
-	write("");
-
 	const input = document.getElementById("terminal-input") as HTMLInputElement | null;
 	input?.addEventListener("keydown", (event) => {
 		if (event.key === "Enter") {
@@ -666,6 +753,10 @@ function boot(): void {
 			input.value = "";
 			run(value);
 			scrollToEnd();
+			return;
+		}
+		if (pendingDecryption !== null) {
+			if (event.key === "Tab") event.preventDefault();
 			return;
 		}
 		if (event.key === "Tab" && !event.shiftKey) {

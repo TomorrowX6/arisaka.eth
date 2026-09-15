@@ -1,0 +1,43 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "arisaka-afterglow",
+  "account_id": "7e91b0eadb038a578d12d625c9ed006b",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-14",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "vars": { "DESKTOP_APPS_ORIGIN": "https://arisaka-desktop-apps.454565615.workers.dev" },
+  "secrets": { "required": ["SESSION_SECRET"] },
+  "assets": {
+    "directory": "./public",
+    "binding": "ASSETS",
+    "run_worker_first": true,
+    "html_handling": "none",
+    "not_found_handling": "none"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "GAME_SESSIONS", "class_name": "GameSession" },
+      { "name": "DESKTOP_PROFILES", "class_name": "DesktopProfiles" }
+    ]
+  },
+  "exports": {
+    "GameSession": { "type": "durable-object", "storage": "sqlite" },
+    "DesktopProfiles": { "type": "durable-object", "storage": "sqlite" }
+  },
+  "env": {
+    "local": {
+      "name": "arisaka-afterglow-local",
+      "vars": { "DESKTOP_APPS_ORIGIN": "http://127.0.0.1:8789" },
+      "secrets": { "required": ["SESSION_SECRET"] },
+      "durable_objects": {
+        "bindings": [
+          { "name": "GAME_SESSIONS", "class_name": "GameSession" },
+          { "name": "DESKTOP_PROFILES", "class_name": "DesktopProfiles" }
+        ]
+      }
+    }
+  }
+}

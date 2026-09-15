@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#31363b">
+  <meta name="csp-nonce" content="">
+  <title>Arisaka</title>
+  <link rel="icon" type="image/svg+xml" href="/mark.svg">
+  <link rel="preload" href="/fonts/noto-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/native.css">
+  <link rel="stylesheet" href="/themes.css">
+  <link rel="stylesheet" href="/shell.css">
+  <link rel="stylesheet" href="/utilities.css">
+  <link rel="stylesheet" href="/workspace-tools.css">
+  <link rel="stylesheet" href="/developer-tools.css">
+  <link rel="stylesheet" href="/motion.css">
+  <link rel="stylesheet" href="/runtime-apps.css">
+  <script src="/vendor/jsQR.js" defer></script>
+  <script src="/app.js" type="module"></script>
+</head>
+<body>
+  <div id="gate" role="status"><span id="gate-status"></span></div>
+  <main id="desktop" aria-label="桌面" hidden>
+    <div class="wallpaper" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <nav class="desktop-icons" aria-label="桌面应用">
+      <button type="button" data-launch="files"><span class="app-icon"></span><span>主目录</span></button>
+      <button type="button" data-launch="console"><span class="app-icon"></span><span>Konsole</span></button>
+      <button type="button" data-launch="editor"><span class="app-icon"></span><span>Kate</span></button>
+      <button type="button" data-launch="notes"><span class="app-icon"></span><span>KWrite</span></button>
+      <button type="button" data-launch="minecraft"><span class="app-icon"></span><span>Minecraft 1.12.2</span></button>
+      <button type="button" data-launch="firefox"><span class="app-icon"></span><span>Firefox</span></button>
+      <button type="button" data-launch="yesplaymusic"><span class="app-icon"></span><span>YesPlayMusic</span></button>
+    </nav>
+
+    <section id="files-window" class="window" data-window="files" data-title="主目录 — Dolphin" data-width="960" data-height="630" hidden>
+      <div class="window-body file-manager">
+        <nav id="files-menubar" class="native-menubar" aria-label="Dolphin 菜单"></nav>
+        <div class="native-toolbar dolphin-toolbar">
+          <div class="tool-group">
+            <button id="files-back" type="button" class="icon-button" data-icon="go-previous" title="后退 (Alt+←)" aria-label="后退" disabled></button>
+            <button id="files-forward" type="button" class="icon-button" data-icon="go-next" title="前进 (Alt+→)" aria-label="前进" disabled></button>
+            <button id="files-up" type="button" class="icon-button" data-icon="go-up" title="上一级 (Alt+↑)" aria-label="上一级"></button>
+          </div>
+          <span class="toolbar-separator"></span>
+          <div class="tool-group view-actions">
+            <button type="button" class="icon-button" data-file-view="icons" data-icon="view-list-icons" title="图标 (Ctrl+1)" aria-label="图标视图" aria-pressed="true"></button>
+            <button type="button" class="icon-button" data-file-view="compact" data-icon="view-list-tree" title="紧凑 (Ctrl+2)" aria-label="紧凑视图" aria-pressed="false"></button>
+            <button type="button" class="icon-button" data-file-view="details" data-icon="view-list-details" title="详细信息 (Ctrl+3)" aria-label="详细信息视图" aria-pressed="false"></button>
+          </div>
+          <div class="location-bar"><div id="file-breadcrumbs" aria-label="位置"></div><input id="file-location" aria-label="位置" value="/home/user" spellcheck="false" hidden><button id="files-location-edit" type="button" class="icon-button" data-icon="document-properties" title="编辑位置 (Ctrl+L)" aria-label="编辑位置"></button></div>
+          <button id="files-terminal-toggle" type="button" data-icon="konsole" title="终端 (F4)"><span class="tool-label">终端</span></button>
+          <button id="files-split" type="button" data-icon="view-split-left-right" title="拆分 (F3)" aria-pressed="false"><span class="tool-label">拆分</span></button>
+          <button id="files-search-toggle" type="button" class="icon-button" data-icon="edit-find" title="查找" aria-label="查找文件"></button>
+          <button id="files-menu" type="button" class="icon-button" data-icon="application-menu" title="菜单" aria-label="Dolphin 菜单" aria-haspopup="menu"></button>
+        </div>
+        <div id="files-filterbar" class="native-findbar" hidden><label for="files-filter">筛选：</label><input id="files-filter" type="search" autocomplete="off"><button id="files-filter-close" type="button" class="icon-button" data-icon="window-close" aria-label="关闭筛选"></button></div>
+        <div class="dolphin-workspace">
+          <aside class="file-sidebar">
+            <h2>位置</h2>
+            <button id="home-folder" class="place active" data-place="/home/user" type="button" data-icon="go-home">主目录</button>
+            <button class="place" data-place="/" type="button" data-icon="go-up">根目录</button>
+            <button class="place" data-place="/home/user/.local/share/Trash/files" type="button" data-icon="user-trash">回收站</button>
+            <button id="documents-folder" class="place" data-place="/home/user/Documents" type="button" data-icon="folder-documents">文档</button>
+            <button class="place" data-place="/home/user/Desktop" type="button" data-icon="view-grid">桌面</button>
+            <button class="place" data-place="/home/user/Downloads" type="button" data-icon="folder">下载</button>
+            <button class="place" data-place="/home/user/Pictures" type="button" data-icon="image">图片</button>
+            <h2>设备</h2>
+            <button class="place" data-place="/home/user/Documents" type="button" data-icon="binary">本地存储</button>
+            <div class="sidebar-spacer"></div>
+            <button id="files-home" type="button" class="place" data-icon="user-home">user</button>
+          </aside>
+          <div class="dolphin-center">
+            <div class="file-panes">
+              <section id="files-primary" class="file-pane active-pane" tabindex="0" aria-label="文件视图">
+                <div class="details-heading"><button data-sort="name" type="button">名称</button><button data-sort="size" type="button">大小</button><span>类型</span><span>修改时间</span></div><div class="file-grid" role="listbox" aria-label="文件" aria-multiselectable="true"></div>
+              </section>
+              <section id="files-secondary" class="file-pane" tabindex="0" aria-label="拆分文件视图" hidden>
+                <div class="details-heading"><button data-sort="name" type="button">名称</button><button data-sort="size" type="button">大小</button><span>类型</span><span>修改时间</span></div><div class="file-grid" role="listbox" aria-label="文件" aria-multiselectable="true"></div>
+              </section>
+            </div>
+            <section id="files-terminal-panel" class="dock-panel" hidden><header><span>终端</span><button id="files-terminal-close" type="button" aria-label="关闭终端面板">×</button></header><div id="files-terminal"></div></section>
+          </div>
+          <aside id="file-information" hidden><div id="file-info-icon"></div><strong id="file-info-name"></strong><div id="file-info-preview"></div><dl><dt>类型：</dt><dd id="file-info-type"></dd><dt>大小：</dt><dd id="file-info-size"></dd><dt>位置：</dt><dd id="file-info-location"></dd></dl></aside>
+        </div>
+        <footer class="statusbar"><span id="file-count">0 个文件</span><button id="files-info" type="button" data-icon="document-properties" title="信息面板 (F11)" aria-label="信息面板"></button><label class="zoom-control"><span>缩放：</span><input id="files-zoom" type="range" min="32" max="96" step="8" value="56" aria-label="图标大小"></label><span id="files-storage"></span><span id="save-status" hidden></span><span id="progress-count" hidden></span><progress id="progress-bar" max="10" value="0" hidden></progress></footer>
+      </div>
+    </section>
+
+    <section id="play" class="window" data-window="workbench" data-title="Konsole" data-icon="console" data-width="820" data-height="560" hidden>
+      <div class="window-body case-body">
+        <nav id="case-menubar" class="native-menubar" aria-label="应用菜单"></nav>
+        <div class="case-scroll"><section id="workbench" class="workbench" aria-label="应用内容"></section></div>
+      </div>
+    </section>
+
+    <section id="console-window" class="window" data-window="console" data-title="~ : bash — Konsole" data-width="900" data-height="560" hidden>
+      <div class="window-body konsole-app">
+        <nav id="console-menubar" class="native-menubar" aria-label="Konsole 菜单" hidden></nav>
+        <div class="native-toolbar"><button id="console-new" type="button" data-icon="tab-new" title="新建标签页 (Ctrl+Shift+T)">新建标签页</button><button id="console-split" type="button" data-icon="view-split-left-right" aria-pressed="false">拆分视图</button><span class="toolbar-spacer"></span><button id="console-copy" type="button" data-icon="edit-copy"><span class="tool-label">复制</span></button><button id="console-paste" type="button" data-icon="edit-paste"><span class="tool-label">粘贴</span></button><button id="console-find" type="button" data-icon="edit-find"><span class="tool-label">查找…</span></button><button id="console-menu" type="button" class="icon-button" data-icon="application-menu" aria-label="Konsole 菜单" aria-haspopup="menu"></button></div>
+        <div id="console-sessions"></div>
+        <div id="console-findbar" class="native-findbar" hidden><label for="console-search">查找：</label><input id="console-search" type="search" autocomplete="off"><button id="console-find-close" type="button" class="icon-button" data-icon="window-close" aria-label="关闭查找"></button></div>
+        <div id="console-tabs" class="native-tabs console-tabs" role="tablist" aria-label="终端会话"></div>
+        <footer class="statusbar console-status"><span id="console-directory"></span><span>UTF-8</span></footer>
+      </div>
+    </section>
+
+    <section id="editor-window" class="window" data-window="editor" data-title="untitled.js — Kate" data-width="1040" data-height="670" hidden>
+      <div class="window-body code-editor">
+        <nav id="editor-menubar" class="native-menubar" aria-label="Kate 菜单"></nav>
+        <div class="native-toolbar kate-toolbar">
+          <button id="editor-new" type="button" data-icon="document-new">新建</button><button id="editor-open" type="button" data-icon="document-open">打开…</button><span class="toolbar-separator"></span><button id="editor-save" type="button" data-icon="document-save">保存</button><button id="editor-save-as" type="button" data-icon="document-save-as"><span class="tool-label">另存为…</span></button><span class="toolbar-separator"></span><button id="editor-undo" type="button" data-icon="edit-undo"><span class="tool-label">撤销</span></button><button id="editor-redo" type="button" data-icon="edit-redo"><span class="tool-label">重做</span></button><span class="toolbar-spacer"></span><button id="editor-run" type="button" data-icon="media-playback-start" title="运行 (F5)">运行</button><button id="editor-stop" type="button" class="icon-button" data-icon="media-playback-stop" aria-label="停止运行" disabled></button>
+        </div>
+        <div class="kate-workspace">
+          <nav class="kate-rail"><button id="editor-sidebar-toggle" class="selected" type="button" data-icon="view-list-details" title="文档" aria-label="文档侧栏"></button><button id="editor-api" type="button" data-icon="help-contents" title="JavaScript API" aria-label="JavaScript API"></button></nav>
+          <aside id="editor-sidebar"><header><span data-icon="kate">文档</span></header><div id="editor-documents"></div></aside>
+          <div class="kate-center">
+            <div class="kate-tabbar"><div id="editor-tabs" class="native-tabs" role="tablist" aria-label="文档标签"></div><button id="editor-split" type="button" class="icon-button" data-icon="view-split-left-right" title="拆分视图" aria-label="拆分编辑器" aria-pressed="false"></button></div>
+            <div id="editor-path" class="editor-breadcrumb"></div>
+            <div class="code-panes"><div id="editor-code"></div><div id="editor-code-split" hidden></div></div>
+            <section id="editor-output-panel" class="dock-panel" hidden><header><span>输出</span><button id="editor-output-close" type="button" aria-label="关闭输出">×</button></header><pre id="editor-output" role="log" aria-label="运行输出" aria-live="polite"></pre></section>
+          </div>
+        </div>
+        <footer class="statusbar kate-status"><button id="editor-output-toggle" type="button" data-icon="view-list-details" aria-pressed="false">输出</button><button id="editor-find" type="button" data-icon="edit-find">搜索</button><button id="editor-terminal" type="button" data-icon="konsole">终端</button><span class="toolbar-spacer"></span><span id="editor-status"></span><span id="editor-position">1:1</span><span class="optional-status">INSERT</span><span class="optional-status">空格：2</span><span>UTF-8</span><span id="editor-language">JavaScript</span></footer>
+        <input id="editor-name" value="untitled.js" hidden><textarea id="editor-text" hidden></textarea>
+      </div>
+    </section>
+
+    <section id="http-window" class="window" data-window="http" data-title="HTTP — Konqueror" data-width="900" data-height="640" hidden>
+      <div class="window-body network-client">
+        <nav id="network-menubar" class="native-menubar" aria-label="HTTP 菜单"></nav>
+        <form id="network-form">
+          <div class="native-toolbar"><button id="network-history-toggle" type="button" class="icon-button" data-icon="view-list-details" aria-label="请求历史"></button><select id="network-method" aria-label="请求方法"><option>GET</option><option>POST</option></select><input id="network-path" aria-label="请求路径" value="/api/" maxlength="300" spellcheck="false"><button id="network-stop" type="button" class="icon-button" data-icon="media-playback-stop" aria-label="停止请求"></button><button id="network-send" type="submit" data-icon="go-next">发送</button></div>
+          <div class="request-tabs native-tabs" role="tablist"><button type="button" data-request-tab="headers" role="tab" aria-selected="true">Headers</button><button type="button" data-request-tab="body" role="tab" aria-selected="false">Body</button></div>
+          <div id="network-headers-panel" class="request-panel"><label class="sr-only" for="network-headers">Headers</label><textarea id="network-headers" spellcheck="false" aria-label="请求 Headers"></textarea></div>
+          <div id="network-body-panel" class="request-panel" hidden><label class="sr-only" for="network-body">Body</label><textarea id="network-body" spellcheck="false" aria-label="请求 Body"></textarea></div>
+        </form>
+        <div class="network-response"><aside id="network-sidebar"><header>历史记录</header><div id="network-history"></div></aside><div class="response-pane"><header class="dock-header"><span>响应</span><button id="network-clear" type="button" class="icon-button" data-icon="edit-clear" aria-label="清空响应"></button></header><pre id="network-output" role="log" aria-live="polite"></pre></div></div>
+        <footer class="statusbar"><span id="network-status"></span><span id="network-time"></span><span id="network-size"></span></footer>
+      </div>
+    </section>
+
+    <section id="viewer-window" class="window" data-window="viewer" data-title="Okular" data-width="920" data-height="650" hidden>
+      <div class="window-body viewer">
+        <nav id="viewer-menubar" class="native-menubar" aria-label="查看器菜单"></nav>
+        <div class="native-toolbar viewer-toolbar">
+          <button id="viewer-side" type="button" data-icon="view-list-icons" aria-pressed="true"><span class="tool-label">侧栏</span></button><button id="viewer-open" type="button" data-icon="document-open"><span class="tool-label">打开</span></button><button id="viewer-download" type="button" class="icon-button" data-icon="document-save-as" aria-label="另存为"></button><span class="toolbar-separator"></span><button id="viewer-prev" type="button" class="icon-button" data-icon="go-previous" aria-label="上一页"></button><div id="viewer-page-controls"><input id="viewer-page" type="number" min="1" value="1" aria-label="页码"><span id="viewer-pages">/ 1</span></div><button id="viewer-next" type="button" class="icon-button" data-icon="go-next" aria-label="下一页"></button><span class="toolbar-spacer"></span><button id="viewer-zoom-out" type="button" class="icon-button" data-icon="zoom-out" aria-label="缩小"></button><select id="viewer-zoom" aria-label="缩放"><option value="fit">适合宽度</option><option value="50">50%</option><option value="75">75%</option><option value="100" selected>100%</option><option value="125">125%</option><option value="150">150%</option><option value="200">200%</option><option value="400">400%</option></select><span id="viewer-zoom-label"></span><button id="viewer-zoom-in" type="button" class="icon-button" data-icon="zoom-in" aria-label="放大"></button><button id="viewer-fit" type="button" class="icon-button" data-icon="zoom-fit-best" aria-label="适合宽度"></button><button id="viewer-rotate" type="button" data-icon="view-refresh" hidden>旋转</button>
+        </div>
+        <div class="viewer-workspace"><aside id="viewer-sidebar"><header id="viewer-sidebar-title">缩略图</header><div id="viewer-thumbnails"></div></aside><div id="viewer-content"><div id="viewer-sheet"></div></div></div>
+        <div id="viewer-findbar" class="native-findbar" hidden><label for="viewer-search">查找：</label><input id="viewer-search" type="search" autocomplete="off"><span id="viewer-find-result"></span><button id="viewer-find-close" type="button" class="icon-button" data-icon="window-close" aria-label="关闭查找"></button></div>
+        <footer class="statusbar"><span id="viewer-path"></span><button id="viewer-find" type="button" data-icon="edit-find" aria-label="查找"></button><button id="viewer-edit" type="button">编辑</button><button id="viewer-hex" type="button">十六进制</button><span id="viewer-size"></span><span id="viewer-format"></span></footer>
+      </div>
+    </section>
+
+    <section id="notes-window" class="window" data-window="notes" data-title="notes.txt — KWrite" data-width="760" data-height="590" hidden>
+      <div class="window-body notebook">
+        <nav id="notes-menubar" class="native-menubar" aria-label="KWrite 菜单"></nav>
+        <div class="native-toolbar"><button id="notes-save" type="button" data-icon="document-save">保存</button><button id="export-notes" type="button" data-icon="document-save-as">另存为…</button><span class="toolbar-separator"></span><button id="notes-undo" type="button" data-icon="edit-undo">撤销</button><button id="notes-redo" type="button" data-icon="edit-redo">重做</button><span class="toolbar-spacer"></span><button id="notes-find" type="button" class="icon-button" data-icon="edit-find" aria-label="查找"></button></div>
+        <div id="notes-code"></div><textarea id="notes-input" maxlength="30000" hidden></textarea>
+        <fieldset class="receipt-fields" hidden><legend>回执</legend><label><span>01</span><input data-receipt="1" type="text" maxlength="35" spellcheck="false" autocomplete="off"></label><label><span>02</span><input data-receipt="2" type="text" maxlength="35" spellcheck="false" autocomplete="off"></label><label><span>03</span><input data-receipt="3" type="text" maxlength="35" spellcheck="false" autocomplete="off"></label><label><span>04</span><input data-receipt="4" type="text" maxlength="35" spellcheck="false" autocomplete="off"></label></fieldset>
+        <footer class="statusbar"><button id="notes-receipts" type="button" data-icon="view-list-details">回执</button><span id="notes-status"></span><span class="toolbar-spacer"></span><span id="notes-position">1:1</span><span>UTF-8</span><span>纯文本</span></footer>
+      </div>
+    </section>
+
+    <section id="completion" class="window" data-window="proof" data-title="通关凭证" data-width="690" data-height="510" hidden>
+      <div class="window-body completion-body"><h1 tabindex="-1">10 / 10</h1><label for="proof-output">通关凭证</label><textarea id="proof-output" rows="4" readonly spellcheck="false"></textarea><div class="button-row"><button id="download-proof" class="button primary" type="button">保存</button><button id="copy-proof" class="button" type="button">复制</button><button id="revisit-button" class="button" type="button">返回</button></div>
+        <details class="proof-verify"><summary>验证凭证</summary><form id="verify-form"><label class="sr-only" for="verify-input">凭证</label><textarea id="verify-input" rows="3" maxlength="2048" required spellcheck="false"></textarea><button class="button" type="submit">验证</button><p id="verify-result" role="status"></p></form></details>
+      </div>
+    </section>
+
+    <nav id="launcher" class="launcher" aria-label="应用程序" hidden><header><span class="user-avatar">A</span><span>Arisaka</span><span id="player-label" class="mono"></span></header><div class="launcher-search"><span data-icon="edit-find"></span><input id="launcher-search" type="search" aria-label="搜索应用程序" placeholder="搜索…" autocomplete="off"></div><div class="launcher-grid">
+      <button type="button" data-launch="files"><span class="app-icon"></span><span>Dolphin</span></button><button type="button" data-launch="console"><span class="app-icon"></span><span>Konsole</span></button><button type="button" data-launch="editor"><span class="app-icon"></span><span>Kate</span></button><button type="button" data-launch="http"><span class="app-icon"></span><span>Konqueror</span></button><button type="button" data-launch="viewer"><span class="app-icon"></span><span>Okular</span></button><button type="button" data-launch="notes"><span class="app-icon"></span><span>KWrite</span></button></div><footer><button id="restart-button" type="button">⏻ 重开</button></footer></nav>
+    <footer class="plasma-panel"><button id="launcher-button" type="button" aria-label="应用程序"></button><div class="panel-divider"></div><nav id="tasks" aria-label="任务栏"></nav><div class="system-tray"><span class="connection"><i></i><span id="connection-label"></span></span><div class="clock"><time id="clock-time"></time><span id="clock-date"></span></div><button id="show-desktop" type="button" aria-label="显示桌面"></button></div></footer>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+  <dialog id="restart-dialog"><h2>重开</h2><p>当前浏览器将切换到新存档。</p><div class="button-row"><button class="button" data-close type="button">取消</button><button id="confirm-restart" class="button primary" type="button">确定</button></div></dialog>
+  <noscript>JavaScript</noscript>
+</body>
+</html>

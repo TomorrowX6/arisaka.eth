@@ -1,0 +1,27 @@
+Minecraft 1.12.2 / Eaglercraft u3
+
+The runtime binaries are the Eaglercraft 1.12.2 u3 distributions listed at:
+https://dev.eaglercraft.com/p/downloads
+
+WebAssembly archive:
+https://cdn.eaglercraft.ru/dl/1.12.2/Eaglercraft_1.12.2_u3_WASM_Offline.zip
+SHA-256: 6a16e549b293ffca7a787fccb7f5ca77eca688d34ca3ca6170b8dfdd82eabea7
+
+JavaScript archive:
+https://cdn.eaglercraft.ru/dl/1.12.2/Eaglercraft_1.12.2_u3_Offline.zip
+SHA-256: 5797a24950c3eefb665a7158fb648440924352ad19d120efe3a07f125b0d7834
+
+Arisaka's build extracts the original program and binary resource bytes,
+compresses the JavaScript program without modifying it, and replaces the
+offline HTML countdown with the desktop launcher. The original compiled
+programs, artwork, and resource packs remain the work of their respective
+authors. Minecraft is a trademark of Mojang Studios / Microsoft. This
+desktop integration is not an official Minecraft product.
+
+Reproducible preparation and integration source:
+https://github.com/TomorrowX6/arisaka.eth/tree/feat/plasma-expert-campaign/workers/ctf-game/runtime
+
+Firefox is loaded from the upstream HeyPuter application, including its
+supported networking service, and is not redistributed by this Worker:
+https://github.com/HeyPuter/firefox-wasm (Mozilla Public License 2.0)
+https://developer.puter.com/labs/firefox-wasm/

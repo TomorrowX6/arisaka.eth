@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.wrangler/
+.private/
+.dev.vars*
+!.dev.vars.example
+public/_puzzles/
+public/vendor/
+src/generated/
+worker-configuration.d.ts
+runtime/yesplaymusic/.build/
+!runtime/yesplaymusic/package-lock.json

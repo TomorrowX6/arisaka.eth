@@ -1,0 +1,45 @@
+---
+import deployment from "../data/ctf-deployment.json";
+
+export function getStaticPaths() {
+	if (!/^[a-z0-9]{20}$/.test(deployment.entrance)) {
+		throw new Error("Generate the terminal entrance before building the blog.");
+	}
+	return [{ params: { ctfEntrance: deployment.entrance } }];
+}
+
+const configured = import.meta.env.PUBLIC_CTF_URL?.trim();
+const target = configured || (import.meta.env.DEV ? "http://localhost:8788/" : deployment.url);
+const entry = Astro.params.ctfEntrance;
+if (target) {
+	const parsed = new URL(target);
+	const local = import.meta.env.DEV && ["localhost", "127.0.0.1"].includes(parsed.hostname);
+	if (
+		(parsed.protocol !== "https:" && !(local && parsed.protocol === "http:")) ||
+		parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash
+	) {
+		throw new Error("PUBLIC_CTF_URL must be the HTTPS origin of the CTF Worker.");
+	}
+}
+---
+<!doctype html>
+<html lang="zh-CN">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<meta name="robots" content="noindex, nofollow" />
+		<meta name="referrer" content="no-referrer" />
+		<title>Arisaka</title>
+	</head>
+	<body>
+		<main id="entrance-status" role="status"></main>
+		<script is:inline define:vars={{ target, entry }}>
+			if (target) window.location.replace(target + "#entry=" + entry);
+			else document.getElementById("entrance-status").textContent = "未开放";
+		</script>
+	</body>
+</html>
+<style>
+	:global(body) { margin: 0; background: #1b2025; color: #eff0f1; font: 14px system-ui, sans-serif; }
+	main { display: grid; place-items: center; min-height: 100vh; }
+</style>

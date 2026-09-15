@@ -1,0 +1,118 @@
+/* Application colors follow Breeze's View, Window and Selection color sets. */
+:root {
+  --ui-font: "Noto Sans", "Noto Sans CJK SC", sans-serif;
+  --ui-font-size: 13px;
+  --mono-size: 13px;
+  --bg: #1b1e20;
+  --panel: #2a2e32;
+  --raised: #31363b;
+  --header: var(--raised);
+  --sidebar: #232629;
+  --ink: #fcfcfc;
+  --muted: #a1a9b1;
+  --line: #4d5257;
+  --border: color-mix(in srgb, var(--ink) 26%, var(--panel));
+  --deep: color-mix(in srgb, var(--bg) 92%, #000);
+  --edge: color-mix(in srgb, var(--ink) 10%, var(--panel));
+  --inactive: var(--panel);
+  --hover: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  --selected: color-mix(in srgb, var(--accent) 28%, var(--bg));
+  --shell-bg: #232629;
+  --shell-ink: #eff0f1;
+  --shell-muted: #a1a9b1;
+  --syntax-keyword: #c792ea;
+  --syntax-string: #f07178;
+  --syntax-number: #f78c6c;
+  --syntax-function: #82aaff;
+  --syntax-type: #ffcb6b;
+  --syntax-operator: #89ddff;
+  --syntax-property: #c3e88d;
+  --panel-size: 44px;
+  --decoration-spacing: 2px;
+  --titlebar-button-size: 20px;
+  --titlebar-height: 28px;
+  --window-radius: 5px;
+  --panel-gap: 8px;
+  --work-x: 8px;
+  --work-y: 8px;
+  --work-width: calc(100vw - 16px);
+  --work-height: calc(100dvh - 80px);
+  color-scheme: dark;
+  font: var(--ui-font-size)/1.5 var(--ui-font);
+}
+:root[data-theme="breeze-light"], :root[data-theme="breeze-twilight"] {
+  color-scheme: light;
+  --bg: #fff;
+  --panel: #eff0f1;
+  --raised: #fafafa;
+  --header: var(--panel);
+  --sidebar: #f6f7f7;
+  --ink: #232629;
+  --muted: #61676b;
+  --line: #b9bec2;
+  --green: #19783f;
+  --red: #b52035;
+  --deep: color-mix(in srgb, var(--panel) 90%, #000);
+  --syntax-keyword: #7c3a94;
+  --syntax-string: #a3273a;
+  --syntax-number: #985315;
+  --syntax-function: #21638b;
+  --syntax-type: #795615;
+  --syntax-operator: #226277;
+  --syntax-property: #467019;
+}
+:root[data-theme="breeze-light"] { --shell-bg: #eff0f1; --shell-ink: #232629; --shell-muted: #61676b; }
+:root[data-theme="nord"] { --bg: #242933; --panel: #2e3440; --raised: #3b4252; --sidebar: #292e39; --ink: #eceff4; --muted: #c0c8d7; --line: #4c566a; --shell-bg: #2e3440; }
+:root[data-theme="dracula"] { --bg: #21222c; --panel: #282a36; --raised: #343746; --sidebar: #232530; --ink: #f8f8f2; --muted: #b3b7d0; --line: #555978; --shell-bg: #282a36; }
+:root[data-theme="contrast"] { --bg: #080808; --panel: #151515; --raised: #252525; --sidebar: #101010; --ink: #fff; --muted: #eee; --line: #aaa; --shell-bg: #151515; --shell-muted: #eee; --border: #aaa; --edge: #777; }
+body { font: inherit; }
+body, .window, .wallpaper { cursor: var(--desktop-cursor, default); }
+.shortcut-settings { display: grid; gap: 10px; }
+.shortcut-settings label { display: grid; grid-template-columns: minmax(120px, 1fr) minmax(160px, 1.3fr); align-items: center; gap: 12px; }
+.shortcut-settings input { min-width: 0; font-family: var(--mono); font-size: 12px; }
+@media(max-width: 640px) { .shortcut-settings label { grid-template-columns: 1fr; gap: 4px; } }
+button, input, select, textarea { color: var(--ink); }
+button:hover:not(:disabled) { background: var(--hover); }
+button:active:not(:disabled), button.selected, [aria-selected="true"] { background-color: var(--selected); }
+button, input, select, textarea, dialog { border-color: var(--border); }
+dialog, .native-dialog { background: var(--panel); }
+.button.primary { background: var(--accent); border-color: color-mix(in srgb, var(--accent) 85%, var(--ink)); color: #fff; }
+.button.primary:hover { background: color-mix(in srgb, var(--accent) 85%, #fff); }
+:root[data-theme="contrast"] .button.primary { color: #111; }
+.window.focused .window-title { color: var(--ink); }
+.window.focused .window-titlebar, .window-titlebar, .native-toolbar, .application-toolbar { background: var(--header); }
+.window:not(.focused) .window-titlebar { background: var(--inactive); }
+:root[data-theme="breeze-twilight"] .window-titlebar, :root[data-theme="breeze-twilight"] .window.focused .window-titlebar { background: #31363b; --ink: #eff0f1; --muted: #b5b8ba; }
+.native-menu, .native-dialog, .toast { background: var(--panel); color: var(--ink); border-color: var(--border); }
+.toolbar-separator { background: var(--line); }
+.statusbar, .native-findbar { border-color: var(--edge); }
+.file-item, .file-sidebar .place, .file-grid, .native-menubar > button { color: var(--ink); }
+.native-toolbar button, .statusbar button, .native-menubar > button { font-size: .93rem; }
+.console-terminal, .konsole { font-size: var(--mono-size); }
+.cm-editor, #editor-output, .hex-table, .packet-detail { font-size: var(--mono-size); }
+.cm-editor .cm-gutters { color: var(--muted); background: var(--sidebar); border-color: var(--edge); }
+.cm-editor .cm-activeLine, .cm-editor .cm-activeLineGutter { background: color-mix(in srgb, var(--accent) 8%, var(--bg)); }
+.cm-editor .cm-content { caret-color: var(--ink); }
+.cm-editor .cm-selectionBackground, .cm-editor.cm-focused .cm-selectionBackground, .cm-editor ::selection { background: var(--selected); }
+.cm-editor .cm-searchMatch { background: color-mix(in srgb, #fdbc4b 30%, var(--bg)); outline: 1px solid #b08825; }
+.cm-editor .cm-panels { background: var(--panel); color: var(--ink); border-color: var(--line); }
+.wallpaper { background-color: var(--wallpaper-color, #1c2734); }
+:root[data-wallpaper="nuvole"] .wallpaper, :root[data-wallpaper="mountain"] .wallpaper, :root[data-wallpaper="flow"] .wallpaper, :root[data-wallpaper="scarlet"] .wallpaper, :root[data-wallpaper="custom"] .wallpaper {
+  background-image: var(--wallpaper-image);
+  background-position: center;
+  background-size: var(--wallpaper-fit, cover);
+  background-repeat: var(--wallpaper-repeat, no-repeat);
+}
+:root:not([data-wallpaper="breeze"]) .wallpaper i { display: none; }
+:root[data-wallpaper="aurora"] .wallpaper { background: radial-gradient(ellipse at 18% 0%, #63947a 0%, transparent 52%), conic-gradient(from 195deg at 63% 110%, #142a38, #3d7e70, #0c343d 36%, #1a213a 55%, #142a38); }
+:root[data-wallpaper="midnight"] .wallpaper { background: radial-gradient(ellipse at 30% 85%, #344785, transparent 60%), conic-gradient(from 230deg at 80% 70%, #11121f, #3b3565, #151829, #32294c, #11121f); }
+:root[data-wallpaper="sand"] .wallpaper { background: radial-gradient(ellipse at 12% 140%, #b7896c 30%, transparent 30.2%), radial-gradient(ellipse at 75% 120%, #92664f 55%, transparent 55.2%), linear-gradient(165deg, #b9bec8, #e5c8a5 55%, #cfa273); }
+:root[data-wallpaper="solid"] .wallpaper { background: var(--wallpaper-color); }
+#desktop::after { content: ""; position: fixed; inset: 0; z-index: 190000; background: #ff9200; opacity: var(--night-opacity, 0); pointer-events: none; mix-blend-mode: multiply; }
+:root[data-desktop-icons="false"] .desktop-icons { display: none; }
+:root[data-motion="off"] *, :root[data-motion="off"] *::before, :root[data-motion="off"] *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+:root[data-transparency="reduced"] .plasma-panel, :root[data-transparency="reduced"] .launcher, :root[data-transparency="reduced"] .tray-popup, :root[data-transparency="reduced"] .krunner { background: var(--shell-bg); backdrop-filter: none; }
+:root[data-theme="breeze-light"] .action-icon { filter: brightness(.6); }
+.font-preview { padding: 25px; margin: 20px 0; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+.font-preview p { margin-bottom: 15px; }
+.font-preview pre { font: var(--mono-size)/1.7 var(--mono); }
