@@ -43,7 +43,7 @@ export function pickFile(fs, open, initial = HOME) {
 
 export function createFileManager(controls) {
   const { fs, windows } = controls;
-  const panes = [$('#files-primary'), $('#files-secondary')].map((node) => ({ node, grid: $('.file-grid', node), path: HOME, history: [], position: -1, selected: new Set(), entries: [], generation: 0 }));
+  const panes = [$('#files-primary'), $('#files-secondary')].map((node) => ({ node, grid: $('.file-grid', node), path: HOME, history: [], position: -1, selected: new Set(), entries: [], generation: 0, refreshGeneration: 0 }));
   let active = panes[0], split = false, mode = 'icons', hidden = false, filter = '', clipboard;
   let iconSize = 56;
   let sortBy = 'name', reversed = false;
@@ -148,7 +148,19 @@ export function createFileManager(controls) {
   }
   const selected = () => active.entries.filter((entry) => active.selected.has(entry.path));
   const openSelected = () => Promise.all(selected().map(open));
-  const refresh = () => Promise.all(panes.filter((pane) => !pane.node.hidden).map((pane) => navigate(pane.path, pane, false)));
+  const refresh = () => Promise.all(panes.filter((pane) => !pane.node.hidden).map(async (pane) => {
+    // Refresh metadata without superseding an in-flight folder navigation.
+    const path = pane.path, generation = pane.generation, refreshGeneration = ++pane.refreshGeneration;
+    const current = () => pane.path === path && pane.generation === generation && pane.refreshGeneration === refreshGeneration;
+    try {
+      const entries = await fs.entries(path);
+      if (!current()) return;
+      pane.entries = entries;
+      const paths = new Set(entries.map(entry => entry.path));
+      for (const selected of pane.selected) if (!paths.has(selected)) pane.selected.delete(selected);
+      render(pane);
+    } catch (error) { if (current()) report(error); }
+  }));
   async function back(delta) {
     const index = active.position + delta;
     if (index < 0 || index >= active.history.length) return;

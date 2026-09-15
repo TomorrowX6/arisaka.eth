@@ -154,8 +154,7 @@ function closeWorkbench() {
 async function loadCase(number, show = true) {
   if (!state.started || state.outdated || number > Math.min(state.stage, totalCases())) return;
   if (current?.id === number && workbenchReady) {
-    renderFiles();
-    if (show) await openCaseApplication(current);
+    if (show) { renderFiles(); await openCaseApplication(current); }
     return;
   }
   windows.close('workbench');
@@ -172,7 +171,8 @@ async function loadCase(number, show = true) {
     current = record;
     system.setCase(record);
     history.replaceState(null, '', '#case-' + number);
-    renderFiles(); renderIndex();
+    if (show) renderFiles();
+    renderIndex();
     if (nativeCases.has(record.widget)) {
       workbenchReady = true; workbenchLoading = false;
       if (show) await openCaseApplication(record);

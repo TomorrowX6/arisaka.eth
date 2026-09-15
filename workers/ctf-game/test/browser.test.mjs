@@ -529,6 +529,43 @@ test('Dolphin groups all cases in one folder and reports access denied when open
   } finally { await context.close(); }
 });
 
+test('Dolphin completes a case-folder navigation when a delayed boot refresh arrives', { timeout: 60000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  const held = [], errors = [];
+  let requests = 0;
+  page.on('pageerror', error => errors.push(error.message));
+  await page.route('**/api/cases/1', async route => {
+    const index = requests++;
+    const response = await route.fetch();
+    await new Promise(resolve => { held[index] = resolve; });
+    await route.fulfill({ response });
+  });
+  try {
+    const start = await context.request.post(base + '/api/start', { data: { entry: entryToken }, headers: { 'X-Afterglow': '1' } });
+    assert.equal(start.status(), 200);
+    await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#desktop')).toBeVisible();
+    await expect.poll(() => held.filter(Boolean).length).toBe(1);
+    await page.locator('#files-home').click();
+    await page.locator('#files-primary [data-file-path="/home/user/档案"]').dblclick();
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
+    await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').dblclick();
+    await expect.poll(() => held.filter(Boolean).length).toBe(2);
+    held[0]();
+    await page.waitForURL('**/#case-1');
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
+    held[1]();
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案/01');
+    await expect(page.locator('#files-primary [data-file-path="/home/user/档案/01/objects.pack"]')).toBeVisible();
+    assert.deepEqual(errors, []);
+  } finally {
+    held.forEach(release => release());
+    await page.unrouteAll({ behavior: 'wait' });
+    await context.close();
+  }
+});
+
 test('window motion survives rapid minimize, restore, close, and reopen', { timeout: 60000 }, async () => {
   const { context, page, errors } = await desktop({ viewport: { width: 1525, height: 998 } });
   try {

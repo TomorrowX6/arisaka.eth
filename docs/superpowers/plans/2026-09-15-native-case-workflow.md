@@ -85,6 +85,9 @@ recovery.reset() // invalidate queued and in-flight UI callbacks
   desktop buttons, active state and switching behavior.
 - [x] Update application paths, help and campaign coverage. Check the folder and
   dialog in the browser at desktop and small-screen sizes.
+- [x] Keep background metadata refresh separate from explicit folder navigation.
+  Reproduce delayed boot and user requests in a browser test, preserve the browsed
+  directory during initial loading, and let the requested folder open afterward.
 
 ## Task 4: Independent campaign verification and publication
 
@@ -108,12 +111,17 @@ temporary auth files and close task-owned dev servers/browser sessions.
 
 - Node 22.23.2: type checking and production dry-run build passed; Node tests
   passed 43/43 and Worker Vitest tests passed 30/30.
-- Final full browser suite passed 51/51, including every case in the independent
+- Initial full browser suite passed 51/51, including every case in the independent
   26-case campaign. No failures, cancellations or skipped tests.
+- The follow-up delayed-navigation regression was observed failing before the
+  refresh and initial-loading fixes, then passed with the real application and
+  Worker responses. The complete 26-case campaign passed again afterward.
 - Recovery unit coverage includes seven tests, with an explicit regression for
   unverified metadata in an `already-solved` response.
 - Integrated review found no remaining important production issue after fixing
   stale session refreshes, background terminal focus, deferred write contexts,
   idempotent metadata handling and editor tab persistence.
+- Follow-up review confirmed that metadata refresh preserves pending navigation,
+  the active pane and surviving selections while discarding stale responses.
 - Desktop and 720 × 480 screenshots confirm grouped cases, the access-denied
   dialog and the pager without window miniatures. Screenshots stay private.

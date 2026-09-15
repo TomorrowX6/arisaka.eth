@@ -34,6 +34,9 @@ and durable document saves.
 - Retain the old `~/01/...` paths as unlisted compatibility aliases for saved
   scripts and editor tabs. Both path forms remain read-only and enforce the same
   server-backed access rules.
+- Background folder refreshes must not cancel a pending user navigation or change
+  the active pane. Loading initial case metadata must preserve the directory the
+  user is already browsing; only an explicit case launch changes that directory.
 
 ## Recovery bridge
 
