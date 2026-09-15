@@ -39,9 +39,9 @@
 #launcher-button:hover, #launcher-button[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 18%, transparent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 .panel-divider { height: 62%; width: 1px; background: color-mix(in srgb, var(--shell-ink) 20%, transparent); margin: 0 4px; }
 #desktop-pager { display: grid; grid-template-columns: repeat(2, 19px); gap: 3px; align-content: center; flex-shrink: 0; padding: 0 4px; }
-#desktop-pager button { position: relative; overflow: hidden; height: 15px; width: 19px; padding: 0; border-radius: 2px; background: #ffffff08; border: 1px solid #ffffff35; color: var(--shell-muted); }
-#desktop-pager button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 32%, transparent); border-color: var(--accent); }
-#desktop-pager .pager-number { position: relative; z-index: 1; font-size: 8px; line-height: 12px; }
+#desktop-pager button { position: relative; display: grid; place-items: center; overflow: hidden; height: 15px; width: 19px; padding: 0; border-radius: 2px; background: #ffffff08; border: 1px solid #ffffff35; color: var(--shell-muted); }
+#desktop-pager button[aria-pressed="true"] { background: color-mix(in srgb, var(--accent) 32%, transparent); border-color: var(--accent); color: var(--shell-ink); }
+#desktop-pager .pager-number { position: relative; z-index: 1; font-size: 8px; line-height: 12px; text-shadow: 0 1px 2px #000; }
 #desktop-pager i { position: absolute; display: block; border: 1px solid color-mix(in srgb, var(--shell-ink) 50%, transparent); background: color-mix(in srgb, var(--shell-ink) 20%, transparent); }
 .system-tray { display: flex; align-items: center; gap: 1px; padding-left: 5px; height: 100%; margin-left: auto; }
 .tray-button { position: relative; width: 30px; height: 32px; padding: 5px; background: transparent; border-color: transparent; display: grid; place-items: center; }
