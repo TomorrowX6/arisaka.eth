@@ -7,6 +7,7 @@ import { randomPath, seal, seededRandom, sha256, splitSecret } from './core.mjs'
 import { stereoTransmission } from './formats.mjs';
 import { glassMachine, imagePair, qrFragments, signedArchive } from './puzzles.mjs';
 import { buildUI } from './build-ui.mjs';
+import { verifyPublicAssets } from './public-assets.mjs';
 import { gitEvidence } from './expert/git.mjs';
 import { tlsEvidence } from './expert/tls.mjs';
 import { walEvidence } from './expert/wal.mjs';
@@ -31,6 +32,7 @@ import { frostEvidence, frostGroupMaterial } from './expert/frost.mjs';
 import { rs16Evidence, rs16CustodyMaterial } from './expert/rs16.mjs';
 import { bpfEvidence } from './expert/bpf.mjs';
 import { mlkemEvidence } from './expert/mlkem.mjs';
+import { radioEvidence } from './expert/radio.mjs';
 import caseWidgets from '../src/case-catalog.json' with { type: 'json' };
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -65,7 +67,7 @@ export async function generate(seed) {
   const version = edition(caseWidgets.length);
   // An explicit append-only release lineage, not a blanket acceptance of any
   // old version. Bump the domain above for an incompatible artifact change.
-  const compatibleEditions = [26, 29, 31, 32].filter(cases => cases < caseWidgets.length).map(cases => ({ version: edition(cases), cases }));
+  const compatibleEditions = [26, 29, 31, 32, 33].filter(cases => cases < caseWidgets.length).map(cases => ({ version: edition(cases), cases }));
   const entryToken = randomPath(seededRandom(seed, 'terminal-entry-route'));
   const codes = Array.from({ length: caseWidgets.length }, (_, i) => randomPath(seededRandom(seed, 'code/' + (i + 1))));
   const finalKey = seededRandom(seed, 'final-key')(16);
@@ -132,6 +134,7 @@ export async function generate(seed) {
     31: rs16Evidence(codes[30], seededRandom(seed, 'rs16-evidence')),
     32: bpfEvidence(codes[31], [frostGroupMaterial(seededRandom(seed, 'frost-evidence')), rs16CustodyMaterial(seededRandom(seed, 'rs16-evidence'))], seededRandom(seed, 'bpf-evidence')),
     33: mlkemEvidence(codes[32], seededRandom(seed, 'mlkem-evidence')),
+    34: radioEvidence(codes[33], seededRandom(seed, 'radio-evidence')),
   };
   const files = Object.fromEntries(Object.entries(artifacts).map(([stage, entries]) => [stage, Object.keys(entries)]));
   const manifest = {
@@ -199,6 +202,7 @@ export async function build({ syncEntrance = false } = {}) {
   await writeFile(resolve(root, 'public', 'vendor', 'jsQR-LICENSE.txt'),
     await readFile(resolve(dirname(require.resolve('jsqr')), '..', 'LICENSE')));
   await buildUI();
+  await verifyPublicAssets(root);
   if (syncEntrance) await publishEntrance(generated);
   console.log('Generated ' + caseWidgets.length + ' cases for edition ' + generated.manifest.version + '. Answers remain private.');
   return generated;
