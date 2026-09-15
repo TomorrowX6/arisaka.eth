@@ -10,5 +10,5 @@
     "skipLibCheck": true,
     "resolveJsonModule": true
   },
-  "include": ["src/**/*.ts", "runtime/worker.ts", "test/**/*.ts", "vitest.config.ts", "worker-configuration.d.ts"]
+  "include": ["src/**/*.ts", "runtime/*.ts", "test/**/*.ts", "vitest.config.ts", "worker-configuration.d.ts"]
 }
