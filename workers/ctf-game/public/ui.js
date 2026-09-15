@@ -155,6 +155,20 @@ export function askSave(name) {
   });
 }
 
+export function showMessage(title, message) {
+  return new Promise((resolve) => {
+    const dialog = document.createElement('dialog'); dialog.className = 'native-dialog'; dialog.setAttribute('aria-label', title);
+    const heading = document.createElement('h2'); heading.textContent = title;
+    const text = document.createElement('p'); text.textContent = message;
+    const row = document.createElement('div'); row.className = 'button-row';
+    const button = document.createElement('button'); button.type = 'button'; button.className = 'button primary'; button.textContent = '确定';
+    button.addEventListener('click', () => dialog.close()); row.append(button);
+    dialog.append(heading, text, row); document.body.append(dialog);
+    dialog.addEventListener('close', () => { dialog.remove(); resolve(); }, { once: true });
+    dialog.showModal(); showSurface(dialog, { effect: 'window', origin: 'center' }); button.focus();
+  });
+}
+
 export function shortcut(event, key, shift = false) {
   return (event.ctrlKey || event.metaKey) && !event.altKey && event.shiftKey === shift && event.key.toLowerCase() === key.toLowerCase();
 }

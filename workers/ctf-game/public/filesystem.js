@@ -7,12 +7,44 @@ const encode = new TextEncoder();
 const decode = new TextDecoder();
 export const HOME = '/home/' + activeProfile().username;
 export const DOCUMENTS = HOME + '/Documents';
+export const CASES = HOME + '/档案';
+export const casePath = (stage) => CASES + '/' + String(stage).padStart(2, '0');
+// Older saved scripts and editor tabs may still use ~/01/... .
+export function caseLocation(path) {
+  const relative = path.startsWith(CASES + '/') ? path.slice(CASES.length + 1) : path.startsWith(HOME + '/') ? path.slice(HOME.length + 1) : '';
+  const match = /^([0-9]{2,3})(?:\/([^/]+))?$/.exec(relative);
+  return match ? { stage: Number(match[1]), name: match[2] || '' } : null;
+}
 export const TRASH = HOME + '/.local/share/Trash/files';
 export const USER_DIRECTORIES = ['Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos', 'Templates', 'Public'].map(name => HOME + '/' + name);
 export const MAX_FILE_SIZE = 32 * 1024 * 1024;
 export const MAX_WORKSPACE_SIZE = 64 * 1024 * 1024;
 export const applicationNames = { terminal: 'Konsole', http: 'HTTP', midi: 'MIDI', shop: 'Exchange', qr: 'Gwenview', audio: 'Haruna', images: 'Gwenview', signature: 'Archive', wasm: 'WebAssembly', final: 'Archive', artifacts: 'Dolphin' };
 const doc = ['JavaScript / Web Crypto / WebAssembly', 'await fs.readFile("/absolute/path") → Uint8Array', 'await fs.readText("/absolute/path") → string', 'await fs.writeFile("filename", string | Uint8Array | ArrayBuffer)', 'console.log(value)'].join('\n');
+const recoveryDoc = [
+  '档案恢复',
+  '',
+  '在主目录的“档案”文件夹中打开关卡，再用相应的应用程序查看、处理文件。',
+  '尚未开放的档案会显示“禁止访问”；恢复前一个档案后即可打开。',
+  '终端使用当前文件夹；HTTP 客户端保留请求、响应和历史记录。',
+  '',
+  '解码完成后，直接输出完整结果，或在 Kate 中将恢复的文档保存到 Documents。',
+  '终端命令与脚本须成功结束，文件须保存成功；只输入文字不会提交结果。',
+  '系统确认恢复后会显示桌面通知，并开放下一个档案文件夹。当前应用会保留。',
+  '已恢复文档中的回执会自动记入便笺。',
+  '',
+  'Konsole',
+  '  pwd / ls                       查看当前位置与文件',
+  '  node /absolute/path/script.js  运行 JavaScript',
+  '  node -e \'console.log("hello")\'  运行一段 JavaScript',
+  '  python3 /absolute/path/tool.py  运行 Python',
+  '  python3 -c \'print("hello")\'     运行一段 Python',
+  '  command | base64               把标准输出传给下一条命令',
+  '  command > ~/Documents/out.txt  保存标准输出',
+  '  Ctrl+C                         中断当前命令',
+  '',
+  '脚本文件 API：/usr/share/doc/javascript.txt',
+].join('\n');
 
 export function normalize(path, base = HOME) {
   const value = String(path).replace(/^~(?=\/|$)/, HOME);
@@ -171,9 +203,10 @@ export function createFilesystem(controls) {
     if (path === HOME + '/.local') return [folder(HOME + '/.local/share')];
     if (path === HOME + '/.local/share') return [folder(HOME + '/.local/share/Trash')];
     if (path === HOME + '/.local/share/Trash') return [folder(TRASH, { icon: 'user-trash' })];
-    if (path === '/usr/share/doc') return [descriptor('/usr/share/doc/javascript.txt')];
+    if (path === '/usr/share/doc') return ['javascript.txt', 'recovery.txt'].map(name => descriptor('/usr/share/doc/' + name));
+    if (path === CASES) return Array.from({ length: totalCases() }, (_, i) => folder(casePath(i + 1), { locked: i + 1 > controls.state().stage, solved: i + 1 < controls.state().stage }));
     if (path === HOME) return [
-      ...Array.from({ length: totalCases() }, (_, i) => folder(HOME + '/' + String(i + 1).padStart(2, '0'), { locked: i + 1 > controls.state().stage })),
+      folder(CASES),
       ...USER_DIRECTORIES.map(path => folder(path, { icon: path === DOCUMENTS ? 'folder-documents' : 'folder' })),
       folder(HOME + '/.config'), folder(HOME + '/.local'), descriptor(HOME + '/notes.txt'), descriptor(HOME + '/receipts.txt'),
     ];
@@ -186,9 +219,9 @@ export function createFilesystem(controls) {
       const result = await controls.api('/api/terminal', { command: 'ls -a ' + path, cwd: '/archive' });
       return result.output.trim().split(/\s+/).filter((name) => name && name !== '.' && name !== '..').map((name) => name.replace(/\/$/, '') === '.cache' ? folder('/archive/.cache') : descriptor(path + '/' + name.replace(/\/$/, '')));
     }
-    const match = new RegExp('^' + HOME + '/([0-9]{2,3})$').exec(path);
-    if (match) {
-      const detail = await record(Number(match[1]));
+    const match = caseLocation(path);
+    if (match && !match.name) {
+      const detail = await record(match.stage);
       return [descriptor(path + '/' + applicationNames[detail.widget] + '.desktop', { kind: 'application', app: detail.widget, icon: detail.widget === 'terminal' ? 'konsole' : ['qr', 'images'].includes(detail.widget) ? 'gwenview' : 'binary' }), ...detail.files.map((file) => descriptor(path + '/' + file.name))];
     }
     throw new Error('ENOTDIR: ' + path);
@@ -201,6 +234,7 @@ export function createFilesystem(controls) {
     if (local.has(path)) return local.get(path).bytes.slice();
     if (Object.hasOwn(systemFiles(), path)) return encode.encode(systemFiles()[path]);
     if (path === '/usr/share/doc/javascript.txt') return encode.encode(doc);
+    if (path === '/usr/share/doc/recovery.txt') return encode.encode(recoveryDoc);
     if (path === HOME + '/notes.txt') return encode.encode(controls.notes().text);
     if (path === HOME + '/receipts.txt') return encode.encode(controls.notes().receipts.filter(Boolean).join('\n'));
     if (path.startsWith('/archive/')) {
@@ -209,13 +243,13 @@ export function createFilesystem(controls) {
       if (result.output.startsWith('cat:')) throw new Error('ENOENT: ' + path);
       return encode.encode(result.output);
     }
-    const match = new RegExp('^' + HOME + '/([0-9]{2,3})/([^/]+)$').exec(path);
-    if (!match) throw new Error('ENOENT: ' + path);
-    const detail = await record(Number(match[1]));
+    const match = caseLocation(path);
+    if (!match?.name) throw new Error('ENOENT: ' + path);
+    const detail = await record(match.stage);
     if (token !== epoch) throw new Error('ECANCELED');
-    if (match[2] === applicationNames[detail.widget] + '.desktop') return encode.encode('[Desktop Entry]\nType=Application\nName=' + applicationNames[detail.widget] + '\nExec=case ' + detail.id + '\n');
+    if (match.name === applicationNames[detail.widget] + '.desktop') return encode.encode('[Desktop Entry]\nType=Application\nName=' + applicationNames[detail.widget] + '\nExec=case ' + detail.id + '\n');
     if (cached.has(path)) { const bytes = cached.get(path); cached.delete(path); cached.set(path, bytes); return bytes.slice(); }
-    const file = detail.files.find((file) => file.name === match[2]);
+    const file = detail.files.find((file) => file.name === match.name);
     if (!file) throw new Error('ENOENT: ' + path);
     const response = await apiFetch(file.url, { credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.timeout(20_000) });
     if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -223,8 +257,10 @@ export function createFilesystem(controls) {
     if (token !== epoch) throw new Error('ECANCELED');
     cache(path, bytes); return bytes.slice();
   }
-  async function writeFile(input, value, overwrite = true) {
+  async function writeFile(input, value, overwrite = true, recoveryContext = controls.captureRecovery?.()) {
+    const token = epoch;
     await ready;
+    if (token !== epoch) throw new Error('ECANCELED');
     const path = normalize(input, DOCUMENTS);
     if (!writable(path) || basename(path).length > 120) throw new Error('EACCES: ' + path);
     const bytes = typeof value === 'string' ? encode.encode(value) : new Uint8Array(value);
@@ -234,7 +270,7 @@ export function createFilesystem(controls) {
       if (!directories.has(parent(path))) throw new Error('EACCES: ' + path);
       if (directories.has(path) || !overwrite && local.has(path)) throw new Error('EEXIST: ' + path);
       local.set(path, { bytes: copy, modified: Date.now() }); return path;
-    }, { operation: 'write', path, bytes: copy.length });
+    }, { operation: 'write', path, bytes: copy.length, recoveryContext });
   }
   async function mkdir(input) {
     await ready;
@@ -298,9 +334,9 @@ export function createFilesystem(controls) {
     const files = new Map([...local].map(([path, entry]) => [path, entry.bytes]));
     for (let stage = 1; stage <= Math.min(controls.state().stage, totalCases()); stage++) {
       const detail = await record(stage);
-      await Promise.all(detail.files.map(async (file) => { const path = HOME + '/' + String(stage).padStart(2, '0') + '/' + file.name; files.set(path, await read(path)); }));
+      await Promise.all(detail.files.map(async (file) => { const path = casePath(stage) + '/' + file.name; files.set(path, await read(path)); }));
     }
-    for (const path of [HOME + '/notes.txt', HOME + '/receipts.txt', '/usr/share/doc/javascript.txt']) files.set(path, await read(path));
+    for (const path of [HOME + '/notes.txt', HOME + '/receipts.txt', '/usr/share/doc/javascript.txt', '/usr/share/doc/recovery.txt']) files.set(path, await read(path));
     return [...files].map(([path, bytes]) => [path, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)]);
   }
   return { ready: () => ready, flush: () => writes, setPlayer, setCase, entries, read, readText: async (path) => decode.decode(await read(path)), writeFile, mkdir, rename, remove, restore, purge, snapshot, record, events, writable, used: () => [...local.values()].reduce((sum, item) => sum + item.bytes.length, 0) };

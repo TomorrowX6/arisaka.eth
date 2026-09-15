@@ -314,11 +314,10 @@ export function createShell(controls) {
   function updateAudio(){document.querySelectorAll('audio,video').forEach((media)=>{media.volume=settings.volume/100;media.muted=settings.muted;});}
   document.addEventListener('play',updateAudio,true);
   function renderPager(){
-    const pager=$('#desktop-pager'),openWindows=windows.list().filter((item)=>item.opened&&!item.minimized);pager.replaceChildren();
+    const pager=$('#desktop-pager');pager.replaceChildren();
     for(let index=0;index<settings.desktopCount;index++){
       const button=document.createElement('button');button.type='button';button.title=settings.desktopNames[index]||'桌面 '+(index+1);button.setAttribute('aria-label',button.title);button.setAttribute('aria-pressed',String(windows.currentDesktop()===index));
       button.innerHTML='<span class="pager-number">'+(index+1)+'</span>';
-      for(const item of openWindows.filter((entry)=>entry.desktop===index)){const miniature=document.createElement('i');miniature.setAttribute('aria-hidden','true');const rect=item.node.getBoundingClientRect();Object.assign(miniature.style,{left:Math.max(0,rect.left/innerWidth*100)+'%',top:Math.max(0,rect.top/innerHeight*100)+'%',width:Math.max(12,Math.min(100,rect.width/innerWidth*100))+'%',height:Math.max(12,Math.min(100,rect.height/innerHeight*100))+'%'});button.append(miniature);}
       button.addEventListener('click',()=>windows.switchDesktop(index));pager.append(button);
     }
   }

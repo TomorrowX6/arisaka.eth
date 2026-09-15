@@ -1,4 +1,4 @@
-import { createFilesystem, HOME, normalize, basename, parent } from '/filesystem.js';
+import { createFilesystem, HOME, caseLocation, normalize, basename, parent } from '/filesystem.js';
 import { createFileManager, pickFile as chooseFile } from '/files.js';
 import { createEditor, enhanceNotes } from '/editor.js';
 import { createConsole } from '/console.js';
@@ -10,6 +10,7 @@ import { applications as desktopApplications } from '/applications.js';
 export function createSystem(controls) {
   const fs = createFilesystem(controls);
   let runner, runnerTimer, runnerAbort, running = false, generation = 0;
+  let finishRun;
   let editor, viewer, files, consoleApp;
   let applications = {};
   let pythonRuntime;
@@ -21,23 +22,28 @@ export function createSystem(controls) {
     })).catch(error => { pythonRuntime = null; throw error; });
     return pythonRuntime;
   }
-  function stop() {
+  function stop(result = { exitCode: 130, cancelled: true }) {
+    if (!Number.isInteger(result?.exitCode)) result = { exitCode: 130, cancelled: true };
     generation++;
     clearTimeout(runnerTimer); runner?.terminate(); runner = null; running = false;
     runnerAbort?.abort(); runnerAbort = null;
     $('#editor-run').disabled = false; $('#editor-stop').disabled = true;
+    const finish = finishRun; finishRun = undefined; finish?.(result);
   }
   async function run(source, output = (text) => editor.output(text + '\n'), options = {}) {
     if (running) throw new Error('EBUSY');
     if (typeof source !== 'string' || source.length > 500000) throw new Error('EFBIG');
     running = true; const token = ++generation;
+    const context = options.recoveryContext || controls.captureRecovery?.();
+    const completion = new Promise((resolve) => { finishRun = resolve; });
+    let transcript = '', transcriptOverflow = false;
     $('#editor-run').disabled = true; $('#editor-stop').disabled = false;
     try {
       await fs.ready();
-      if (!running || token !== generation) return;
+      if (!running || token !== generation) return completion;
       const python = options.language === 'python';
       const resources = python ? await loadPython() : null;
-      if (!running || token !== generation) return;
+      if (!running || token !== generation) return completion;
       runner = python ? new Worker('/python-runner.js', { type: 'module' }) : new Worker('/runner.js');
       runnerAbort = new AbortController();
       let messages = 0, outputSize = 0, ioBytes = 0, inFlight = 0, finished = false;
@@ -66,7 +72,7 @@ export function createSystem(controls) {
             if (!(bytes instanceof Uint8Array)) throw new Error('EINVAL');
             ioBytes += bytes.length;
             if (ioBytes > 128 * 1024 * 1024) throw new Error('EFBIG');
-            reply = { path: await fs.writeFile(path, bytes) };
+            reply = { path: await fs.writeFile(path, bytes, true, context) };
           } else if (operation === 'request') {
             if (!/^\/api\/(?:labs\/[1-9][0-9]{0,2}|echo|shop(?:\/(?:quote|checkout|redeem|reset))?)$/.test(path)) throw new Error('EACCES');
             const options = message.options || {};
@@ -89,25 +95,32 @@ export function createSystem(controls) {
           if (token === generation) runner.postMessage({ type: 'result', id, error: error.message });
         } finally {
           inFlight--;
-          if (token === generation && finished && !inFlight) stop();
+          if (token === generation && finished && !inFlight) stop({ exitCode: 0 });
         }
       }
       runner.onmessage = (event) => {
         if (token !== generation) return;
-        if (++messages > 8192) { output('EOUTPUT'); stop(); return; }
+        if (++messages > 8192) { output('EOUTPUT'); stop({ exitCode: 1 }); return; }
         const message = event.data || {}, { type, value } = message;
-        if (type === 'fs') { void fileRequest(message).catch(error => { if (token === generation) { output(error.message); stop(); } }); return; }
+        if (type === 'fs') { void fileRequest(message).catch(error => { if (token === generation) { output(error.message); stop({ exitCode: 1 }); } }); return; }
         if (type === 'log' || type === 'error') {
           const text = String(value).slice(0, 65536); outputSize += text.length;
-          if (outputSize > 4 * 1024 * 1024) { output('EOUTPUT'); stop(); return; }
-          output(text); if (type === 'error') stop();
-        } else if (type === 'done') { finished = true; if (!inFlight) stop(); }
+          if (outputSize > 4 * 1024 * 1024) { output('EOUTPUT'); stop({ exitCode: 1 }); return; }
+          if (type === 'log' && !transcriptOverflow) {
+            if (transcript.length + text.length + 1 <= 64 * 1024) transcript += text + '\n';
+            else { transcript = ''; transcriptOverflow = true; }
+          }
+          output(text); if (type === 'error') stop({ exitCode: 1 });
+        } else if (type === 'done') { finished = true; if (!inFlight) stop({ exitCode: 0 }); }
       };
-      runner.onerror = (error) => { if (token === generation) { output(error.message || 'Execution failed'); stop(); } };
+      runner.onerror = (error) => { if (token === generation) { output(error.message || 'Execution failed'); stop({ exitCode: 1 }); } };
       const runtime = resources?.filter(([name]) => !name.endsWith('.json')).map(([name, bytes]) => [name, bytes.slice(0)]);
       runner.postMessage({ type: 'run', source, ...(python ? { runtime, lock: resources.find(([name]) => name.endsWith('.json'))[1], home: HOME, filename: options.filename } : {}) }, runtime?.map(([, bytes]) => bytes) || []);
-      runnerTimer = setTimeout(() => { output('ETIMEDOUT'); stop(); }, 120000);
-    } catch (error) { if (token === generation) { output(error.message); stop(); } }
+      runnerTimer = setTimeout(() => { output('ETIMEDOUT'); stop({ exitCode: 124 }); }, 120000);
+    } catch (error) { if (token === generation) { output(error.message); stop({ exitCode: 1 }); } }
+    const result = await completion;
+    if (options.recover !== false && result.exitCode === 0 && !transcriptOverflow) void controls.recover?.(transcript, context);
+    return result;
   }
   async function openFile(input, mode) {
     const path = normalize(input);
@@ -116,11 +129,11 @@ export function createSystem(controls) {
       if (!desktopApplications.some(app => !app.hidden && app.id === id)) throw Error('ENOENT');
       controls.windows.open(id); return;
     }
-    const match = new RegExp('^' + HOME + '/([0-9]{2,3})/[^/]+\\.desktop$').exec(path);
-    if (match) {
+    const match = caseLocation(path);
+    if (match?.name.endsWith('.desktop')) {
       const entry = (await fs.entries(parent(path))).find((entry) => entry.path === path && entry.kind === 'application');
       if (!entry) throw new Error('ENOENT');
-      await controls.loadCase(Number(match[1])); return;
+      await controls.loadCase(match.stage); return;
     }
     try {
       await fs.entries(path);
@@ -151,6 +164,7 @@ export function createSystem(controls) {
   const requestHistory = [];
   let pendingRequest;
   function setPlayer(player) {
+    pendingRequest?.abort(); pendingRequest = undefined; $('#network-send').disabled = false;
     stop(); fs.setPlayer(player); files.reset(); editor.setPlayer(player); consoleApp.setPlayer(player); viewer.reset(); notesEditor.reset();
     requestHistory.splice(0);
     applications.reset?.();
@@ -169,26 +183,31 @@ export function createSystem(controls) {
   $('#network-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const button = $('#network-send'); button.disabled = true;
-    const start = performance.now(); pendingRequest?.abort(); pendingRequest = new AbortController();
+    const start = performance.now(); pendingRequest?.abort();
+    const request = pendingRequest = new AbortController();
+    const context = controls.captureRecovery?.();
     try {
       const path = $('#network-path').value.trim(); const url = new URL(path, location.origin);
       if (url.origin !== location.origin || !url.pathname.startsWith('/api/')) throw new Error('EINVAL');
       const method = $('#network-method').value;
+      const headersText = $('#network-headers').value, body = $('#network-body').value;
       const headers = new Headers({ 'X-Afterglow': '1' });
       if (method === 'POST') headers.set('Content-Type', 'application/json');
-      for (const line of $('#network-headers').value.split('\n').filter((line) => line.trim())) {
+      for (const line of headersText.split('\n').filter((line) => line.trim())) {
         const colon = line.indexOf(':'); if (colon < 1) throw new Error('EINVAL');
         headers.set(line.slice(0, colon).trim(), line.slice(colon + 1).trim());
       }
-      const response = await apiFetch(url, { method, headers, body: method === 'POST' ? $('#network-body').value || '{}' : undefined, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([pendingRequest.signal, AbortSignal.timeout(20000)]) });
+      const response = await apiFetch(url, { method, headers, body: method === 'POST' ? body || '{}' : undefined, credentials: 'same-origin', cache: 'no-store', signal: AbortSignal.any([request.signal, AbortSignal.timeout(20000)]) });
       const text = (await response.text()).slice(0, 100000);
+      if (request !== pendingRequest || request.signal.aborted) return;
       $('#network-output').textContent = 'HTTP ' + response.status + '\n' + [...response.headers].map(([name, value]) => name + ': ' + value).join('\n') + '\n\n' + text;
       $('#network-status').textContent = String(response.status); $('#network-status').className = response.ok || response.status === 304 ? 'success-text' : 'error-text';
       $('#network-time').textContent = Math.round(performance.now() - start) + ' ms'; $('#network-size').textContent = formatSize(new TextEncoder().encode(text).length);
-      requestHistory.unshift({ path, method, headers: $('#network-headers').value, body: $('#network-body').value }); requestHistory.splice(30); renderHistory();
+      requestHistory.unshift({ path, method, headers: headersText, body }); requestHistory.splice(30); renderHistory();
+      if (response.ok) await controls.recover?.(text, context);
       if (method === 'POST') await controls.refresh();
-    } catch (error) { $('#network-output').textContent = error.name === 'AbortError' ? '已停止' : error.message; $('#network-status').textContent = ''; }
-    finally { button.disabled = false; }
+    } catch (error) { if (request === pendingRequest) { $('#network-output').textContent = error.name === 'AbortError' ? '已停止' : error.message; $('#network-status').textContent = ''; } }
+    finally { if (request === pendingRequest) { button.disabled = false; pendingRequest = undefined; } }
   });
   $('#network-stop').addEventListener('click', () => pendingRequest?.abort());
   $('#network-clear').addEventListener('click', () => { $('#network-output').textContent = ''; $('#network-status').textContent = ''; });
@@ -205,5 +224,8 @@ export function createSystem(controls) {
   });
   $('#http-window').addEventListener('window:close', () => pendingRequest?.abort());
   decorate();
-  return { fs, attachApplications(value) { applications = value; }, setPlayer, setCase: fs.setCase, openFile, read: fs.read, edit: editor.open, run, snapshot: fs.snapshot, navigate: files.navigate, refreshFiles: files.refresh };
+  return { fs, attachApplications(value) { applications = value; }, setPlayer, setCase: fs.setCase, openFile,
+    openConsole: (path) => consoleApp.open(path),
+    openHttp(path) { $('#network-path').value = path; $('#network-method').value = 'GET'; $('#network-headers').value = ''; $('#network-body').value = ''; controls.windows.open('http'); $('#network-path').focus(); },
+    read: fs.read, edit: editor.open, run, snapshot: fs.snapshot, navigate: files.navigate, refreshFiles: files.refresh };
 }

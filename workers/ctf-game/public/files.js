@@ -1,7 +1,9 @@
-import { $, $$, menu, menubar, askText, shortcut, report, decorate, formatSize } from '/ui.js';
+import { $, $$, menu, menubar, askText, showMessage, shortcut, report, decorate, formatSize } from '/ui.js';
 import { HOME, DOCUMENTS, TRASH, MAX_FILE_SIZE, MAX_WORKSPACE_SIZE, normalize, parent, basename, fileType } from '/filesystem.js';
 import { profileKey } from '/preferences.js';
 import { icon } from '/desktop.js';
+
+const accessDenied = (path) => showMessage('禁止访问', '你没有权限访问此文件夹：' + path);
 
 export function pickFile(fs, open, initial = HOME) {
   return new Promise((resolve) => {
@@ -15,13 +17,13 @@ export function pickFile(fs, open, initial = HOME) {
         cwd = normalize(path); $('[data-path]', dialog).value = cwd;
         const list = $('.picker-files', dialog); list.replaceChildren();
         for (const file of entries) {
-          if (file.locked || file.name.startsWith('.')) continue;
-          const button = document.createElement('button'); button.type = 'button'; button.className = 'picker-file'; button.innerHTML = icon(file.icon);
+          if (file.name.startsWith('.')) continue;
+          const button = document.createElement('button'); button.type = 'button'; button.className = 'picker-file' + (file.locked ? ' locked' : ''); button.innerHTML = icon(file.icon);
           const name = document.createElement('span'); name.textContent = file.name; button.append(name);
           button.addEventListener('click', () => { $$('button', list).forEach((item) => item.classList.toggle('selected', item === button)); $('[data-name]', dialog).value = file.name; });
           button.addEventListener('dblclick', () => { if (file.kind === 'directory') void navigate(file.path); else void choose(file.path); }); list.append(button);
         }
-      } catch (error) { report(error); }
+      } catch (error) { if (error.message.startsWith('EACCES')) await accessDenied(path); else report(error); }
     }
     async function choose(path) {
       try {
@@ -109,8 +111,9 @@ export function createFileManager(controls) {
     pane.grid.replaceChildren();
     pane.node.dataset.view = mode; pane.grid.style.setProperty('--file-icon-size', iconSize + 'px');
     for (const entry of sorted(pane)) {
-      const item = document.createElement('button'); item.type = 'button'; item.className = 'file-item' + (pane.selected.has(entry.path) ? ' selected' : '');
-      item.disabled = Boolean(entry.locked); item.dataset.filePath = entry.path; item.title = entry.name;
+      const item = document.createElement('button'); item.type = 'button'; item.className = 'file-item' + (pane.selected.has(entry.path) ? ' selected' : '') + (entry.solved ? ' solved' : '');
+      item.classList.toggle('locked', Boolean(entry.locked)); item.dataset.filePath = entry.path;
+      item.title = entry.name + (entry.locked ? ' · 未解锁' : entry.solved ? ' · 已恢复' : '');
       item.setAttribute('role', 'option'); item.setAttribute('aria-selected', String(pane.selected.has(entry.path)));
       item.innerHTML = icon(entry.icon);
       const name = document.createElement('span'); name.className = 'file-name'; name.textContent = entry.name;
@@ -134,10 +137,11 @@ export function createFileManager(controls) {
       active = pane; render(pane);
       if (!$('#files-terminal-panel').hidden) void controls.terminal(path).catch(report);
       return true;
-    } catch (error) { report(error); return false; }
+    } catch (error) { if (error.message.startsWith('EACCES')) await accessDenied(path); else report(error); return false; }
   }
   async function open(entry) {
     try {
+      if (entry.locked) { await accessDenied(entry.path); return; }
       if (entry.kind === 'directory') await navigate(entry.path);
       else await controls.openFile(entry.path);
     } catch (error) { report(error); }

@@ -1,5 +1,4 @@
 import { mountMidi } from '/midi.js';
-import { HOME, fileType } from '/filesystem.js';
 import { apiFetch } from '/transport.js';
 
 const escape = (text) => String(text).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
@@ -15,6 +14,7 @@ async function fetchFile(record, name, signal) {
 }
 
 function recovered(node, value, controls) {
+  if (controls.signal.aborted) return;
   node.replaceChildren();
   node.className = 'recovered';
   node.hidden = false;
@@ -34,23 +34,19 @@ function recovered(node, value, controls) {
   }
   const actions = document.createElement('div');
   actions.className = 'button-row';
-  if (value.code) {
-    const fill = document.createElement('button');
-    fill.className = 'button subtle small';
-    fill.type = 'button';
-    fill.textContent = '填入 →';
-    fill.addEventListener('click', () => controls.fill(value.code), { signal: controls.signal });
-    actions.append(fill);
-  }
-  if (value.receipt) {
-    const save = document.createElement('button');
-    save.className = 'text-button';
-    save.type = 'button';
-    save.textContent = '保存回执 ↗';
-    save.addEventListener('click', () => controls.saveReceipt(value.receipt), { signal: controls.signal });
-    actions.append(save);
-  }
+  const save = document.createElement('button');
+  save.className = 'button subtle small';
+  save.type = 'button';
+  save.textContent = '保存结果…';
+  save.addEventListener('click', () => void controls.save(value).catch(error => controls.toast(error.message)), { signal: controls.signal });
+  const copy = document.createElement('button');
+  copy.className = 'button subtle small';
+  copy.type = 'button';
+  copy.textContent = '复制';
+  copy.addEventListener('click', () => void controls.copy(JSON.stringify(value, null, 2)), { signal: controls.signal });
+  actions.append(save, copy);
   node.append(actions);
+  void controls.recover(value);
 }
 
 export async function mountWorkbench(node, record, controls) {
@@ -64,101 +60,6 @@ export async function mountWorkbench(node, record, controls) {
     try { await action(); } catch (err) { error(err); }
     finally { button.disabled = false; }
   });
-
-  if (record.widget === 'artifacts') {
-    node.innerHTML = wrap(String(record.id).padStart(2, '0'), '<div class="artifact-list"></div>');
-    for (const entry of record.files) {
-      const row = document.createElement('div'); row.className = 'artifact-row';
-      const name = document.createElement('button'); name.type = 'button'; name.className = 'artifact-name'; name.textContent = entry.name;
-      const kind = document.createElement('span'); kind.textContent = fileType(entry.name).label;
-      const download = document.createElement('button'); download.type = 'button'; download.textContent = '下载';
-      name.addEventListener('click', () => void controls.openFile(HOME + '/' + String(record.id).padStart(2, '0') + '/' + entry.name).catch(error), { signal: controls.signal });
-      download.addEventListener('click', async () => {
-        download.disabled = true;
-        try { controls.download(entry.name, await (await file(entry.name)).blob()); }
-        catch (err) { error(err); }
-        finally { download.disabled = false; }
-      }, { signal: controls.signal });
-      row.append(name, kind, download); q('.artifact-list').append(row);
-    }
-    return;
-  }
-
-  if (record.widget === 'terminal') {
-    node.innerHTML = header('terminal') +
-      '<div class="terminal-screen" role="log" aria-label="终端输出" aria-live="polite"></div>' +
-      '<form class="terminal-form"><label class="terminal-prompt" for="terminal-input">archive:~ $</label>' +
-      '<input id="terminal-input" aria-label="终端命令" autocomplete="off" autocapitalize="none" spellcheck="false" maxlength="240">' +
-      '<button class="text-button" type="submit" aria-label="运行终端命令">ENTER ↵</button></form>';
-    let cwd = '/archive';
-    let historyIndex = 0;
-    const history = [];
-    const output = (text, type = '') => {
-      const line = document.createElement('div');
-      line.className = 'terminal-line ' + type;
-      line.textContent = text;
-      q('.terminal-screen').append(line);
-      while (q('.terminal-screen').childElementCount > 150) q('.terminal-screen').firstElementChild.remove();
-      q('.terminal-screen').scrollTop = q('.terminal-screen').scrollHeight;
-    };
-    on('.terminal-form', 'submit', async (event) => {
-      event.preventDefault();
-      const command = q('#terminal-input').value.trim();
-      if (!command) return;
-      q('#terminal-input').value = '';
-      history.push(command);
-      historyIndex = history.length;
-      if (command === 'clear') { q('.terminal-screen').replaceChildren(); return; }
-      output(cwd + ' $ ' + command, 'command');
-      q('.terminal-form button').disabled = true;
-      try {
-        const result = await controls.api('/api/terminal', { command, cwd }, controls.signal);
-        cwd = result.cwd;
-        q('.terminal-prompt').textContent = (cwd === '/archive' ? 'archive:~' : 'archive:.cache') + ' $';
-        if (result.output) output(result.output);
-      } catch (err) { error(err); }
-      finally { q('.terminal-form button').disabled = false; }
-    });
-    on('#terminal-input', 'keydown', (event) => {
-      if (!['ArrowUp', 'ArrowDown'].includes(event.key)) return;
-      event.preventDefault();
-      historyIndex = Math.max(0, Math.min(history.length, historyIndex + (event.key === 'ArrowUp' ? -1 : 1)));
-      q('#terminal-input').value = history[historyIndex] || '';
-    });
-    return;
-  }
-
-  if (record.widget === 'http') {
-    node.innerHTML = wrap('/api/echo',
-      '<div class="http-request"><span class="method">GET</span><code>/api/echo</code></div>' +
-      '<form class="http-form"><label for="etag-input">Headers<input id="etag-input" type="text" maxlength="300" autocomplete="off" spellcheck="false"></label>' +
-      '<button class="button subtle" type="submit">发送 ↗</button></form>' +
-      '<pre class="console-output" role="log" aria-live="polite"></pre>');
-    on('.http-form', 'submit', async (event) => {
-      event.preventDefault();
-      const button = q('.http-form button');
-      button.disabled = true;
-      try {
-        const value = q('#etag-input').value.trim();
-        const headersInput = {};
-        if (value) {
-          const split = value.indexOf(':');
-          if (split < 1) throw new Error('Header 格式：name: value');
-          headersInput[value.slice(0, split).trim()] = value.slice(split + 1).trim();
-        }
-        const response = await apiFetch('/api/echo', {
-          headers: headersInput,
-          cache: 'no-store', credentials: 'same-origin', signal: controls.signal,
-        });
-        const text = await response.text();
-        const headers = ['etag', 'cache-control', 'content-type', 'x-afterimage']
-          .filter((name) => response.headers.has(name)).map((name) => name + ': ' + response.headers.get(name));
-        q('.console-output').textContent = 'HTTP ' + response.status + ' ' + response.statusText + '\n' + headers.join('\n') + '\n\n' + (text || '[no body]');
-      } catch (err) { error(err); }
-      finally { button.disabled = false; }
-    });
-    return;
-  }
 
   if (record.widget === 'midi') {
     node.innerHTML = wrap('afterimage.mid',
@@ -305,14 +206,6 @@ export async function mountWorkbench(node, record, controls) {
     on('#export-qr', 'click', () => compose().toBlob((blob) => blob && controls.download('afterglow-restored-qr.png', blob), 'image/png'));
     draw();
     return () => bitmaps.forEach((bitmap) => bitmap.close());
-  }
-
-  if (record.widget === 'audio') {
-    const url = record.files.find((item) => item.name === 'last-broadcast.wav').url;
-    node.innerHTML = wrap('last-broadcast.wav',
-      '<div class="audio-card"><div class="record-art" aria-hidden="true"></div><div><p>STEREO / PCM 16-BIT / 8 kHz</p></div></div>' +
-      '<audio controls preload="metadata" src="' + escape(url) + '" aria-label="播放 WAV"></audio>');
-    return () => { const audio = q('audio'); audio.pause(); audio.removeAttribute('src'); audio.load(); };
   }
 
   if (record.widget === 'images') {

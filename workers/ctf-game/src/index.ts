@@ -13,7 +13,7 @@ const publicFiles = new Set([
   "/fonts/noto-sans-latin.woff2", "/fonts/hack-regular.woff2", "/fonts/attribution.json",
   "/fonts/Noto-OFL.txt", "/fonts/Hack-LICENSE.txt", "/fonts/noto-sans-sc.woff2", "/fonts/NotoCJK-OFL.txt",
   "/developer-tools.js", "/developer-tools.css", "/profiler.js",
-  "/transport.js", "/python-runner.js",
+  "/transport.js", "/python-runner.js", "/recovery.js",
   "/vendor/pyodide/pyodide.mjs", "/vendor/pyodide/pyodide.asm.mjs", "/vendor/pyodide/pyodide.asm.wasm",
   "/vendor/pyodide/python_stdlib.zip", "/vendor/pyodide/pyodide-lock.json", "/vendor/pyodide/LICENSE.txt",
   "/analysis-tools.js", "/media-tools.js", "/crypto-tools.js", "/database.js", "/database-worker.js",

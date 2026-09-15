@@ -2,6 +2,8 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium, expect as baseExpect } from '@playwright/test';
+import { openSeal } from '../scripts/decoders.mjs';
+import { recoverGitSeed } from '../scripts/expert/git-decoder.mjs';
 const expect = baseExpect.configure({ timeout: 20000 });
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
@@ -43,7 +45,15 @@ async function query(page, sql) {
 }
 async function shell(page, text) {
   const field = page.locator('#console-sessions .console-session:not([hidden]) .session-form input').first();
+  await expect(field).toBeEditable();
   await field.fill(text); await field.press('Enter');
+}
+async function firstRecovery(context) {
+  const record = await (await context.request.get(base + '/api/cases/1')).json();
+  const files = Object.fromEntries(await Promise.all(record.files.map(async ({ name, url }) => [name, await (await context.request.get(base + url)).body()])));
+  const envelope = JSON.parse(files['capsule.json']);
+  const material = recoverGitSeed(files['objects.pack'], files['checkpoint.tar'], envelope.recipient.x);
+  return { material, result: openSeal(envelope, material) };
 }
 
 // These tests exercise the public browser modules and the actual application UI.
@@ -163,8 +173,8 @@ test('user creation, password validation, switching, appearance, and save deleti
     await expect.poll(() => page.evaluate(async () => (await import('/filesystem.js')).HOME)).toBe('/home/user');
     await expect(page.locator('#screen-lock')).toBeHidden();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'breeze-dark');
-    await expect(page.locator('#play')).toBeVisible();
-    await expect(page.locator('#answer-button')).toBeEnabled();
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     const expertId = await page.evaluate(async () => (await import('/preferences.js')).listProfiles().find(user => user.username === 'expert').id);
     const previousCookies = (await context.cookies()).map(cookie => cookie.name + '=' + cookie.value).join('; ');
     await launch(page, 'settings', '系统设置');
@@ -292,7 +302,7 @@ test('Kleopatra creates protected keys and performs actual OpenPGP encryption an
 test('small displays keep application controls within the desktop viewport', { timeout: 120000 }, async () => {
   const {context,page,errors}=await desktop({viewport:{width:320,height:740},isMobile:true,hasTouch:true});
   try {
-    for(const [id,name]of [['settings','系统设置'],['database','SQLite'],['keys','Kleopatra'],['media','Elisa'],['imageviewer','Gwenview'],['discover','Discover']]){
+    for(const [id,name]of [['console','Konsole'],['http','HTTP'],['editor','Kate'],['settings','系统设置'],['database','SQLite'],['keys','Kleopatra'],['media','Elisa'],['imageviewer','Gwenview'],['discover','Discover']]){
       await launch(page,id,name);
       // Geometry assertions compare the final layout, after the entrance scale settles.
       await page.waitForFunction(id => !document.getElementById(id + '-window').dataset.motionState, id);
@@ -311,6 +321,212 @@ test('small displays keep application controls within the desktop viewport', { t
     }
     assert.deepEqual(errors,[]);
   } finally {await context.close();}
+});
+
+test('native cases open the real Konsole without a passcode form', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.goto(base + '/#case-1', { waitUntil: 'domcontentloaded' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#answer-form, .answer-section')).toHaveCount(0);
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
+    await shell(page, 'pwd');
+    await expect(page.locator('#console-sessions .session-output')).toContainText('/home/user/档案/01');
+    await shell(page, 'ls');
+    await expect(page.locator('#console-sessions .session-output')).toContainText('objects.pack');
+    await shell(page, 'printf \'%s\' \'ordinary note\' > ~/Documents/notes-check.txt');
+    await expect(page.locator('#console-sessions .session-form input')).toBeEditable();
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Konsole awaits script stdout before piping and saving it', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await launch(page, 'console', 'Konsole');
+    await shell(page, 'node -e \'await new Promise(resolve => setTimeout(resolve, 80)); console.log("pipeline-ready");\' | base64 > ~/Documents/pipeline.txt');
+    await expect(page.locator('#editor-run')).toBeEnabled();
+    await expect(page.locator('#console-sessions .session-form input')).toBeEditable();
+    await shell(page, 'base64 -d ~/Documents/pipeline.txt');
+    await expect(page.locator('#console-sessions .session-output .shell-line').last()).toHaveText('pipeline-ready');
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Ctrl+C settles a running script without recovering partial stdout or saving its redirect', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    const { result } = await firstRecovery(context);
+    await launch(page, 'console', 'Konsole');
+    await shell(page, 'node -e \'console.log(' + JSON.stringify(result) + '); await new Promise(resolve => setTimeout(resolve, 60000));\' > ~/Documents/interrupted.json');
+    await expect(page.locator('#editor-stop')).toBeEnabled();
+    const input = page.locator('#console-sessions .session-form input').first();
+    await input.press('Control+c');
+    await expect(input).toBeEditable();
+    await expect(page.locator('#editor-run')).toBeEnabled();
+    await expect(page.locator('#console-sessions .session-output')).toContainText('Interrupted');
+    await shell(page, 'cat ~/Documents/interrupted.json');
+    await expect(page.locator('#console-sessions .session-output .shell-line').last()).toContainText('ENOENT');
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('a decrypted capsule saved by Konsole recovers its case and keeps the terminal in place', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    const { material, result } = await firstRecovery(context);
+    const attempts = [];
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/answer') attempts.push(request.postDataJSON()); });
+    await page.goto(base + '/#case-1', { waitUntil: 'domcontentloaded' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
+    const source = [
+      'const seal = JSON.parse(await fs.readText("/home/user/档案/01/capsule.json"));',
+      'const bytes = value => Uint8Array.from(atob(value), c => c.charCodeAt(0));',
+      'const material = new Uint8Array(' + JSON.stringify([...material]) + ');',
+      'const key = await crypto.subtle.importKey("raw", await crypto.subtle.digest("SHA-256", material), "AES-GCM", false, ["decrypt"]);',
+      'const ciphertext = bytes(seal.ciphertext), tag = bytes(seal.tag);',
+      'const data = new Uint8Array(ciphertext.length + tag.length); data.set(ciphertext); data.set(tag, ciphertext.length);',
+      'const clear = await crypto.subtle.decrypt({name:"AES-GCM", iv:bytes(seal.nonce), additionalData:new TextEncoder().encode(seal.context), tagLength:128}, key, data);',
+      'console.log(JSON.parse(new TextDecoder().decode(clear)));',
+    ].join(' ');
+    await shell(page, "node -e '" + source + "' > ~/Documents/recovered-01.json");
+    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
+    await expect(page.locator('#console-sessions .session-form input').first()).toBeFocused();
+    await expect(page.locator('#http-window')).toBeHidden();
+    await shell(page, 'cat ~/Documents/recovered-01.json');
+    await expect(page.locator('#console-sessions .session-output .shell-line').last()).toHaveText(JSON.stringify(result));
+    assert.deepEqual(attempts, [{ stage: 1, code: result.code }]);
+    await shell(page, 'cat /usr/share/doc/recovery.txt');
+    await expect(page.locator('#console-sessions .session-output .shell-line').last()).toContainText('Ctrl+C');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Kate recovers only a successfully saved document and restores it after reload', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    const { result } = await firstRecovery(context);
+    const attempts = [];
+    page.on('request', request => { if (new URL(request.url()).pathname === '/api/answer') attempts.push(request.postDataJSON()); });
+    await launch(page, 'editor', 'Kate');
+    const text = JSON.stringify(result, null, 2);
+    await page.locator('#editor-code .cm-content').fill(text);
+    await expect(page.locator('#editor-text')).toHaveValue(text);
+    assert.equal(attempts.length, 0, 'typing a recovered document is not a submission');
+    await page.locator('#editor-save').click();
+    await page.locator('dialog[open] input').fill('/home/user/档案/01/recovered.json');
+    await page.locator('dialog[open]').getByRole('button', { name: '确定', exact: true }).click();
+    await expect(page.locator('#toast')).toContainText('EACCES');
+    assert.equal(attempts.length, 0, 'a rejected file write is not a submission');
+    await page.locator('#editor-save').click();
+    await page.locator('dialog[open] input').fill('recovered-01.json');
+    await page.locator('dialog[open]').getByRole('button', { name: '确定', exact: true }).click();
+    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#editor-name')).toHaveValue('recovered-01.json');
+    await expect(page.locator('#editor-window')).toHaveClass(/focused/);
+    await page.locator('#editor-save').click();
+    assert.deepEqual(attempts, [{ stage: 1, code: result.code }]);
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
+    await launch(page, 'editor', 'Kate');
+    await expect(page.locator('#editor-name')).toHaveValue('recovered-01.json');
+    await expect(page.locator('#editor-text')).toHaveValue(text);
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 2);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('a delayed HTTP session refresh cannot roll back a recovery from another application', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  let release;
+  const resume = new Promise(resolve => { release = resolve; });
+  try {
+    const { result } = await firstRecovery(context);
+    let reached;
+    const refreshing = new Promise(resolve => { reached = resolve; });
+    await page.route('**/api/session', async route => {
+      const response = await route.fetch();
+      reached();
+      await resume;
+      await route.fulfill({ response });
+    });
+    await launch(page, 'http', 'HTTP');
+    await page.locator('#network-path').fill('/api/terminal');
+    await page.locator('#network-method').selectOption('POST');
+    await page.locator('[data-request-tab="body"]').click();
+    await page.locator('#network-body').fill(JSON.stringify({ command: 'pwd', cwd: '/archive' }));
+    await page.locator('#network-send').click();
+    await refreshing;
+    await launch(page, 'console', 'Konsole');
+    await shell(page, 'node -e \'console.log(' + JSON.stringify(result) + ');\'');
+    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    release();
+    await expect(page.locator('#network-send')).toBeEnabled();
+    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 2);
+    assert.deepEqual(errors, []);
+  } finally { release(); await context.close(); }
+});
+
+test('a background Konsole command leaves keyboard focus in the application being edited', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  let release;
+  const resume = new Promise(resolve => { release = resolve; });
+  try {
+    const record = await (await context.request.get(base + '/api/cases/1')).json();
+    let reached;
+    const reading = new Promise(resolve => { reached = resolve; });
+    await page.route(base + record.files.find(file => file.name === 'capsule.json').url, async route => {
+      const response = await route.fetch();
+      reached();
+      await resume;
+      await route.fulfill({ response });
+    });
+    await launch(page, 'console', 'Konsole');
+    await shell(page, 'node -e \'await fs.readText("/home/user/档案/01/capsule.json"); console.log("read complete");\'');
+    await reading;
+    await launch(page, 'editor', 'Kate');
+    const content = page.locator('#editor-code .cm-content');
+    await content.fill('Continue editing here');
+    await content.focus();
+    release();
+    await expect(page.locator('#console-sessions .session-output .shell-line').last()).toHaveText('read complete');
+    await expect(page.locator('#console-sessions .session-form input').first()).toBeEditable();
+    await expect(content).toBeFocused();
+    assert.deepEqual(errors, []);
+  } finally { release(); await context.close(); }
+});
+
+test('Dolphin groups all cases in one folder and reports access denied when opening a locked case', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-home').click();
+    const archive = page.locator('#files-primary [data-file-path="/home/user/档案"]');
+    await expect(archive).toBeVisible();
+    await expect(page.locator('#files-primary [data-file-path="/home/user/01"]')).toHaveCount(0);
+    await archive.dblclick();
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
+    await expect(page.locator('#files-primary .file-item')).toHaveCount(26);
+    const locked = page.locator('#files-primary [data-file-path="/home/user/档案/02"]');
+    await locked.dblclick();
+    await expect(page.getByRole('dialog', { name: '禁止访问', exact: true })).toBeVisible();
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
+    await page.locator('dialog[open]').getByRole('button', { name: '确定', exact: true }).click();
+    await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').dblclick();
+    await expect(page.locator('#file-location')).toHaveValue('/home/user/档案/01');
+    await expect(page.locator('#files-primary [data-file-path="/home/user/档案/01/objects.pack"]')).toBeVisible();
+    assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 1);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });
 
 test('window motion survives rapid minimize, restore, close, and reopen', { timeout: 60000 }, async () => {

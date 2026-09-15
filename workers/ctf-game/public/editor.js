@@ -14,14 +14,16 @@ export function createEditor(controls) {
   let size = 13;
   let savingTimer;
 
-  function persist() {
+  function persist(immediate = false) {
     clearTimeout(savingTimer);
-    savingTimer = setTimeout(() => {
+    const write = () => {
       try {
         localStorage.setItem('arisaka/kate/' + player, JSON.stringify({ active: active?.id, documents: documents.map((item) => ({ id: item.id, name: item.name, path: item.path, text: item.state.doc.toString(), saved: item.saved })) }));
       } catch { $('#editor-status').textContent = '保存失败'; }
-    }, 150);
+    };
+    if (immediate) write(); else savingTimer = setTimeout(write, 150);
   }
+  window.addEventListener('pagehide', () => persist(true));
   function updateStatus() {
     if (!active || !view) return;
     const head = view.state.selection.main.head;
@@ -90,10 +92,12 @@ export function createEditor(controls) {
       path = value.startsWith('/') ? value : DOCUMENTS + '/' + value;
     }
     try {
-      await fs.writeFile(path, item.state.doc.toString());
-      item.path = path; item.name = basename(path); item.saved = item.state.doc.toString(); item.dirty = false;
+      const text = item.state.doc.toString();
+      await fs.writeFile(path, text);
+      if (!documents.includes(item)) return false;
+      item.path = path; item.name = basename(path); item.saved = text; item.dirty = item.state.doc.toString() !== text;
       if (item === active) { engine.setLanguage(view, item.name); updateStatus(); }
-      renderTabs(); persist(); return true;
+      renderTabs(); persist(true); return true;
     } catch (error) { report(error); return false; }
   }
   async function closeDocument(item = active) {

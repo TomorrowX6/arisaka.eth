@@ -138,8 +138,10 @@ input[type=search]::-webkit-search-cancel-button { cursor: pointer; }
 .file-item .file-name { max-width: 100%; min-width: 0; overflow-wrap: anywhere; }
 .file-item .file-size, .file-item .file-type, .file-item .file-modified { display: none; }
 .file-item.solved::after { display: none; }
+.file-item.solved .file-name::after { content: " ✓"; color: var(--green); }
 .file-item.selected { background: color-mix(in srgb, var(--accent) 25.1%, transparent); border-color: var(--accent); }
 .file-item:disabled { opacity: .35; }
+.file-item.locked, .picker-file.locked { opacity: .6; }
 .details-heading { display: none; }
 .file-pane[data-view=details] .details-heading { display: grid; position: sticky; top: 0; z-index: 1; grid-template-columns: minmax(130px, 1fr) 80px 100px 100px; min-width: 470px; height: 28px; background: var(--panel); border-bottom: 1px solid var(--edge); }
 .details-heading button, .details-heading span { display: flex; align-items: center; font-size: 11px; border: 0; border-right: 1px solid #52575c; padding: 3px 8px; background: none; border-radius: 0; text-align: left; }
@@ -276,21 +278,9 @@ input[type=search]::-webkit-search-cancel-button { cursor: pointer; }
 .request-method { color: #27ae60; font-size: 9px; flex-shrink: 0; }
 .response-pane { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 #network-output { background: var(--bg); color: var(--ink); border: 0; padding: 9px 12px; font: 12px/1.65 var(--mono); flex: 1; min-height: 0; overflow: auto; }
-
-/* In-system challenge applications share the native window controls. */
-.application-toolbar { background: var(--panel); border-color: var(--deep); padding: 4px 8px; min-height: 31px; }
-.application-toolbar button { display: flex; align-items: center; gap: 6px; background: none; border-color: transparent; }
 .workbench, .workbench-head { background: var(--bg); }
 .workbench-head { font-family: inherit; background: var(--sidebar); }
 .workbench-body { padding: 16px; }
-.answer-section { background: var(--panel); }
-.terminal-screen { background: var(--bg); color: var(--ink); font: 13px/1.6 var(--mono); padding: 8px; }
-.terminal-form { background: var(--bg); padding: 6px 8px; border: 0; }
-.terminal-prompt, .terminal-line.command { color: #1cdc9a; }
-#play[data-widget=terminal] .workbench-head { display: none; }
-#play[data-widget=terminal] .case-scroll { display: flex; }
-#play[data-widget=terminal] .workbench { flex: 1; }
-#play[data-widget=terminal] .terminal-screen { height: calc(100% - 42px); min-height: 120px; }
 .console-output { background: var(--bg); color: var(--ink); border-color: var(--line); }
 .completion-body { overflow: auto; }
 .launcher { background: color-mix(in srgb, var(--panel) 96.08%, transparent); border-color: #737b82; }
@@ -386,12 +376,7 @@ input[type=search]::-webkit-search-cancel-button { cursor: pointer; }
   .file-dialog { max-height: 88dvh; }
   .picker-files { height: min(300px, 45dvh); }
 }
-/* File workbench shared by the forensic artifact cases. */
-.artifact-list { display: grid; gap: 1px; }
-.artifact-row { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto; gap: 12px; align-items: center; padding: 8px; border-bottom: 1px solid var(--border); }
-.artifact-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-.artifact-row > span { color: var(--muted); font-size: 12px; }
-@media (max-width: 480px) { .artifact-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px; } .artifact-row > span { display: none; } }
+
 .pdf-surface { position: relative; --total-scale-factor: 1; }
 .pdf-surface .pdf-page { display: block; }
 .textLayer { color-scheme: only light; position: absolute; text-align: initial; inset: 0; overflow: clip; opacity: 1; line-height: 1; letter-spacing: normal; word-spacing: normal; text-size-adjust: none; forced-color-adjust: none; transform-origin: 0 0; caret-color: CanvasText; --min-font-size: 1; --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size)); --min-font-size-inv: calc(1 / var(--min-font-size)); }

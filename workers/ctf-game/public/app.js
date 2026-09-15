@@ -1,11 +1,12 @@
 import { mountWorkbench } from '/widgets.js';
 import { createDesktop } from '/desktop.js';
 import { createSystem } from '/system.js';
-import { menubar } from '/ui.js';
+import { menubar, askText } from '/ui.js';
 import { prepareShell, createShell } from '/shell.js';
 import { prepareUtilities, createUtilities } from '/utilities.js';
 import { apiFetch } from '/transport.js';
-import { HOME } from '/filesystem.js';
+import { HOME, DOCUMENTS, casePath, normalize } from '/filesystem.js';
+import { createRecovery } from '/recovery.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -27,21 +28,41 @@ let workbenchLoading = false;
 let toastTimer;
 let proofData;
 let notes = { text: '', receipts: ['', '', '', ''] };
+const nativeCases = new Set(['terminal', 'http', 'artifacts', 'audio']);
+const recovery = createRecovery({
+  state: () => state,
+  submit: (stage, code) => api('/api/answer', { stage, code }),
+  accept(result, payload, context) {
+    updateState(result.state);
+    if (payload.receipt) saveReceipt(payload.receipt, true);
+    shell.notify('档案已恢复', pad(context.stage) + ' 已恢复。' + (context.stage < totalCases() ? pad(context.stage + 1) + ' 文件夹已可用。' : '全部档案已恢复。'));
+    if (context.stage === totalCases()) void showCompletion();
+  },
+  error: (error) => toast(error.message),
+});
 prepareShell();
 prepareUtilities();
 const windows = createDesktop();
 const system = createSystem({
   api, windows, state: () => state, notes: () => notes,
   loadCase, refresh: refreshState, toast, download,
+  captureRecovery: (stage) => recovery.capture(stage),
+  recover: (value, context) => recovery.observe(value, context),
 });
 const shell = createShell({ windows, system, toast, download });
 const utilities = createUtilities({ fs: system.fs, windows, system, shell, toast, download });
 system.attachApplications(utilities);
+system.fs.events.addEventListener('audit', (event) => {
+  const { operation, path, bytes, recoveryContext } = event.detail;
+  if (operation !== 'write' || !bytes || bytes > 64 * 1024) return;
+  void system.fs.read(path).then((content) => recovery.observe(content, recoveryContext)).catch(() => {});
+});
 window.addEventListener('system:message', (event) => toast(event.detail));
 menubar($('#case-menubar'), {
   '文件': [{ label: '打开所在文件夹', action: () => { renderFiles(); windows.open('files'); } }, null, { label: '关闭', action: () => windows.close('workbench') }],
   '编辑': [{ label: '复制', shortcut: 'Ctrl+C', action: () => navigator.clipboard.writeText(getSelection()?.toString() || '') }],
   '视图': [{ label: '最大化 / 还原', action: () => windows.maximize('workbench') }, { label: '最小化', action: () => windows.minimize('workbench') }],
+  '帮助': [{ label: '档案恢复', action: () => system.openFile('/usr/share/doc/recovery.txt') }],
 });
 
 async function api(path, value, signal) {
@@ -67,11 +88,6 @@ function toast(text) {
   $('#toast').hidden = false;
   toastTimer = setTimeout(() => { $('#toast').hidden = true; }, 4000);
 }
-function message(node, text, kind = '') {
-  node.textContent = text;
-  node.classList.toggle('error', kind === 'error');
-  node.classList.toggle('success', kind === 'success');
-}
 function download(name, content, type = 'text/plain;charset=utf-8') {
   const url = URL.createObjectURL(content instanceof Blob ? content : new Blob([content], { type }));
   const link = document.createElement('a');
@@ -86,14 +102,20 @@ function updateState(value) {
   const previousPlayer = state.player;
   state = { ...state, ...value };
   if (previousPlayer !== state.player) {
+    recovery.reset();
     readNotes();
     system.setPlayer(state.player || '');
   }
   if (current) current.solved = state.stage > current.id;
   renderIndex();
-  renderAnswer();
 }
-async function refreshState() { updateState(await api('/api/session')); }
+async function refreshState() {
+  const player = state.player, edition = state.edition;
+  const value = await api('/api/session');
+  if (player !== state.player || edition !== state.edition) return;
+  if (value.player === player && value.edition === edition && value.stage < state.stage) return;
+  updateState(value);
+}
 function renderIndex() {
   if (!state.started) return;
   $('#progress-count').textContent = pad(state.stage - 1) + ' / ' + totalCases();
@@ -103,18 +125,25 @@ function renderIndex() {
   void system.refreshFiles();
 }
 function showFolder(kind) {
-  void system.navigate(kind === 'root' ? HOME : kind === 'documents' ? HOME + '/Documents' : HOME + '/' + pad(current.id));
+  void system.navigate(kind === 'root' ? HOME : kind === 'documents' ? DOCUMENTS : casePath(current.id));
 }
 function renderFiles() {
   if (!current) return;
   showFolder('case');
 }
-function renderAnswer() {
-  if (!current) return;
-  $('#answer-form').hidden = current.solved;
-  $('#solved-panel').hidden = !current.solved;
-  $('#case-number').textContent = current.solved ? '已通过' : '';
-  $('#next-button').textContent = current.id === totalCases() ? '完成' : '下一关';
+async function openCaseApplication(record) {
+  const directory = casePath(record.id);
+  if (record.widget === 'terminal') await system.openConsole(directory);
+  else if (record.widget === 'http') system.openHttp('/api/echo');
+  else if (record.widget === 'artifacts') { await system.navigate(directory); windows.open('files'); }
+  else if (record.widget === 'audio') await system.openFile(directory + '/last-broadcast.wav');
+  else windows.open('workbench');
+}
+async function saveResult(record, value, context) {
+  const name = await askText('保存结果', 'recovered-' + pad(record.id) + '.json', '文件名：');
+  if (!name) return;
+  const path = await system.fs.writeFile(normalize(name, DOCUMENTS), JSON.stringify(value, null, 2) + '\n', true, context);
+  toast('已保存：' + path);
 }
 function closeWorkbench() {
   navigation++;
@@ -126,9 +155,10 @@ async function loadCase(number, show = true) {
   if (!state.started || state.outdated || number > Math.min(state.stage, totalCases())) return;
   if (current?.id === number && workbenchReady) {
     renderFiles();
-    if (show) windows.open('workbench');
+    if (show) await openCaseApplication(current);
     return;
   }
+  windows.close('workbench');
   closeWorkbench();
   const token = navigation;
   workbenchController = new AbortController();
@@ -136,32 +166,34 @@ async function loadCase(number, show = true) {
   workbenchLoading = true;
   $('#workbench').inert = true;
   $('#workbench').textContent = '';
-  $('#answer-button').disabled = true;
   try {
     const record = await api('/api/cases/' + number, undefined, signal);
     if (token !== navigation) return;
     current = record;
     system.setCase(record);
     history.replaceState(null, '', '#case-' + number);
-    $('#case-title').textContent = pad(number);
-    $('#answer-input').value = '';
-    $('#answer-input').removeAttribute('aria-invalid');
-    message($('#answer-message'), '');
-    renderFiles(); renderIndex(); renderAnswer();
+    renderFiles(); renderIndex();
+    if (nativeCases.has(record.widget)) {
+      workbenchReady = true; workbenchLoading = false;
+      if (show) await openCaseApplication(record);
+      return;
+    }
     const [title, kind] = applications[record.widget];
     $('#play').dataset.widget = record.widget;
-    windows.setTitle('workbench', pad(number) + ' — ' + title, kind);
+    const names = { midi: 'afterimage.mid', shop: 'Exchange', qr: 'fragments', images: 'before.png / after.png', signature: 'sealed-letter.json', wasm: 'glass.wasm', final: 'last-letter.json' };
+    windows.setTitle('workbench', (names[record.widget] || pad(number)) + ' — ' + title, kind);
     if (show) windows.open('workbench');
+    const context = recovery.capture(record.id);
     const cleanup = await mountWorkbench($('#workbench'), record, {
-      api, toast, download, copy, fill: putAnswer, saveReceipt, signal, openFile: system.openFile,
+      api, toast, download, copy, signal, openFile: system.openFile,
+      recover: (value) => !signal.aborted && recovery.observe(value, context),
+      save: (value) => saveResult(record, value, context),
     });
     if (token !== navigation) cleanup?.();
     else {
       disposeWorkbench = cleanup || (() => {});
       workbenchReady = true; workbenchLoading = false;
       $('#workbench').inert = false;
-      $('#answer-button').disabled = false;
-      if (show && record.widget === 'terminal') $('#terminal-input')?.focus();
     }
   } catch (error) {
     if (signal.aborted) return;
@@ -175,41 +207,10 @@ async function loadCase(number, show = true) {
     toast(error.message);
   }
 }
-function putAnswer(code) {
-  if (!current || current.solved) return;
-  windows.open('workbench');
-  $('#answer-input').value = code;
-  $('#answer-input').removeAttribute('aria-invalid');
-  $('#answer-input').focus();
-}
 $('#play').addEventListener('window:close', closeWorkbench);
 $('#play').addEventListener('window:open', () => {
   if (current && !workbenchReady && !workbenchLoading) void loadCase(current.id, false);
 });
-$('#answer-form').addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (!current) return;
-  const number = current.id;
-  $('#answer-button').disabled = true;
-  message($('#answer-message'), '');
-  try {
-    const result = await api('/api/answer', { stage: number, code: $('#answer-input').value.trim() });
-    updateState(result.state);
-    if (current?.id !== number) return;
-    if (result.result === 'incorrect') {
-      $('#answer-input').setAttribute('aria-invalid', 'true');
-      message($('#answer-message'), '错误', 'error');
-    } else {
-      current.solved = true;
-      renderAnswer();
-      $('#next-button').focus();
-    }
-  } catch (error) {
-    if (current?.id === number) message($('#answer-message'), error.message, 'error');
-  } finally { if (current?.id === number) $('#answer-button').disabled = false; }
-});
-$('#answer-input').addEventListener('input', () => $('#answer-input').removeAttribute('aria-invalid'));
-$('#next-button').addEventListener('click', () => void (current?.id === totalCases() ? showCompletion() : loadCase(current.id + 1)));
 
 function notesKey() { return 'afterglow/notes/' + (state.player || 'visitor'); }
 function readNotes() {
@@ -228,12 +229,12 @@ function persistNotes() {
   try { localStorage.setItem(notesKey(), JSON.stringify(notes)); $('#notes-status').textContent = '已保存'; }
   catch { $('#notes-status').textContent = '保存失败'; }
 }
-function saveReceipt(value) {
+function saveReceipt(value, quiet = false) {
   if (!/^0[1-4]-[0-9a-f]{32}$/.test(value)) return;
   const number = parseInt(value.slice(0, 2), 16);
   $('[data-receipt="' + number + '"]').value = value;
   persistNotes();
-  toast('已保存');
+  if (!quiet) toast('已保存');
 }
 $('#notes-input').addEventListener('input', persistNotes);
 $$('[data-receipt]').forEach((input) => input.addEventListener('input', persistNotes));

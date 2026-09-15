@@ -72,14 +72,14 @@ export function createConsole(controls) {
     while (session.output.childElementCount > 200) session.output.firstElementChild.remove();
     session.scroll.scrollTop = session.scroll.scrollHeight; persist();
   }
-  async function execute(session, args, input) {
+  async function execute(session, args, input, stream = false, context) {
     const [name, ...values] = args;
     if (!name) return '';
     const targets = values.filter((value) => !value.startsWith('-'));
     const flags = values.filter((value) => value.startsWith('-')).join('');
     const target = targets[0];
     const path = normalize(target || '.', session.cwd);
-    if (name === 'help') return 'ls  cd  pwd  cat  xxd  strings  base64  sha256sum  file\necho  printf  head  tail  wc  grep  mkdir  touch  cp  mv  rm\nopen  edit  node  clear  history  exit';
+    if (name === 'help') return 'ls  cd  pwd  cat  xxd  strings  base64  sha256sum  file\necho  printf  head  tail  wc  grep  mkdir  touch  cp  mv  rm\nopen  edit  node  python3  clear  history  exit\n\n文档：/usr/share/doc/recovery.txt';
     if (name === 'pwd') return session.cwd;
     if (name === 'whoami') return activeProfile().username;
     if (name === 'echo') return values.join(' ') + (flags.includes('n') ? '' : '\n');
@@ -100,18 +100,32 @@ export function createConsole(controls) {
       controls.edit(target || 'untitled.js', text, path); return '';
     }
     if (['node', 'python', 'python3'].includes(name)) {
-      const inline = values[0] === '-c';
-      await controls.run(inline ? values[1] || '' : await fs.readText(path), (text) => output(session, text), { language: name === 'node' ? 'javascript' : 'python', filename: inline ? '<string>' : path });
-      return '';
+      const inline = values[0] === (name === 'node' ? '-e' : '-c');
+      const source = inline ? values[1] || '' : await fs.readText(path);
+      if (session.cancelled) throw new Error('Interrupted');
+      const chunks = [];
+      session.runningScript = true;
+      try {
+        const result = await controls.run(source, (text) => { chunks.push(text); if (stream) output(session, text); }, { language: name === 'node' ? 'javascript' : 'python', filename: inline ? '<string>' : path, recover: false, recoveryContext: context });
+        if (result?.exitCode) throw new Error(result.cancelled ? 'Interrupted' : 'Process exited with code ' + result.exitCode);
+      } finally { session.runningScript = false; }
+      return chunks.length ? chunks.join('\n') + '\n' : '';
     }
     if (name === 'mkdir') { for (const item of targets) await fs.mkdir(normalize(item, session.cwd)); return ''; }
-    if (name === 'touch') { for (const item of targets) { const p = normalize(item, session.cwd); let value = ''; try { value = await fs.read(p); } catch {} await fs.writeFile(p, value); } return ''; }
+    if (name === 'touch') { for (const item of targets) { const p = normalize(item, session.cwd); let value = ''; try { value = await fs.read(p); } catch {} if (session.cancelled) throw new Error('Interrupted'); await fs.writeFile(p, value, true, context); } return ''; }
     if (name === 'rm') { for (const item of targets) await fs.remove(normalize(item, session.cwd), values.some((value) => /^-[rRf]*[rR]/.test(value))); return ''; }
     if (name === 'cp' || name === 'mv') {
       if (targets.length !== 2) throw new Error(name + ': missing file operand');
       let destination = normalize(targets[1], session.cwd);
       try { await fs.entries(destination); destination += '/' + basename(path); } catch {}
-      if (name === 'cp') await fs.writeFile(destination, await fs.read(path), false); else await fs.rename(path, destination);
+      if (name === 'cp') {
+        const value = await fs.read(path);
+        if (session.cancelled) throw new Error('Interrupted');
+        await fs.writeFile(destination, value, false, context);
+      } else {
+        if (session.cancelled) throw new Error('Interrupted');
+        await fs.rename(path, destination);
+      }
       return '';
     }
     if (!['cat', 'xxd', 'strings', 'base64', 'sha256sum', 'file', 'head', 'tail', 'wc', 'grep'].includes(name)) throw new Error('bash: ' + name + ': command not found');
@@ -143,37 +157,56 @@ export function createConsole(controls) {
     return (target || '-') + ': ' + (signature.startsWith('89504e47') ? 'PNG image data' : signature.startsWith('4d546864') ? 'Standard MIDI data' : signature.startsWith('0061736d') ? 'WebAssembly binary module' : signature.startsWith('52494646') ? 'RIFF / WAVE audio' : signature.startsWith('504b0304') ? 'Zip archive data' : 'UTF-8 text / data');
   }
   async function submit(session, text) {
-    if (!text.trim()) return;
+    if (!text.trim() || session.busy) return;
+    const context = controls.captureRecovery?.();
+    session.busy = true; session.cancelled = false;
     session.history.push(text); session.historyIndex = session.history.length;
-    output(session, session.label.textContent + ' ' + text, true); session.input.value = ''; session.input.disabled = true;
+    output(session, session.label.textContent + ' ' + text, true); session.input.value = ''; session.input.readOnly = true;
     try {
-      const parsed = parse(text); let result;
-      for (const command of parsed.pipeline) result = await execute(session, command, result);
+      const parsed = parse(text); let result, streamed = false;
+      for (const [index, command] of parsed.pipeline.entries()) {
+        streamed = index === parsed.pipeline.length - 1 && !parsed.redirect && ['node', 'python', 'python3'].includes(command[0]);
+        result = await execute(session, command, result, streamed, context);
+        if (session.cancelled) throw new Error('Interrupted');
+      }
       if (parsed.redirect) {
         const path = normalize(parsed.redirect.path, session.cwd);
         let content = bytes(result);
         if (parsed.redirect.append) { let previous = new Uint8Array(); try { previous = await fs.read(path); } catch {} const joined = new Uint8Array(previous.length + content.length); joined.set(previous); joined.set(content, previous.length); content = joined; }
-        await fs.writeFile(path, content);
-      } else if (result?.length) output(session, string(result).replace(/\n$/, ''));
+        if (session.cancelled) throw new Error('Interrupted');
+        await fs.writeFile(path, content, true, context);
+      } else if (result?.length) {
+        if (!streamed) output(session, string(result).replace(/\n$/, ''));
+        void controls.recover?.(result, context);
+      }
     } catch (error) { output(session, error.message); }
-    finally { session.input.disabled = false; prompt(session); session.input.focus(); session.scroll.scrollTop = session.scroll.scrollHeight; persist(); }
+    finally {
+      session.busy = false; session.input.readOnly = false;
+      if (session.node.isConnected) {
+        const ownsFocus = session.node.contains(document.activeElement);
+        prompt(session);
+        if (ownsFocus && !session.node.closest('[inert], [hidden]')) session.input.focus();
+        session.scroll.scrollTop = session.scroll.scrollHeight; persist();
+      }
+    }
   }
   function makeSession(container, cwd = HOME) {
     const session = { id: ++counter, cwd, history: [], historyIndex: 0 };
     const node = document.createElement('section'); node.className = 'console-session';
     const scroll = document.createElement('div'); scroll.className = 'console-scroll';
-    const output = document.createElement('div'); output.className = 'session-output'; output.setAttribute('role', 'log');
+    const log = document.createElement('div'); log.className = 'session-output'; log.setAttribute('role', 'log');
     const form = document.createElement('form'); form.className = 'session-form';
     const label = document.createElement('label'); label.htmlFor = 'shell-' + session.id;
     const input = document.createElement('input'); input.id = label.htmlFor; input.autocomplete = 'off'; input.spellcheck = false; input.autocapitalize = 'off'; input.maxLength = 2000; input.setAttribute('aria-label', '终端命令');
-    Object.assign(session, { node, scroll, output, form, label, input });
-    form.append(label, input); scroll.append(output, form); node.append(scroll); container.append(node);
+    Object.assign(session, { node, scroll, output: log, form, label, input });
+    form.append(label, input); scroll.append(log, form); node.append(scroll); container.append(node);
     form.addEventListener('submit', (event) => { event.preventDefault(); void submit(session, input.value); });
     node.addEventListener('pointerdown', () => { if (session !== embedded) { active = session; prompt(session); } });
     input.addEventListener('keydown', async (event) => {
+      if (session.busy && !shortcut(event, 'c')) return;
       if (['ArrowUp', 'ArrowDown'].includes(event.key)) { event.preventDefault(); session.historyIndex = Math.max(0, Math.min(session.history.length, session.historyIndex + (event.key === 'ArrowUp' ? -1 : 1))); input.value = session.history[session.historyIndex] || ''; }
       else if (shortcut(event, 'l')) { event.preventDefault(); session.output.replaceChildren(); }
-      else if (shortcut(event, 'c')) { event.preventDefault(); controls.stop(); output(session, session.label.textContent + ' ' + input.value + '^C', true); input.value = ''; }
+      else if (shortcut(event, 'c')) { event.preventDefault(); session.cancelled = true; if (session.runningScript) controls.stop(); output(session, session.label.textContent + ' ' + input.value + '^C', true); input.value = ''; }
       else if (event.key === 'Tab') {
         event.preventDefault();
         const match = /(?:^|\s)([^\s]*)$/.exec(input.value);
@@ -210,6 +243,8 @@ export function createConsole(controls) {
   }
   function closeSession(session = active) {
     if (!session) return;
+    session.cancelled = true;
+    if (session.runningScript) controls.stop();
     const index = sessions.indexOf(session); sessions.splice(index, 1); session.node.remove(); if (second === session) second = null;
     if (!sessions.length) { newSession(); windows.close('console'); }
     else activate(sessions[Math.min(index, sessions.length - 1)]);
@@ -227,6 +262,7 @@ export function createConsole(controls) {
     '文件': () => [{ label: '新建标签页', icon: 'tab-new', shortcut: 'Ctrl+Shift+T', action: () => newSession() }, { label: '拆分视图', icon: 'view-split-left-right', checked: Boolean(second), action: split }, null, { label: '关闭标签页', shortcut: 'Ctrl+Shift+W', action: () => closeSession() }],
     '编辑': [{ label: '复制', icon: 'edit-copy', shortcut: 'Ctrl+Shift+C', action: copy }, { label: '粘贴', icon: 'edit-paste', shortcut: 'Ctrl+Shift+V', action: paste }, null, { label: '查找…', icon: 'edit-find', shortcut: 'Ctrl+Shift+F', action: find }],
     '视图': () => [{ label: '放大', icon: 'zoom-in', action: () => { fontSize = Math.min(24, fontSize + 1); $('#console-sessions').style.fontSize = fontSize + 'px'; } }, { label: '缩小', icon: 'zoom-out', action: () => { fontSize = Math.max(10, fontSize - 1); $('#console-sessions').style.fontSize = fontSize + 'px'; } }, { label: '清空滚动历史', action: () => active.output.replaceChildren() }, { label: '显示菜单栏', checked: !$('#console-menubar').hidden, shortcut: 'Ctrl+Shift+M', action: () => { $('#console-menubar').hidden = !$('#console-menubar').hidden; } }],
+    '帮助': [{ label: '档案恢复', action: () => controls.openFile('/usr/share/doc/recovery.txt') }],
   };
   menubar($('#console-menubar'), definitions);
   const actions = { '#console-new': () => newSession(), '#console-split': split, '#console-copy': copy, '#console-paste': paste, '#console-find': find, '#console-find-close': () => { $('#console-findbar').hidden = true; }, '#console-menu': () => menu([...definitions['文件'](), null, ...definitions['编辑'], null, ...definitions['视图']()], $('#console-menu')) };
@@ -260,7 +296,7 @@ export function createConsole(controls) {
   }
   return {
     setPlayer,
-    open: async (cwd) => { if (cwd) { await fs.entries(cwd); active.cwd = cwd; prompt(active); } windows.open('console'); active.input.focus(); },
+    open: async (cwd) => { if (cwd) { await fs.entries(cwd); if (active.busy) newSession(cwd); else { active.cwd = cwd; prompt(active); } } windows.open('console'); active.input.focus(); },
     embedded: async (cwd) => { await fs.entries(cwd); if (!embedded) embedded = makeSession($('#files-terminal'), cwd); embedded.cwd = cwd; prompt(embedded); embedded.input.focus(); },
   };
 }
