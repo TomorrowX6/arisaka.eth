@@ -445,8 +445,11 @@ test('applications can be dragged onto the desktop, moved, and restored after re
     await expect(page.locator('#console-window')).toBeVisible();
     await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await page.setViewportSize({ width: 800, height: 450 });
-    const compact = await shortcut.boundingBox();
-    assert.ok(compact.x >= 0 && compact.x + compact.width <= 800 && compact.y + compact.height < 398, 'smaller work areas keep the shortcut above the panel');
+    // Viewport emulation can finish before the page's resize handlers run.
+    await expect.poll(async () => {
+      const compact = await shortcut.boundingBox();
+      return compact && compact.x >= 0 && compact.x + compact.width <= 800 && compact.y + compact.height < 398;
+    }, { message: 'smaller work areas keep the shortcut above the panel' }).toBe(true);
     await page.setViewportSize({ width: 1440, height: 900 });
     await expect.poll(async () => (await shortcut.boundingBox()).x).toBe(placed.x);
     assert.deepEqual(await shortcut.boundingBox(), placed, 'temporary resizing preserves the preferred position');
