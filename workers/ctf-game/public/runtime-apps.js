@@ -6,6 +6,7 @@ import { showSurface } from '/motion.js';
 const apps = [
   { id: 'minecraft', title: 'Minecraft 1.12.2' },
   { id: 'firefox', title: 'Firefox' },
+  { id: 'yesplaymusic', title: 'YesPlayMusic' },
 ];
 
 export function prepareRuntimeApps() {
@@ -16,7 +17,7 @@ export function prepareRuntimeApps() {
     node.innerHTML = `<div class="window-body runtime-body">
       <div class="native-toolbar runtime-toolbar" role="toolbar" aria-label="${title} 工具栏">
         <button type="button" data-runtime-reload data-icon="view-refresh" title="重新启动应用">重新启动</button>
-        ${id === 'minecraft' ? '<label class="runtime-engine-label">运行模式 <select aria-label="Minecraft 运行模式" data-runtime-engine><option value="auto">自动选择</option><option value="wasm">WebAssembly</option><option value="javascript">JavaScript 兼容</option></select></label>' : '<span class="runtime-session-label">临时会话</span>'}
+        ${id === 'minecraft' ? '<label class="runtime-engine-label">运行模式 <select aria-label="Minecraft 运行模式" data-runtime-engine><option value="auto">自动选择</option><option value="wasm">WebAssembly</option><option value="javascript">JavaScript 兼容</option></select></label>' : id === 'firefox' ? '<span class="runtime-session-label">临时会话</span>' : ''}
         <span class="runtime-toolbar-spacer"></span>
         <a data-runtime-source target="_blank" rel="noopener noreferrer" hidden>项目来源</a>
         <a data-runtime-external target="_blank" rel="noopener noreferrer" hidden>独立打开</a>
@@ -100,9 +101,13 @@ export function createRuntimeApps({ windows }) {
         if (app.id === 'minecraft') {
           state.engine = engine.value;
           url.hash = new URLSearchParams({ profile: profileKey(), channel: state.channel, engine: state.engine, parent: location.origin }).toString();
+        } else if (app.id === 'yesplaymusic') {
+          url.pathname = url.pathname.replace(/\/?$/, '/') + 'profiles/' + encodeURIComponent(profileKey()) + '/';
+          url.hash = new URLSearchParams({ channel: state.channel, parent: location.origin }).toString();
         }
         const standalone = new URL(url);
         if (app.id === 'minecraft') standalone.hash = new URLSearchParams({ profile: profileKey(), engine: engine.value }).toString();
+        else if (app.id === 'yesplaymusic') standalone.hash = '';
         external.href = standalone.href; external.hidden = false;
         source.href = config.source; source.hidden = false;
         if (app.id === 'firefox') {
@@ -118,10 +123,10 @@ export function createRuntimeApps({ windows }) {
         if (app.id === 'firefox') frame.credentialless = true;
         frame.addEventListener('load', () => {
           if (generation !== state.generation || state.frame !== frame) return;
-          clearTimeout(state.timer); placeholder.hidden = true; content.removeAttribute('aria-busy');
+          clearTimeout(state.timer); placeholder.hidden = state.phase !== 'error'; content.removeAttribute('aria-busy');
           // Document load is not engine readiness. Firefox's own loader owns
           // download progress and the user-gesture Launch Firefox button.
-          if (state.phase === 'loading') phase('document', app.id === 'firefox' ? 'Firefox · Gecko WebAssembly' : '正在启动 Minecraft 1.12.2…');
+          if (state.phase === 'loading') phase('document', app.id === 'firefox' ? 'Firefox · Gecko WebAssembly' : '正在启动 ' + app.title + '…');
           focusFrame();
         });
         frame.addEventListener('error', () => {
@@ -181,12 +186,19 @@ export function createRuntimeApps({ windows }) {
     engine?.addEventListener('change', restart);
   }
   window.addEventListener('message', event => {
-    const state = states.get('minecraft'), data = event.data;
+    const data = event.data;
+    if (!['minecraft', 'yesplaymusic'].includes(data?.app)) return;
+    const state = states.get(data.app);
     if (!state.open || !state.frame || event.source !== state.frame.contentWindow || event.origin !== state.origin
-      || !data || data.type !== 'arisaka:runtime' || data.app !== 'minecraft' || data.channel !== state.channel
+      || data.type !== 'arisaka:runtime' || data.channel !== state.channel
       || !['loading', 'running', 'error'].includes(data.phase) || typeof data.message !== 'string') return;
     state.phase = data.phase; state.node.dataset.runtimePhase = data.phase;
     state.node.querySelector('[data-runtime-status]').textContent = data.message.slice(0, 300);
+    if (data.phase === 'running') {
+      state.node.querySelector('.runtime-placeholder').hidden = true;
+      state.node.querySelector('[data-runtime-retry]').hidden = true;
+      state.node.querySelector('.runtime-content').removeAttribute('aria-busy');
+    }
     if (data.phase === 'error') {
       state.node.querySelector('[data-runtime-retry]').hidden = false;
       state.node.querySelector('[data-runtime-message]').textContent = data.message.slice(0, 300);

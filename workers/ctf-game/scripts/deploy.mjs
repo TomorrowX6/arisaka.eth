@@ -26,7 +26,7 @@ if (!secret) {
   }
 }
 if (secret.length < 32) throw new Error('CTF_SESSION_SECRET must contain at least 32 characters.');
-// Publish and verify both game engines before exposing their desktop launchers.
+// Publish and verify the game engines and music app before their desktop launchers.
 await deployRuntimes();
 const secretsFile = resolve(root, '.private', 'deploy-secrets.json');
 await writeFile(secretsFile, JSON.stringify({ SESSION_SECRET: secret }), { mode: 0o600 });

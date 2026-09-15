@@ -8,3 +8,5 @@ public/_puzzles/
 public/vendor/
 src/generated/
 worker-configuration.d.ts
+runtime/yesplaymusic/.build/
+!runtime/yesplaymusic/package-lock.json

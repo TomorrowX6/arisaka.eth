@@ -3,8 +3,9 @@ import { createRequire } from 'node:module';
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { buildRuntimes, runtimeRoot } from './build-runtimes.mjs';
-import { verifyRuntimeDeployment } from './runtime-deployment-health.mjs';
+import { runtimeRoot } from './build-runtimes.mjs';
+import { prepareRuntimes } from './prepare-runtimes.mjs';
+import { verifyRuntimeDeployment, verifyMusicDeployment } from './runtime-deployment-health.mjs';
 
 const require = createRequire(import.meta.url);
 
@@ -16,7 +17,7 @@ export async function deployRuntimes() {
     || !origin.hostname.startsWith(runtime.name + '.') || !origin.hostname.endsWith('.workers.dev')) throw new Error('Desktop runtime origin does not match the runtime Worker configuration');
   const desktopOrigin = origin.origin.replace('https://' + runtime.name + '.', 'https://' + desktop.name + '.');
   if (runtime.vars.DESKTOP_ORIGIN !== desktopOrigin || runtime.account_id !== desktop.account_id) throw new Error('The runtime and desktop Workers must use the same account and matching origins');
-  const manifest = await buildRuntimes();
+  const manifests = await prepareRuntimes();
   const wrangler = resolve(dirname(require.resolve('wrangler/package.json')), 'bin/wrangler.js');
   let output = '';
   const child = spawn(process.execPath, [wrangler, 'deploy', '--config', 'runtime/wrangler.jsonc', '--env', ''], {
@@ -27,8 +28,10 @@ export async function deployRuntimes() {
   if (exit !== 0) throw new Error('Runtime Wrangler deployment failed with exit code ' + exit);
   const published = output.match(/https:\/\/[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev\b/g) || [];
   if (!published.includes(origin.origin)) throw new Error('Runtime deployment did not publish the configured desktop application origin');
-  await verifyRuntimeDeployment(origin.href, manifest, { desktopOrigin });
+  await verifyRuntimeDeployment(origin.href, manifests.minecraft, { desktopOrigin });
   console.log('Verified Minecraft 1.12.2 u3 at ' + origin.origin + '/minecraft/1.12.2/');
+  await verifyMusicDeployment(origin.href, manifests.yesplaymusic, { desktopOrigin });
+  console.log('Verified YesPlayMusic 0.4.10 at ' + origin.origin + '/yesplaymusic/');
   return origin.origin;
 }
 

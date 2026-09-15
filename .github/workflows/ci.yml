@@ -81,5 +81,7 @@ jobs:
           pnpm runtimes:build
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
+      - name: Verify compiled YesPlayMusic interface and profile storage
+        run: YESPLAYMUSIC_BROWSER=1 node --test test/yesplaymusic-build.test.mjs
       - name: Test desktop and independently solve all 26 cases
         run: pnpm test:e2e

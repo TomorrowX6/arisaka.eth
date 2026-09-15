@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { unstable_dev } from 'wrangler';
 import { build, root } from './build-challenges.mjs';
-import { buildRuntimes } from './build-runtimes.mjs';
+import { prepareRuntimes } from './prepare-runtimes.mjs';
 import { verifyDeployment } from './deployment-health.mjs';
 
 let desktop, runtime, tests;
@@ -20,7 +20,7 @@ try {
     manifest = JSON.parse(await readFile(resolve(root, 'src/generated/manifest.json'), 'utf8'));
   } else {
     ({ manifest } = await build({ syncEntrance: false }));
-    await buildRuntimes();
+    await prepareRuntimes();
     const options = { env: 'local', ip: '127.0.0.1', port: 0, inspectorPort: 0, local: true, persist: false, logLevel: 'error',
       experimental: { forceLocal: true, watch: false, disableDevRegistry: true, disableExperimentalWarning: true, showInteractiveDevSession: false } };
     runtime = await unstable_dev(resolve(root, 'runtime/worker.ts'), { ...options, config: resolve(root, 'runtime/wrangler.jsonc') });

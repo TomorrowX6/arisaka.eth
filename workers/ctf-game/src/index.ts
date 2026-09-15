@@ -16,7 +16,7 @@ const publicFiles = new Set([
   "/developer-tools.js", "/developer-tools.css", "/profiler.js",
   "/transport.js", "/python-runner.js", "/recovery.js",
   "/runtime-apps.js", "/runtime-apps.css", "/runtime-config.json", "/icons/runtime-attribution.txt",
-  "/icons/firefox.webp",
+  "/icons/firefox.webp", "/icons/yesplaymusic.webp",
   "/vendor/pyodide/pyodide.mjs", "/vendor/pyodide/pyodide.asm.mjs", "/vendor/pyodide/pyodide.asm.wasm",
   "/vendor/pyodide/python_stdlib.zip", "/vendor/pyodide/pyodide-lock.json", "/vendor/pyodide/LICENSE.txt",
   "/analysis-tools.js", "/media-tools.js", "/crypto-tools.js", "/database.js", "/database-worker.js",
@@ -207,6 +207,7 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (path === "/runtime-config.json") return json({
       ...runtimeConfiguration,
       minecraft: { ...runtimeConfiguration.minecraft, url: new URL('/minecraft/1.12.2/', env.DESKTOP_APPS_ORIGIN).href },
+      yesplaymusic: { ...runtimeConfiguration.yesplaymusic, url: new URL('/yesplaymusic/', env.DESKTOP_APPS_ORIGIN).href },
     });
     const asset = await env.ASSETS.fetch(new Request(new URL(path === "/" ? "/index.html" : path, url), request));
     const headers = new Headers(asset.headers);

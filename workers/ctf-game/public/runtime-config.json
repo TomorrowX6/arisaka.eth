@@ -8,5 +8,10 @@
   "firefox": {
     "url": "https://developer.puter.com/labs/firefox-wasm/",
     "source": "https://github.com/HeyPuter/firefox-wasm"
+  },
+  "yesplaymusic": {
+    "url": "https://arisaka-desktop-apps.454565615.workers.dev/yesplaymusic/",
+    "source": "https://github.com/qier222/YesPlayMusic",
+    "version": "0.4.10"
   }
 }

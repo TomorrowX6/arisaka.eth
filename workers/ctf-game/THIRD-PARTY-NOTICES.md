@@ -41,4 +41,10 @@ Versions and transitive dependencies are pinned in `pnpm-lock.yaml`. Generated b
 
 The Python runtime includes CPython and the selected NumPy, SymPy, mpmath, and PyCryptodome wheels. Their upstream license files are preserved inside the runtime distribution and wheel archives. Wheel filenames, dependencies, and SHA-256 checksums come from the locked Pyodide release manifest.
 
+## YesPlayMusic
+
+YesPlayMusic 0.4.10, copyright qier222 and contributors, is MIT licensed. Source commit: https://github.com/qier222/YesPlayMusic/tree/df075cca247eab7bf8686155cb8cc9a1f4c7e271. The build preserves the upstream Vue interface, adds desktop profile storage and API transport, and disables analytics and service worker registration. Its license and source details are published as `/yesplaymusic/LICENSE.txt` and `/yesplaymusic/NOTICE.txt`; dependencies are locked in `runtime/yesplaymusic/package-lock.json`. The desktop icon is converted from the pinned upstream logo to lossless WebP.
+
+The Workers API adapts the NetEase protocol from `@neteasecloudmusicapienhanced/api` 4.40.1 (Binaryify and contributors, MIT), with its license retained in `runtime/music-transport.ts`. Cloud audio metadata uses `music-metadata` 11.14.0 (Borewit and contributors, MIT), pinned in `pnpm-lock.yaml`.
+
 KDE application names describe the interface being emulated. This project is not a KDE distribution and is not affiliated with or endorsed by KDE.

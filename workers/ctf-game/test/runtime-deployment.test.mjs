@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { verifyRuntimeDeployment } from '../scripts/runtime-deployment-health.mjs';
+import { verifyRuntimeDeployment, verifyMusicDeployment } from '../scripts/runtime-deployment-health.mjs';
 
 const origin = 'https://apps.example/';
 const desktopOrigin = 'https://desktop.example';
@@ -63,4 +63,59 @@ test('runtime deployment retries propagation errors without accepting a stale ve
     wait: async milliseconds => { assert.equal(milliseconds, 1500); waits++; },
   });
   assert.equal(waits, 1);
+});
+
+const musicFiles = {
+  'index.html': { body: '<!doctype html><title>YesPlayMusic</title>', type: 'text/html' },
+  'bridge.js': { body: 'installProfile();', type: 'text/javascript' },
+  'js/index.abc123.js': { body: 'mountMusic();', type: 'text/javascript' },
+  'img/logos/music.svg': { body: '<svg/>', type: 'image/svg+xml' },
+  'fonts/font.abc123.woff2': { body: 'font fixture', type: 'font/woff2' },
+};
+const musicManifest = {
+  app: 'yesplaymusic', version: '0.4.10', source: { commit: 'pinned-source' },
+  files: Object.fromEntries(Object.entries(musicFiles).map(([name, { body }]) => [name, { size: Buffer.byteLength(body), sha256: createHash('sha256').update(body).digest('hex') }])),
+};
+const musicSecurity = { ...security, 'Cross-Origin-Embedder-Policy': 'credentialless', 'Cache-Control': 'no-cache' };
+function musicFixture(url, options) {
+  const path = new URL(url).pathname;
+  if (path === '/runtime-policy.json') return fixture(url);
+  if (path === '/yesplaymusic/manifest.json') return Response.json(musicManifest, { headers: musicSecurity });
+  if (path === '/yesplaymusic/profiles/default/api/login/qr/create') {
+    assert.equal(options.method, 'POST');
+    assert.equal(JSON.parse(options.body).qrimg, false);
+    return Response.json({ code: 200, data: { qrurl: 'https://music.163.com/login?codekey=runtime-deployment-health', qrimg: '' } }, { headers: { ...musicSecurity, 'Cache-Control': 'no-store' } });
+  }
+  const name = path === '/yesplaymusic/profiles/default/settings' ? 'index.html' : path.slice('/yesplaymusic/'.length);
+  const file = musicFiles[name];
+  return file ? new Response(file.body, { headers: { ...musicSecurity, 'Content-Type': file.type } }) : new Response('Not found', { status: 404 });
+}
+
+test('music deployment checks every asset, a deep profile page, and POST API routing', async () => {
+  const visited = [];
+  await verifyMusicDeployment(origin, musicManifest, {
+    desktopOrigin,
+    request: async (url, options) => { visited.push(new URL(url).pathname); return musicFixture(url, options); },
+    wait: () => assert.fail('healthy music deployment needs no retry'),
+  });
+  assert.deepEqual(new Set(visited), new Set([
+    '/runtime-policy.json', '/yesplaymusic/manifest.json', '/yesplaymusic/profiles/default/settings',
+    '/yesplaymusic/profiles/default/api/login/qr/create', ...Object.keys(musicFiles).map(name => '/yesplaymusic/' + name),
+  ]));
+});
+
+test('music deployment rejects stale builds, corrupt assets, blocked media, and cached API responses', async () => {
+  for (const [path, response] of [
+    ['/yesplaymusic/manifest.json', () => Response.json({ ...musicManifest, version: 'old' }, { headers: musicSecurity })],
+    ['/yesplaymusic/bridge.js', () => new Response('invalid bridge', { headers: { ...musicSecurity, 'Content-Type': 'text/javascript' } })],
+    ['/yesplaymusic/index.html', () => new Response(musicFiles['index.html'].body, { headers: { ...musicSecurity, 'Cross-Origin-Embedder-Policy': 'require-corp', 'Content-Type': 'text/html' } })],
+    ['/yesplaymusic/profiles/default/settings', () => new Response('Not found', { status: 404 })],
+    ['/yesplaymusic/profiles/default/api/login/qr/create', () => Response.json({ code: 200 }, { headers: musicSecurity })],
+    ['/yesplaymusic/fonts/font.abc123.woff2', () => new Response(musicFiles['fonts/font.abc123.woff2'].body, { headers: { ...musicSecurity, 'Content-Type': 'text/html' } })],
+  ]) {
+    await assert.rejects(verifyMusicDeployment(origin, musicManifest, {
+      desktopOrigin, attempts: 1,
+      request: async (url, options) => new URL(url).pathname === path ? response() : musicFixture(url, options),
+    }), /Music deployment verification failed/, path);
+  }
 });

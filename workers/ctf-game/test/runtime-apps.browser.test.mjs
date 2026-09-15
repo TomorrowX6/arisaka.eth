@@ -24,6 +24,7 @@ async function desktop(prepare = async () => {}) {
   await prepare({ context, page, config });
   await page.goto(base);
   await expect(page.locator('#desktop')).toBeVisible();
+  await page.evaluate(async () => { await import('/app.js'); });
   return { context, page, config, calls };
 }
 async function launch(page, id) {
@@ -77,6 +78,7 @@ test('reloading the desktop remembers runtime geometry without downloading or re
   const geometry = {
     minecraft: { left: '180px', top: '90px', width: '990px', height: '700px' },
     firefox: { left: '220px', top: '120px', width: '950px', height: '660px' },
+    yesplaymusic: { left: '140px', top: '80px', width: '1080px', height: '740px' },
   };
   const identities = {};
   try {
@@ -89,13 +91,13 @@ test('reloading the desktop remembers runtime geometry without downloading or re
       identities[id] = await frame.locator('body').evaluate(() => window.instanceId);
       await page.locator('#' + id + '-window').evaluate((node, bounds) => Object.assign(node.style, bounds), geometry[id]);
     }
-    assert.equal(configRequests, 2);
-    assert.equal(calls.length, 2);
+    assert.equal(configRequests, Object.keys(geometry).length);
+    assert.equal(calls.length, Object.keys(geometry).length);
     await page.reload();
     await page.evaluate(async () => { await import('/app.js'); });
     await expect(page.locator('#desktop')).toBeVisible();
-    assert.equal(configRequests, 2, 'session restoration does not request runtime configuration');
-    assert.equal(calls.length, 2, 'session restoration does not download either runtime');
+    assert.equal(configRequests, Object.keys(geometry).length, 'session restoration does not request runtime configuration');
+    assert.equal(calls.length, Object.keys(geometry).length, 'session restoration does not download a runtime');
     await expect(page.locator('.runtime-frame')).toHaveCount(0);
     for (const id of Object.keys(geometry)) {
       const node = page.locator('#' + id + '-window');
@@ -115,8 +117,8 @@ test('reloading the desktop remembers runtime geometry without downloading or re
       await expect(frame.locator('#fixture-input')).toBeVisible();
       assert.equal(await frame.locator('body').evaluate(() => window.instanceId), identity);
     }
-    assert.equal(configRequests, 4, 'only an explicit launch fetches fresh configuration');
-    assert.equal(calls.length, 4, 'each explicit launch creates one frame, retained across minimize/restore');
+    assert.equal(configRequests, Object.keys(geometry).length * 2, 'only an explicit launch fetches fresh configuration');
+    assert.equal(calls.length, Object.keys(geometry).length * 2, 'each explicit launch creates one frame, retained across minimize/restore');
   } finally { await context.close(); }
 });
 
@@ -198,6 +200,69 @@ test('Minecraft status requires the current frame, origin, and launch channel', 
     await expect(frame.locator('#fixture-input')).toBeVisible();
     await send(origin, true, channel, 'STALE');
     await expect(page.locator('#minecraft-window [data-runtime-status]')).not.toContainText('STALE');
+  } finally { await context.close(); }
+});
+
+test('YesPlayMusic keeps its profile and playing instance until the music window closes', { timeout: 60000 }, async () => {
+  const { context, page, calls, config } = await desktop();
+  try {
+    assert.equal(calls.length, 0);
+    await page.locator('#launcher-button').click();
+    await page.locator('#launcher-search').fill('YesPlayMusic');
+    await page.locator('#launcher-apps [data-launch="yesplaymusic"]').click();
+    const window = page.locator('#yesplaymusic-window');
+    const frame = page.frameLocator('#yesplaymusic-window iframe');
+    await expect(frame.locator('#fixture-input')).toBeVisible();
+    const identity = await frame.locator('body').evaluate(() => window.instanceId);
+    const original = new URL(await window.locator('iframe').getAttribute('src'));
+    assert.equal(original.origin, new URL(config.yesplaymusic.url).origin);
+    assert.equal(original.pathname, '/yesplaymusic/profiles/default/');
+    assert.equal(await window.locator('iframe').evaluate(node => Boolean(node.credentialless)), false, 'the music application retains profile storage');
+    await expect(window.locator('.runtime-session-label, [data-runtime-engine]')).toHaveCount(0);
+    await expect(window.locator('[data-runtime-external]')).toHaveAttribute('href', original.origin + original.pathname);
+    await window.locator('[data-window-action="minimize"]').click();
+    await expect(window).toBeHidden();
+    await expect(window.locator('iframe')).toHaveCount(1, { timeout: 5000 });
+    await page.locator('#tasks [data-task="yesplaymusic"]').click();
+    await expect(frame.locator('#fixture-input')).toBeVisible();
+    assert.equal(await frame.locator('body').evaluate(() => window.instanceId), identity, 'minimize and restore retain the playing instance');
+    await window.locator('[data-window-action="close"]').click();
+    await expect(window.locator('iframe')).toHaveCount(0);
+    await launch(page, 'yesplaymusic');
+    await expect(frame.locator('#fixture-input')).toBeVisible();
+    assert.notEqual(await frame.locator('body').evaluate(() => window.instanceId), identity, 'reopening creates a new player');
+    const reopened = new URL(await window.locator('iframe').getAttribute('src'));
+    assert.equal(reopened.pathname, original.pathname, 'reopening keeps the same desktop profile');
+    assert.notEqual(reopened.hash, original.hash, 'each launch has a separate status channel');
+  } finally { await context.close(); }
+});
+
+test('YesPlayMusic status accepts only its current frame and launch channel', { timeout: 45000 }, async () => {
+  const { context, page } = await desktop();
+  try {
+    await launch(page, 'yesplaymusic');
+    const frame = page.frameLocator('#yesplaymusic-window iframe');
+    await expect(frame.locator('#fixture-input')).toBeVisible();
+    const url = new URL(await page.locator('#yesplaymusic-window iframe').getAttribute('src'));
+    const channel = new URLSearchParams(url.hash.slice(1)).get('channel');
+    await page.evaluate(({ origin, channel }) => {
+      const source = document.querySelector('#yesplaymusic-window iframe').contentWindow;
+      for (const event of [
+        { origin: 'https://wrong.example', source, channel },
+        { origin, source: window, channel },
+        { origin, source, channel: 'stale' },
+      ]) window.dispatchEvent(new MessageEvent('message', { ...event, data: { type: 'arisaka:runtime', app: 'yesplaymusic', channel: event.channel, phase: 'running', message: 'FORGED' } }));
+    }, { origin: url.origin, channel });
+    await expect(page.locator('#yesplaymusic-window [data-runtime-status]')).not.toContainText('FORGED');
+    await frame.locator('body').evaluate(() => {
+      const params = new URLSearchParams(location.hash.slice(1));
+      parent.postMessage({ type: 'arisaka:runtime', app: 'yesplaymusic', channel: params.get('channel'), phase: 'running', message: 'YesPlayMusic' }, params.get('parent'));
+    });
+    await expect(page.locator('#yesplaymusic-window')).toHaveAttribute('data-runtime-phase', 'running');
+    await expect(page.locator('#yesplaymusic-window [data-runtime-status]')).toHaveText('YesPlayMusic');
+    await page.locator('#yesplaymusic-window [data-window-action="close"]').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0, { timeout: 5000 });
+    await expect(page.locator('#yesplaymusic-window iframe')).toHaveCount(0);
   } finally { await context.close(); }
 });
 
