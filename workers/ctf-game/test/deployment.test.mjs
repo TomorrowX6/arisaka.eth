@@ -12,7 +12,7 @@ const manifest = { version: '0123456789abcdef', digests: widgets.map(() => 'test
 const healthy = { ok: true, edition: manifest.version, cases: widgets.length };
 
 test('deployment health follows the complete catalog rather than the old ten-case campaign', async () => {
-  assert.equal(widgets.length, 32);
+  assert.ok(widgets.length > 26, 'the append-only expert catalog must be included');
   await verifyDeployment('https://worker.example/', manifest, {
     request: async (url, options) => {
       assert.equal(url.href, 'https://worker.example/api/health');
@@ -27,6 +27,7 @@ test('deployment health follows the complete catalog rather than the old ten-cas
 test('deployment rejects stale, incomplete, unsuccessful, and malformed health responses', async () => {
   for (const response of [
     () => Response.json({ ...healthy, cases: 10 }),
+    () => Response.json({ ...healthy, cases: widgets.length - 1 }),
     () => Response.json({ ...healthy, edition: 'old-edition' }),
     () => Response.json({ ...healthy, ok: false }),
     () => Response.json(healthy, { status: 503 }),
