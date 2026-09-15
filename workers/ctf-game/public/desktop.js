@@ -1,6 +1,8 @@
 import { menu } from '/ui.js';
 import { getSettings, preferenceEvents, profileKey } from '/preferences.js';
 import { matchesShortcut } from '/desktop-config.js';
+import { showSurface, hideSurface, isSurfaceOpen, animateGeometry, cancelMotion } from '/motion.js';
+import { createWindowPreview } from '/previews.js';
 
 const shapes = {
   files: '<path fill="#3daee9" d="M3 8h10l3 3h13v17H3z"/><path fill="#7dc8f0" d="M3 8V5h10l3 3h12v3H3z"/>',
@@ -64,6 +66,13 @@ export function createDesktop() {
     });
   }
   function visible(item) { return item.opened && !item.minimized && item.desktop === currentDesktop; }
+  function taskAnchor(id) {
+    const button = [...tasks.children].find((node) => node.dataset.task === id);
+    const rect = (button?.querySelector('svg') || button)?.getBoundingClientRect();
+    // focus/renderTasks replaces every task button. Keep the geometry, not a
+    // detached element, for the whole minimize or restore transition.
+    return rect?.width && rect.height ? rect : null;
+  }
   function renderTasks() {
     tasks.replaceChildren();
     const ids = [...new Set([...settings.pinnedApps, ...windows.keys()])];
@@ -97,49 +106,75 @@ export function createDesktop() {
     if (visibleWindows.length) focus(visibleWindows[0][0]); else { renderTasks(); notify(); }
   }
   function switchDesktop(index) {
+    const previous = currentDesktop;
     currentDesktop = ((index % settings.desktopCount) + settings.desktopCount) % settings.desktopCount;
-    windows.forEach((item) => { item.node.hidden = !visible(item); });
+    const distance = (currentDesktop - previous + settings.desktopCount) % settings.desktopCount;
+    const forward = distance <= settings.desktopCount / 2;
+    windows.forEach((item) => {
+      if (visible(item)) showSurface(item.node, { effect: 'desktop', origin: forward ? 'right' : 'left' });
+      else hideSurface(item.node, { effect: 'desktop', origin: forward ? 'left' : 'right' });
+    });
     focusRemaining(); persist();
     window.dispatchEvent(new CustomEvent('plasma:desktop', { detail: currentDesktop }));
   }
   function open(id) {
     const item = windows.get(id);
     if (!item || document.querySelector('#desktop').inert) return;
+    const minimized = item.minimized;
+    const anchor = taskAnchor(id) || item.minimizeAnchor;
     if (item.opened && item.desktop !== currentDesktop) switchDesktop(item.desktop);
     else if (!item.opened) item.desktop = currentDesktop;
-    item.opened = true; item.minimized = false; item.node.hidden = false;
-    clamp(item); focus(id); document.querySelector('#launcher').hidden = true;
+    item.opened = true; item.minimized = false;
+    clamp(item);
+    showSurface(item.node, { effect: minimized ? 'minimize' : 'window', origin: settings.panelPosition, anchor });
+    focus(id);
+    hideSurface(document.querySelector('#launcher'), { origin: settings.panelPosition });
+    document.querySelector('#launcher-button').setAttribute('aria-expanded', 'false');
     item.node.dispatchEvent(new Event('window:open')); persist();
     window.dispatchEvent(new CustomEvent('plasma:launch', { detail: id }));
   }
   function minimize(id) {
     const item = windows.get(id); if (!item) return;
-    item.minimized = true; item.node.hidden = true; focusRemaining(); persist();
+    item.minimizeAnchor = taskAnchor(id) || item.minimizeAnchor;
+    item.minimized = true;
+    hideSurface(item.node, { effect: 'minimize', origin: settings.panelPosition, anchor: item.minimizeAnchor });
+    focusRemaining(); persist();
   }
   function close(id) {
     const item = windows.get(id); if (!item) return;
     if (!item.node.dispatchEvent(new Event('window:beforeclose', { cancelable: true }))) return;
-    item.opened = false; item.minimized = false; item.node.hidden = true;
+    item.opened = false; item.minimized = false;
+    hideSurface(item.node, { effect: 'window', origin: 'center' });
     item.node.dispatchEvent(new Event('window:close')); focusRemaining(); persist();
   }
   function tile(id, side) {
     const item = windows.get(id); if (!item) return;
-    const bounds = workArea();
+    const before = item.node.getBoundingClientRect(), bounds = workArea();
     item.node.classList.remove('maximized', 'shaded');
-    if (side === 'top') { maximize(id); return; }
-    Object.assign(item.node.style, { left: (bounds.x + (side === 'right' ? bounds.width / 2 + 2 : 0)) + 'px', top: bounds.y + 'px', width: (bounds.width / 2 - 2) + 'px', height: bounds.height + 'px' });
-    clamp(item); focus(id); persist();
+    if (side === 'top') item.node.classList.add('maximized');
+    else Object.assign(item.node.style, { left: (bounds.x + (side === 'right' ? bounds.width / 2 + 2 : 0)) + 'px', top: bounds.y + 'px', width: (bounds.width / 2 - 2) + 'px', height: bounds.height + 'px' });
+    item.node.querySelector('[data-window-action="maximize"]').setAttribute('aria-label', side === 'top' ? '还原' : '最大化');
+    clamp(item); animateGeometry(item.node, before); focus(id); persist();
   }
   function maximize(id) {
     const item = windows.get(id); if (!item) return;
+    const before = item.node.getBoundingClientRect();
     item.node.classList.remove('shaded'); item.node.classList.toggle('maximized');
     item.node.querySelector('[data-window-action="maximize"]').setAttribute('aria-label', item.node.classList.contains('maximized') ? '还原' : '最大化');
-    clamp(item); focus(id); persist();
+    clamp(item); animateGeometry(item.node, before); focus(id); persist();
+  }
+  function shade(id) {
+    const item = windows.get(id); if (!item) return;
+    const before = item.node.getBoundingClientRect();
+    item.node.classList.toggle('shaded'); animateGeometry(item.node, before);
   }
   function moveTo(id, index) {
     const item = windows.get(id); if (!item) return;
+    const previous = item.desktop;
     item.desktop = ((index % settings.desktopCount) + settings.desktopCount) % settings.desktopCount;
-    item.node.hidden = !visible(item); focusRemaining(); persist();
+    if (visible(item)) showSurface(item.node, { effect: 'desktop', origin: previous > currentDesktop ? 'right' : 'left' });
+    else hideSurface(item.node, { effect: 'desktop', origin: item.desktop > currentDesktop ? 'right' : 'left' });
+    focusRemaining(); persist();
   }
   function setTitle(id, title, kind) {
     const item = windows.get(id); if (!item) return;
@@ -148,29 +183,38 @@ export function createDesktop() {
     item.node.querySelector('.window-icon').innerHTML = icon(item.icon);
     item.node.setAttribute('aria-label', title); renderTasks(); notify();
   }
-  const preview = document.createElement('div'); preview.id = 'tile-preview'; preview.hidden = true; document.querySelector('#desktop').append(preview);
+  const preview = document.createElement('div'); preview.id = 'tile-preview'; preview.hidden = true; preview.setAttribute('aria-hidden', 'true'); document.querySelector('#desktop').append(preview);
   const switcher = document.createElement('section');
   switcher.id = 'window-switcher'; switcher.hidden = true; switcher.setAttribute('role', 'listbox'); switcher.setAttribute('aria-label', '切换窗口');
   document.querySelector('#desktop').append(switcher);
   function finishSwitch(commit = true) {
-    const selected = switchOrder[switchIndex]; switchOrder = []; switcher.hidden = true;
+    const selected = switchOrder[switchIndex]; switchOrder = [];
+    hideSurface(switcher, { origin: 'center' });
     if (commit && selected) open(selected);
   }
   function switchWindow(direction) {
-    if (!switchOrder.length) {
+    const starting = !switchOrder.length;
+    if (starting) {
       switchOrder = [...windows].filter(([, item]) => item.opened && item.desktop === currentDesktop).sort((a, b) => (b[1].lastFocus || 0) - (a[1].lastFocus || 0)).map(([id]) => id);
       switchIndex = Math.max(0, switchOrder.indexOf(active));
     }
     if (!switchOrder.length) return;
     switchIndex = (switchIndex + direction + switchOrder.length) % switchOrder.length;
-    switcher.replaceChildren(); switcher.hidden = false;
-    for (const [index, id] of switchOrder.entries()) {
-      const item = windows.get(id), button = document.createElement('button');
-      button.type = 'button'; button.id = 'switcher-' + id; button.setAttribute('role', 'option'); button.setAttribute('aria-selected', String(index === switchIndex));
-      button.innerHTML = '<span class="app-icon">' + icon(item.icon) + '</span>';
-      const title = document.createElement('span'); title.textContent = item.title; button.append(title);
-      button.onclick = () => { switchIndex = index; finishSwitch(); }; switcher.append(button);
+    if (starting) {
+      switcher.replaceChildren();
+      for (const [index, id] of switchOrder.entries()) {
+        const item = windows.get(id), button = document.createElement('button');
+        button.type = 'button'; button.className = 'switcher-item'; button.id = 'switcher-' + id;
+        button.setAttribute('role', 'option'); button.setAttribute('aria-label', item.title);
+        const thumbnail = createWindowPreview(item.node, { width: Math.min(224, innerWidth - 72), height: 144 });
+        thumbnail.classList.add('switcher-preview'); button.append(thumbnail);
+        const caption = document.createElement('span'); caption.className = 'switcher-caption'; caption.innerHTML = '<span class="app-icon">' + icon(item.icon) + '</span>';
+        const title = document.createElement('span'); title.className = 'switcher-title'; title.textContent = item.title; caption.append(title); button.append(caption);
+        button.onclick = () => { switchIndex = index; finishSwitch(); }; switcher.append(button);
+      }
     }
+    [...switcher.children].forEach((button, index) => button.setAttribute('aria-selected', String(index === switchIndex)));
+    showSurface(switcher, { origin: 'center' });
     switcher.setAttribute('aria-activedescendant', 'switcher-' + switchOrder[switchIndex]);
     switcher.children[switchIndex]?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   }
@@ -178,7 +222,7 @@ export function createDesktop() {
     const id = node.dataset.window; if (windows.has(id)) return;
     const geometry = settings.rememberWindows ? saved[id] || {} : {};
     const item = { node, title: node.dataset.title, icon: node.dataset.icon || id, opened: false, minimized: false, pinned: Boolean(geometry.pinned), desktop: Math.max(0, Math.min(settings.desktopCount - 1, Number(geometry.desktop) || 0)) };
-    windows.set(id, item); node.hidden = true; node.setAttribute('role', 'dialog'); node.setAttribute('aria-label', item.title);
+    windows.set(id, item); node.hidden = true; node.inert = true; node.setAttribute('role', 'dialog'); node.setAttribute('aria-label', item.title);
     Object.assign(node.style, {
       left: (Number.isFinite(geometry.x) ? geometry.x : 95 + windows.size % 6 * 30) + 'px',
       top: (Number.isFinite(geometry.y) ? geometry.y : 55 + windows.size % 6 * 25) + 'px',
@@ -189,18 +233,24 @@ export function createDesktop() {
     const bar = document.createElement('header'); bar.className = 'window-titlebar';
     bar.innerHTML = '<button type="button" class="window-icon-button" aria-label="窗口菜单"><span class="window-icon">' + icon(item.icon) + '</span></button><button type="button" class="window-pin" aria-label="保持在最上方" title="保持在最上方" aria-pressed="' + item.pinned + '">⌖</button><span class="window-title"></span><div class="window-controls"><button type="button" data-window-action="minimize" aria-label="最小化">—</button><button type="button" data-window-action="maximize" aria-label="最大化">□</button><button type="button" data-window-action="close" aria-label="关闭">×</button></div>';
     bar.querySelector('.window-title').textContent = item.title; node.prepend(bar);
+    const togglePin = () => {
+      item.pinned = !item.pinned;
+      bar.querySelector('.window-pin').setAttribute('aria-pressed', String(item.pinned));
+      focus(id); persist();
+    };
     const windowMenu = (event) => menu([
       { label: '最小化', action: () => minimize(id) }, { label: '最大化 / 还原', action: () => maximize(id) },
-      { label: '卷起 / 展开', action: () => node.classList.toggle('shaded') }, null,
+      { label: '卷起 / 展开', action: () => shade(id) },
+      { label: '保持在最前', checked: item.pinned, action: togglePin }, null,
       { label: '平铺到左侧', action: () => tile(id, 'left') }, { label: '平铺到右侧', action: () => tile(id, 'right') }, null,
       ...Array.from({ length: settings.desktopCount }, (_, i) => ({ label: '移到 ' + (settings.desktopNames[i] || '桌面 ' + (i + 1)), checked: item.desktop === i, action: () => moveTo(id, i) })), null,
       { label: '关闭', shortcut: 'Alt+F4', action: () => close(id) },
     ], event.currentTarget, event.type === 'contextmenu' ? { x: event.clientX, y: event.clientY } : undefined);
     bar.querySelector('.window-icon-button').addEventListener('click', windowMenu);
     bar.addEventListener('contextmenu', (event) => { event.preventDefault(); windowMenu(event); });
-    bar.querySelector('.window-pin').addEventListener('click', (event) => { item.pinned = !item.pinned; event.currentTarget.setAttribute('aria-pressed', String(item.pinned)); focus(id); persist(); });
+    bar.querySelector('.window-pin').addEventListener('click', togglePin);
     for (const [action, handler] of Object.entries({ minimize, maximize, close })) bar.querySelector('[data-window-action="' + action + '"]').addEventListener('click', () => handler(id));
-    bar.addEventListener('dblclick', (event) => { if (!event.target.closest('button')) { if (settings.titlebarDoubleClick === 'maximize') maximize(id); if (settings.titlebarDoubleClick === 'shade') node.classList.toggle('shaded'); } });
+    bar.addEventListener('dblclick', (event) => { if (!event.target.closest('button')) { if (settings.titlebarDoubleClick === 'maximize') maximize(id); if (settings.titlebarDoubleClick === 'shade') shade(id); } });
     node.addEventListener('pointerdown', () => focus(id));
     node.addEventListener('pointerenter', () => { if (settings.focusFollowsMouse) focus(id); });
     bindDrag(item, bar);
@@ -212,9 +262,11 @@ export function createDesktop() {
     bar.addEventListener('pointerdown', (event) => {
       if (event.button !== 0 || event.target.closest('button') || innerWidth < 640) return;
       event.preventDefault();
+      cancelMotion(node);
       if (node.classList.contains('maximized')) {
         const ratio = Math.min(1, Math.max(0, (event.clientX - node.offsetLeft) / node.offsetWidth));
         node.classList.remove('maximized'); node.style.left = event.clientX - node.offsetWidth * ratio + 'px'; node.style.top = event.clientY - 14 + 'px';
+        node.querySelector('[data-window-action="maximize"]').setAttribute('aria-label', '最大化');
       }
       const start = { x: event.clientX, y: event.clientY, left: node.offsetLeft, top: node.offsetTop };
       let snap = '';
@@ -223,13 +275,19 @@ export function createDesktop() {
         const bounds = workArea();
         node.style.left = Math.max(bounds.x - node.offsetWidth + 140, Math.min(bounds.x + bounds.width - 140, start.left + next.clientX - start.x)) + 'px';
         node.style.top = Math.max(bounds.y, Math.min(bounds.y + bounds.height - 32, start.top + next.clientY - start.y)) + 'px';
-        snap = settings.snapWindows ? next.clientX <= bounds.x + 12 ? 'left' : next.clientX >= bounds.x + bounds.width - 12 ? 'right' : next.clientY <= bounds.y + 6 ? 'top' : '' : '';
-        preview.hidden = !snap;
-        if (snap) Object.assign(preview.style, { left: (bounds.x + (snap === 'right' ? bounds.width / 2 : 0)) + 'px', top: bounds.y + 'px', width: (snap === 'top' ? bounds.width : bounds.width / 2) + 'px', height: bounds.height + 'px' });
+        const nextSnap = settings.snapWindows ? next.clientX <= bounds.x + 12 ? 'left' : next.clientX >= bounds.x + bounds.width - 12 ? 'right' : next.clientY <= bounds.y + 6 ? 'top' : '' : '';
+        if (nextSnap !== snap) {
+          snap = nextSnap;
+          if (snap) {
+            const before = isSurfaceOpen(preview) ? preview.getBoundingClientRect() : null;
+            Object.assign(preview.style, { left: (bounds.x + (snap === 'right' ? bounds.width / 2 : 0)) + 'px', top: bounds.y + 'px', width: (snap === 'top' ? bounds.width : bounds.width / 2) + 'px', height: bounds.height + 'px' });
+            if (before) animateGeometry(preview, before); else showSurface(preview, { origin: 'center' });
+          } else hideSurface(preview, { origin: 'center' });
+        }
       };
       const finish = (event) => {
         bar.removeEventListener('pointermove', move); bar.removeEventListener('pointerup', finish); bar.removeEventListener('pointercancel', finish);
-        node.classList.remove('dragging'); preview.hidden = true;
+        node.classList.remove('dragging'); hideSurface(preview, { origin: 'center' });
         if (snap && event.type !== 'pointercancel') tile(node.dataset.window, snap); else { clamp(item); persist(); }
       };
       bar.addEventListener('pointermove', move); bar.addEventListener('pointerup', finish); bar.addEventListener('pointercancel', finish);
@@ -242,6 +300,7 @@ export function createDesktop() {
         if (event.button !== 0 || item.node.classList.contains('maximized') || innerWidth < 640) return;
         event.preventDefault(); handle.setPointerCapture(event.pointerId); focus(item.node.dataset.window);
         const node = item.node, bounds = workArea();
+        cancelMotion(node); node.classList.add('resizing');
         const initial = { x: event.clientX, y: event.clientY, left: node.offsetLeft, top: node.offsetTop, width: node.offsetWidth, height: node.offsetHeight };
         const move = (next) => {
           const dx = next.clientX - initial.x, dy = next.clientY - initial.y;
@@ -252,7 +311,7 @@ export function createDesktop() {
           if (edge.includes('n')) top = Math.max(bounds.y, Math.min(bottom - 220, top + dy));
           Object.assign(node.style, { left: left + 'px', top: top + 'px', width: right - left + 'px', height: bottom - top + 'px' });
         };
-        const finish = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', finish); handle.removeEventListener('pointercancel', finish); persist(); };
+        const finish = () => { handle.removeEventListener('pointermove', move); handle.removeEventListener('pointerup', finish); handle.removeEventListener('pointercancel', finish); node.classList.remove('resizing'); persist(); };
         handle.addEventListener('pointermove', move); handle.addEventListener('pointerup', finish); handle.addEventListener('pointercancel', finish);
       });
     }
@@ -269,7 +328,7 @@ export function createDesktop() {
   document.addEventListener('dblclick', (event) => { const button = event.target.closest('.desktop-icons [data-launch]'); if (button && !settings.singleClick && innerWidth >= 640) open(button.dataset.launch); });
   document.querySelector('#launcher-button').innerHTML = icon('launch');
   function showDesktop() {
-    const visibleWindows = [...windows].filter(([, item]) => visible(item)).map(([id]) => id);
+    const visibleWindows = [...windows].filter(([, item]) => visible(item)).sort((a, b) => (a[1].lastFocus || 0) - (b[1].lastFocus || 0)).map(([id]) => id);
     if (visibleWindows.length) { restoreDesktop = visibleWindows; visibleWindows.forEach(minimize); }
     else { restoreDesktop.forEach(open); restoreDesktop = []; }
   }
@@ -296,10 +355,14 @@ export function createDesktop() {
 
   preferenceEvents.addEventListener('appearance', (event) => {
     settings = event.detail; currentDesktop = Math.min(currentDesktop, settings.desktopCount - 1); applyWorkArea();
-    windows.forEach((item) => { item.desktop = Math.min(item.desktop, settings.desktopCount - 1); item.node.hidden = !visible(item); clamp(item); });
+    windows.forEach((item) => {
+      item.desktop = Math.min(item.desktop, settings.desktopCount - 1);
+      if (visible(item)) showSurface(item.node, { effect: 'window' }); else hideSurface(item.node, { effect: 'window' });
+      cancelMotion(item.node); clamp(item);
+    });
     renderTasks(); notify(); window.dispatchEvent(new CustomEvent('plasma:desktop', { detail: currentDesktop }));
   });
-  window.addEventListener('resize', () => { applyWorkArea(); windows.forEach(clamp); });
+  window.addEventListener('resize', () => { applyWorkArea(); windows.forEach((item) => { cancelMotion(item.node); clamp(item); }); });
   window.addEventListener('pagehide', persist);
   applyWorkArea(); renderTasks();
   return {
@@ -310,7 +373,8 @@ export function createDesktop() {
     restoreSession() {
       if (!settings.rememberWindows) return;
       for (const [id, geometry] of Object.entries(saved)) if (geometry.opened && !['workbench', 'proof'].includes(id) && windows.has(id)) {
-        const item = windows.get(id); item.opened = true; item.minimized = Boolean(geometry.minimized); item.node.hidden = !visible(item);
+        const item = windows.get(id); item.opened = true; item.minimized = Boolean(geometry.minimized);
+        if (visible(item)) showSurface(item.node, { effect: 'window' }); else hideSurface(item.node, { effect: 'window' });
         if (visible(item)) item.node.dispatchEvent(new Event('window:open'));
       }
       focusRemaining();

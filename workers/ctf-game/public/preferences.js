@@ -8,7 +8,7 @@ const unhex = (text) => Uint8Array.from(text.match(/../g) || [], (byte) => parse
 const color = (value) => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value);
 
 export const themes = [
-  { id: 'breeze-dark', name: 'Breeze 深色', dark: true, colors: ['#232629', '#31363b', '#eff0f1', '#3daee9'] },
+  { id: 'breeze-dark', name: 'Breeze 深色', dark: true, colors: ['#1b1e20', '#2a2e32', '#fcfcfc', '#3daee9'] },
   { id: 'breeze-light', name: 'Breeze 浅色', dark: false, colors: ['#ffffff', '#eff0f1', '#232629', '#3daee9'] },
   { id: 'breeze-twilight', name: 'Breeze 暮光', dark: false, colors: ['#ffffff', '#eff0f1', '#232629', '#3daee9'] },
   { id: 'nord', name: 'Nord', dark: true, colors: ['#242933', '#2e3440', '#eceff4', '#88c0d0'] },
@@ -17,6 +17,7 @@ export const themes = [
   { id: 'custom', name: '自定义配色', dark: true, colors: ['#232629', '#31363b', '#eff0f1', '#3daee9'] },
 ];
 export const wallpapers = [
+  { id: 'nuvole', name: 'Nuvole', color: '#29323a', file: '/wallpapers/nuvole.png' },
   { id: 'breeze', name: 'Breeze', color: '#1a506b' },
   { id: 'mountain', name: 'Mountain', color: '#476480', file: '/wallpapers/mountain.jpg' },
   { id: 'flow', name: 'Flow', color: '#6373c2', file: '/wallpapers/flow.jpg' },
@@ -28,10 +29,10 @@ export const wallpapers = [
   { id: 'custom', name: '自定义图片', color: '#38454f' },
 ];
 export const defaults = Object.freeze({
-  theme: 'breeze-dark', accent: '#3daee9', wallpaper: 'breeze', wallpaperColor: '#1c2734',
+  theme: 'breeze-dark', accent: '#3daee9', wallpaper: 'nuvole', wallpaperColor: '#1c2734',
   wallpaperImage: '', wallpaperMode: 'cover', customColors: {},
   fontFamily: 'Noto Sans', fontSize: 13, monoFont: 'Hack', monoSize: 13, scale: 100,
-  panelPosition: 'bottom', panelSize: 48, panelFloating: true, panelAutoHide: false,
+  panelPosition: 'bottom', panelSize: 44, panelFloating: true, panelAutoHide: false,
   desktopCount: 4, desktopNames: ['桌面 1', '桌面 2', '桌面 3', '桌面 4'], showDesktopIcons: true,
   singleClick: false, animations: true, reducedTransparency: false, titlebarDoubleClick: 'maximize',
   focusFollowsMouse: false, snapWindows: true, taskCurrentDesktop: false,
@@ -96,6 +97,24 @@ export function profileKey() { return profiles.active; }
 export function getSettings() { return structuredClone(settings); }
 export function getSetting(key) { return settings[key]; }
 
+function applyDecorationMetrics() {
+  const root = document.documentElement, style = getComputedStyle(root);
+  const context = document.createElement('canvas').getContext('2d');
+  if (!context) return;
+  context.font = style.fontSize + ' ' + style.fontFamily;
+  const measured = context.measureText('M');
+  // KDecoration derives its grid from the title font's M, rounded up to an even number.
+  const glyphHeight = measured.actualBoundingBoxAscent + measured.actualBoundingBoxDescent;
+  const grid = Math.max(2, Math.ceil((glyphHeight || parseFloat(style.fontSize) * .72) / 2) * 2);
+  const spacing = Math.max(2, Math.floor(grid / 4));
+  const fontHeight = measured.fontBoundingBoxAscent + measured.fontBoundingBoxDescent || parseFloat(style.fontSize) * 1.4;
+  root.style.setProperty('--decoration-spacing', spacing + 'px');
+  root.style.setProperty('--titlebar-button-size', grid * 2 + 'px');
+  root.style.setProperty('--titlebar-height', Math.ceil(Math.max(fontHeight, grid * 2) + spacing * 4) + 'px');
+  root.style.setProperty('--window-radius', spacing * 2.5 + 'px');
+}
+document.fonts?.addEventListener('loadingdone', applyDecorationMetrics);
+
 export function applyAppearance(input = settings) {
   const value = cleanSettings(input);
   const root = document.documentElement;
@@ -121,6 +140,7 @@ export function applyAppearance(input = settings) {
   root.style.setProperty('--wallpaper-image', background?.file ? `url("${background.file}")` : value.wallpaper === 'custom' && value.wallpaperImage ? `url("${value.wallpaperImage}")` : 'none');
   root.style.setProperty('--wallpaper-fit', value.wallpaperMode === 'repeat' ? 'auto' : value.wallpaperMode);
   root.style.setProperty('--wallpaper-repeat', value.wallpaperMode === 'repeat' ? 'repeat' : 'no-repeat');
+  applyDecorationMetrics();
   for (const key of ['bg', 'panel', 'raised', 'sidebar', 'ink', 'muted', 'line']) {
     if (value.theme === 'custom' && value.customColors[key]) root.style.setProperty('--' + key, value.customColors[key]);
     else root.style.removeProperty('--' + key);

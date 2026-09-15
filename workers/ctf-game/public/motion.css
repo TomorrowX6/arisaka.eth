@@ -1,0 +1,17 @@
+[data-motion-state] { will-change: opacity, transform; }
+[data-motion-state="exit"] { pointer-events: none !important; }
+.window.dragging, .window.resizing { transition: none !important; }
+
+#window-switcher { gap: 8px; padding: 10px; max-width: calc(100vw - 32px); border-radius: 6px; scrollbar-width: thin; }
+#window-switcher .switcher-item { flex: 0 0 auto; width: auto; min-width: 160px; max-width: calc(100vw - 56px); padding: 8px; gap: 8px; border: 1px solid transparent; border-radius: 3px; transition: border-color 100ms, background-color 100ms; }
+#window-switcher .switcher-item[aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, transparent); }
+#window-switcher .switcher-preview { flex: none; max-width: 100%; border-radius: 3px; box-shadow: 0 2px 7px #0005; }
+#window-switcher .switcher-caption { width: 100%; display: flex; align-items: center; gap: 7px; min-width: 0; text-align: left; }
+#window-switcher .switcher-caption .app-icon { width: 22px; height: 22px; flex: none; }
+#window-switcher .switcher-title { display: block; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  [data-motion-state] { will-change: auto; }
+}
+:root[data-motion="off"] [data-motion-state] { will-change: auto; }

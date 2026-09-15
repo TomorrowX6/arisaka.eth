@@ -1,5 +1,13 @@
 [
   {
+    "file": "nuvole.png",
+    "name": "Nuvole (Dark)",
+    "authors": ["Krystian Zajdel"],
+    "license": "CC-BY-SA-4.0",
+    "source": "https://raw.githubusercontent.com/KDE/breeze/v6.3.5/wallpapers/Next/contents/images_dark/2560x1440.png",
+    "modifications": "None."
+  },
+  {
     "file": "mountain.jpg",
     "name": "Mountain",
     "authors": [

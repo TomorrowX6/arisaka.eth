@@ -3,17 +3,18 @@
   --ui-font: "Noto Sans", "Noto Sans CJK SC", sans-serif;
   --ui-font-size: 13px;
   --mono-size: 13px;
-  --bg: #232629;
-  --panel: #31363b;
-  --raised: #3b4045;
-  --sidebar: #2a2e32;
-  --ink: #eff0f1;
+  --bg: #1b1e20;
+  --panel: #2a2e32;
+  --raised: #31363b;
+  --header: var(--raised);
+  --sidebar: #232629;
+  --ink: #fcfcfc;
   --muted: #a1a9b1;
   --line: #4d5257;
   --border: color-mix(in srgb, var(--ink) 26%, var(--panel));
   --deep: color-mix(in srgb, var(--bg) 92%, #000);
   --edge: color-mix(in srgb, var(--ink) 10%, var(--panel));
-  --inactive: color-mix(in srgb, var(--panel) 90%, var(--bg));
+  --inactive: var(--panel);
   --hover: color-mix(in srgb, var(--accent) 14%, var(--panel));
   --selected: color-mix(in srgb, var(--accent) 28%, var(--bg));
   --shell-bg: #232629;
@@ -26,7 +27,11 @@
   --syntax-type: #ffcb6b;
   --syntax-operator: #89ddff;
   --syntax-property: #c3e88d;
-  --panel-size: 48px;
+  --panel-size: 44px;
+  --decoration-spacing: 2px;
+  --titlebar-button-size: 20px;
+  --titlebar-height: 28px;
+  --window-radius: 5px;
   --panel-gap: 8px;
   --work-x: 8px;
   --work-y: 8px;
@@ -40,6 +45,7 @@
   --bg: #fff;
   --panel: #eff0f1;
   --raised: #fafafa;
+  --header: var(--panel);
   --sidebar: #f6f7f7;
   --ink: #232629;
   --muted: #61676b;
@@ -74,7 +80,8 @@ dialog, .native-dialog { background: var(--panel); }
 .button.primary:hover { background: color-mix(in srgb, var(--accent) 85%, #fff); }
 :root[data-theme="contrast"] .button.primary { color: #111; }
 .window.focused .window-title { color: var(--ink); }
-.window.focused .window-titlebar, .window-titlebar, .native-toolbar, .application-toolbar { background: var(--panel); }
+.window.focused .window-titlebar, .window-titlebar, .native-toolbar, .application-toolbar { background: var(--header); }
+.window:not(.focused) .window-titlebar { background: var(--inactive); }
 :root[data-theme="breeze-twilight"] .window-titlebar, :root[data-theme="breeze-twilight"] .window.focused .window-titlebar { background: #31363b; --ink: #eff0f1; --muted: #b5b8ba; }
 .native-menu, .native-dialog, .toast { background: var(--panel); color: var(--ink); border-color: var(--border); }
 .toolbar-separator { background: var(--line); }
@@ -90,7 +97,7 @@ dialog, .native-dialog { background: var(--panel); }
 .cm-editor .cm-searchMatch { background: color-mix(in srgb, #fdbc4b 30%, var(--bg)); outline: 1px solid #b08825; }
 .cm-editor .cm-panels { background: var(--panel); color: var(--ink); border-color: var(--line); }
 .wallpaper { background-color: var(--wallpaper-color, #1c2734); }
-:root[data-wallpaper="mountain"] .wallpaper, :root[data-wallpaper="flow"] .wallpaper, :root[data-wallpaper="scarlet"] .wallpaper, :root[data-wallpaper="custom"] .wallpaper {
+:root[data-wallpaper="nuvole"] .wallpaper, :root[data-wallpaper="mountain"] .wallpaper, :root[data-wallpaper="flow"] .wallpaper, :root[data-wallpaper="scarlet"] .wallpaper, :root[data-wallpaper="custom"] .wallpaper {
   background-image: var(--wallpaper-image);
   background-position: center;
   background-size: var(--wallpaper-fit, cover);

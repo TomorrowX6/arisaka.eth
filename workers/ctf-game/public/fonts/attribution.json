@@ -1,0 +1,26 @@
+[
+  {
+    "file": "noto-sans-latin.woff2",
+    "name": "Noto Sans Variable (Latin)",
+    "license": "OFL-1.1",
+    "licenseFile": "Noto-OFL.txt",
+    "source": "https://cdn.jsdelivr.net/npm/@fontsource-variable/noto-sans@5.3.0/files/noto-sans-latin-wght-normal.woff2",
+    "modifications": "None."
+  },
+  {
+    "file": "noto-sans-sc.woff2",
+    "name": "Noto Sans SC Regular",
+    "license": "OFL-1.1",
+    "licenseFile": "NotoCJK-OFL.txt",
+    "source": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/SubsetOTF/SC/NotoSansSC-Regular.otf",
+    "modifications": "Converted from OpenType to WOFF2 with FontTools 4.65.0; glyphs unchanged."
+  },
+  {
+    "file": "hack-regular.woff2",
+    "name": "Hack Regular 3.003",
+    "license": "MIT AND Bitstream-Vera",
+    "licenseFile": "Hack-LICENSE.txt",
+    "source": "https://raw.githubusercontent.com/source-foundry/Hack/v3.003/build/web/fonts/hack-regular.woff2",
+    "modifications": "None."
+  }
+]

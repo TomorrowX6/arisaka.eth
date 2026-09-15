@@ -1,3 +1,5 @@
+import { showSurface, hideSurface } from '/motion.js';
+
 export const $ = (selector, root = document) => root.querySelector(selector);
 export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
@@ -23,9 +25,12 @@ let activeMenu;
 export function closeMenu() {
   if (!activeMenu) return;
   const { node, anchor } = activeMenu;
-  node.remove();
   anchor?.setAttribute('aria-expanded', 'false');
   activeMenu = null;
+  hideSurface(node, { effect: 'menu', origin: 'top' });
+  const animations = node.getAnimations();
+  if (animations.length) Promise.allSettled(animations.map(animation => animation.finished)).then(() => node.remove());
+  else node.remove();
 }
 
 export function menu(items, anchor, point) {
@@ -73,6 +78,7 @@ export function menu(items, anchor, point) {
   node.style.top = Math.max(4, Math.min(y, innerHeight - node.offsetHeight - 4)) + 'px';
   activeMenu = { node, anchor };
   anchor?.setAttribute('aria-expanded', 'true');
+  showSurface(node, { effect: 'menu', origin: 'top' });
   node.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
   node.addEventListener('keydown', (event) => {
     const buttons = $$('button:not(:disabled)', node);
@@ -128,7 +134,7 @@ export function askText(title, value = '', label = '名称：') {
     form.addEventListener('submit', (event) => { event.preventDefault(); dialog.close(input.value.trim()); });
     row.append(cancel, accept); form.append(heading, field, row); dialog.append(form); document.body.append(dialog);
     dialog.addEventListener('close', () => { const result = dialog.returnValue || null; dialog.remove(); resolve(result); }, { once: true });
-    dialog.showModal(); input.focus(); input.select();
+    dialog.showModal(); showSurface(dialog, { effect: 'window', origin: 'center' }); input.focus(); input.select();
   });
 }
 
@@ -145,7 +151,7 @@ export function askSave(name) {
     }
     dialog.append(title, text, row); document.body.append(dialog);
     dialog.addEventListener('close', () => { const result = dialog.returnValue || 'cancel'; dialog.remove(); resolve(result); }, { once: true });
-    dialog.showModal(); row.lastElementChild.focus();
+    dialog.showModal(); showSurface(dialog, { effect: 'window', origin: 'center' }); row.lastElementChild.focus();
   });
 }
 

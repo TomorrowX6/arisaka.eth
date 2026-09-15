@@ -4,7 +4,8 @@
 
 ## 工作区
 
-- Plasma 6 / Breeze 风格桌面：窗口拖动、缩放、平铺、虚拟桌面、任务栏、用户切换、锁屏、主题、壁纸和快捷键。
+- 以 KDE Plasma 6.3.5 / Breeze Dark 为基准的桌面：官方 Nuvole 深色壁纸、本地 Noto Sans / Hack 字体、随字体调整的窗口装饰、Kickoff、四向面板、任务预览、虚拟桌面、锁屏和快捷键。
+- 窗口开关、朝任务图标最小化、最大化/平铺、菜单和弹出面板共享可取消的动画；桌面切换使用 KWin 的弹簧积分，反向时保留速度。系统与桌面“减少动态效果”设置即时生效。
 - 28 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint 和数据包查看器。
 - JavaScript / Web Crypto / WebAssembly 与 Python 执行环境；Python 提供 NumPy、SymPy、mpmath、PyCryptodome。运行时和依赖均由同一 Worker 提供。
 - 文件通过 IndexedDB 按存档隔离保存，支持目录、导入、回收站、还原和多标签页写入冲突检测。脚本通过有界文件 RPC 读写工作区，不能直接联网；游戏内协议使用限定范围的 `net` API。
@@ -42,7 +43,7 @@ pnpm test:e2e
 
 `pnpm test:e2e` 自动生成题目、启动随机端口的本地 Worker、检查版本、运行浏览器测试并关闭 Worker；存储与日常开发存档隔离，不更新博客入口，不需要 Cloudflare 部署凭证。它包含：
 
-- `pnpm test:browser`：全部应用启动、文件持久化、用户设置、脚本运行、PDF、SQLite、OpenPGP、窄屏布局等真实界面回归。
+- `pnpm test:browser`：全部应用启动、文件持久化、用户设置、脚本运行、PDF、SQLite、OpenPGP、窄屏布局，以及快速窗口开关、KWin 弹簧轨迹和反向、减少动态效果、任务预览与启动器键盘操作等真实界面回归。
 - `pnpm test:campaign`：只读取私有夹具中的入口，所有 26 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
 
 `pnpm test:all` 顺序执行上述单元测试和端到端测试。也可用 `CTF_E2E_URL=http://127.0.0.1:8788 pnpm test:e2e` 测试已有本地服务；其版本必须与本地生成的夹具一致。低内存机器不要同时运行 Astro 检查和浏览器测试。

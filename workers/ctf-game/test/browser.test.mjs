@@ -292,14 +292,227 @@ test('Kleopatra creates protected keys and performs actual OpenPGP encryption an
 test('small displays keep application controls within the desktop viewport', { timeout: 120000 }, async () => {
   const {context,page,errors}=await desktop({viewport:{width:320,height:740},isMobile:true,hasTouch:true});
   try {
-    for(const [id,name]of [['settings','系统设置'],['database','SQLite'],['keys','Kleopatra'],['media','Elisa'],['imageviewer','Gwenview']]){
+    for(const [id,name]of [['settings','系统设置'],['database','SQLite'],['keys','Kleopatra'],['media','Elisa'],['imageviewer','Gwenview'],['discover','Discover']]){
       await launch(page,id,name);
+      // Geometry assertions compare the final layout, after the entrance scale settles.
+      await page.waitForFunction(id => !document.getElementById(id + '-window').dataset.motionState, id);
       const bounds=await page.locator('#'+id+'-window').boundingBox();
       assert.ok(bounds.x>=0&&bounds.x+bounds.width<=321,id+' window is within viewport');
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);
       assert.equal(overflow,false,id+' does not overflow the document');
+      if (id === 'discover') {
+        const search = await page.locator('#discover-search').boundingBox();
+        const list = await page.locator('#discover-list').boundingBox();
+        const body = await page.locator('#discover-window .window-body').boundingBox();
+        assert.ok(search.height <= 45, 'Discover search remains a single-line control');
+        assert.ok(list.width >= body.width - 2 && list.height > body.height * .7, 'Discover list fills the available window: ' + JSON.stringify({ search, list, body }));
+      }
       await page.locator('#'+id+'-window [data-window-action="close"]').click();
     }
     assert.deepEqual(errors,[]);
   } finally {await context.close();}
+});
+
+test('window motion survives rapid minimize, restore, close, and reopen', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop({ viewport: { width: 1525, height: 998 } });
+  try {
+    await launch(page, 'calculator', 'KCalc');
+    const window = page.locator('#calculator-window');
+    await page.waitForFunction(() => !document.querySelector('#calculator-window').dataset.motionState);
+    await page.evaluate(async () => {
+      const { getSettings, updateSettings } = await import('/preferences.js');
+      updateSettings({ pinnedApps: [...getSettings().pinnedApps, 'calculator'] });
+    });
+    const original = await window.boundingBox();
+    for (const action of ['minimize', 'close']) {
+      const during = await page.evaluate(action => {
+        const node = document.querySelector('#calculator-window');
+        node.querySelector('[data-window-action=' + action + ']').click();
+        const during = { hidden: node.hidden, inert: node.inert, animating: node.getAnimations().length > 0 };
+        document.querySelector('#tasks [data-task=calculator]').click();
+        return during;
+      }, action);
+      assert.deepEqual(during, { hidden: false, inert: true, animating: true }, action + ' animates an inactive outgoing window');
+      await page.waitForFunction(() => !document.querySelector('#calculator-window').dataset.motionState);
+      await expect(window).toBeVisible();
+      assert.equal(await window.evaluate(node => node.inert), false, 'reopened window accepts input');
+      await expect(page.locator('#tasks [data-task=calculator]')).toHaveAttribute('aria-pressed', 'true');
+    }
+    for (let i = 0; i < 2; i++) {
+      await window.locator('[data-window-action=maximize]').click();
+      await page.waitForFunction(() => !document.querySelector('#calculator-window').dataset.motionState);
+      if (i === 0) await expect(page.locator('.plasma-panel')).toHaveClass(/touching-window/);
+      else await expect(page.locator('.plasma-panel')).not.toHaveClass(/touching-window/);
+    }
+    const restored = await window.boundingBox();
+    for (const key of ['x', 'y', 'width', 'height']) assert.ok(Math.abs(original[key] - restored[key]) <= 1, 'restore preserves ' + key);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('virtual desktops follow the KWin spring and preserve momentum on reversal', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop({ viewport: { width: 1525, height: 998 } });
+  try {
+    await launch(page, 'calculator', 'KCalc');
+    await page.waitForFunction(() => !document.querySelector('#calculator-window').dataset.motionState);
+    const samples = await page.evaluate(async () => {
+      const { isSurfaceOpen } = await import('/motion.js');
+      const node = document.querySelector('#calculator-window');
+      const select = index => document.querySelectorAll('#desktop-pager button')[index].click();
+      const slide = () => node.getAnimations().find(animation => animation.effect.getKeyframes().some(frame => frame.translate));
+      const x = () => parseFloat(getComputedStyle(node).translate) || 0;
+      select(1);
+      const outgoing = { hidden: node.hidden, inert: node.inert, open: isSurfaceOpen(node) };
+      const forward = slide(); forward.pause();
+      forward.currentTime = 100; const at100 = x();
+      forward.currentTime = 300; const at300 = x();
+      forward.currentTime = 100; const beforeReverse = x();
+      select(0);
+      const reverse = slide(); reverse.pause();
+      reverse.currentTime = 0; const atReverse = x();
+      reverse.currentTime = 10; const afterReverse = x();
+      reverse.play();
+      return { outgoing, at100, at300, beforeReverse, atReverse, afterReverse };
+    });
+    assert.deepEqual(samples.outgoing, { hidden: false, inert: true, open: false });
+    // Independent samples from KWin v6.3.5 SpringMotion, with a 1525px desktop.
+    assert.ok(Math.abs(samples.at100 + 719.867913) < .5, '100ms position follows the reference spring');
+    assert.ok(Math.abs(samples.at300 + 1445.677936) < .5, '300ms position follows the reference spring');
+    assert.ok(Math.abs(samples.atReverse - samples.beforeReverse) < .5, 'reversal does not jump');
+    assert.ok(samples.afterReverse < samples.atReverse - 50, 'reversal retains outgoing momentum');
+    await page.waitForFunction(() => !document.querySelector('#calculator-window').dataset.motionState);
+    await expect(page.locator('#calculator-window')).toBeVisible();
+    assert.equal(await page.locator('#calculator-window').evaluate(node => node.inert), false);
+    await page.keyboard.press('Control+Alt+ArrowRight');
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.keyboard.press('Control+Alt+ArrowLeft');
+    const restored = await page.locator('#calculator-window').evaluate(node => ({ hidden: node.hidden, inert: node.inert, animations: node.getAnimations().length }));
+    assert.deepEqual(restored, { hidden: false, inert: false, animations: 0 });
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('desktop and system reduced-motion preferences settle windows immediately', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop({ reducedMotion: 'reduce' });
+  try {
+    await launch(page, 'calculator', 'KCalc');
+    const minimized = await page.evaluate(() => {
+      const node = document.querySelector('#calculator-window');
+      node.querySelector('[data-window-action=minimize]').click();
+      return { hidden: node.hidden, animations: node.getAnimations().length };
+    });
+    assert.deepEqual(minimized, { hidden: true, animations: 0 });
+    await page.locator('#tasks [data-task=calculator]').click();
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
+    await page.evaluate(async () => (await import('/preferences.js')).updateSettings({ animations: false }));
+    const closed = await page.evaluate(() => {
+      const node = document.querySelector('#calculator-window');
+      node.querySelector('[data-window-action=close]').click();
+      return { hidden: node.hidden, animations: node.getAnimations().length };
+    });
+    assert.deepEqual(closed, { hidden: true, animations: 0 });
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('task previews are inert and activate, restore, and close their window', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await launch(page, 'calculator', 'KCalc');
+    const task = page.locator('#tasks [data-task=calculator]');
+    const preview = page.locator('#task-preview');
+    await task.hover();
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveAttribute('data-task', 'calculator');
+    await expect(preview.locator('.window-thumbnail [id]')).toHaveCount(0);
+    assert.equal(await preview.locator('.window-thumbnail').evaluate(node => node.inert), true);
+    await preview.locator('#task-preview-activate').click();
+    await expect(page.locator('#calculator-window')).toHaveClass(/focused/);
+    await page.locator('#calculator-window [data-window-action=minimize]').click();
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    await task.focus();
+    await expect(preview).toBeVisible();
+    await preview.locator('#task-preview-activate').click();
+    await expect(page.locator('#calculator-window')).toBeVisible();
+    await task.focus();
+    await expect(preview).toBeVisible();
+    await preview.locator('[data-preview-close]').click();
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    await expect(preview).toBeHidden();
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('Kickoff aligns its header and supports keyboard search and dismissal', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#launcher-button').click();
+    const search = page.locator('#launcher-search');
+    // Read both controls in the same frame while the popup slides into view.
+    const { user, field } = await page.locator('#launcher').evaluate(node => ({
+      user: node.querySelector('#launcher-user').getBoundingClientRect().toJSON(),
+      field: node.querySelector('#launcher-search').getBoundingClientRect().toJSON(),
+    }));
+    assert.ok(Math.abs(user.y + user.height / 2 - field.y - field.height / 2) < 12, 'user and search share the Kickoff header');
+    await search.fill('Konsole');
+    const result = page.locator('#launcher-apps [data-launch=console]');
+    await expect(page.locator('#launcher-apps [data-launch]')).toHaveCount(1);
+    await search.press('ArrowDown');
+    await expect(result).toBeFocused();
+    await result.press('Enter');
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#launcher')).toBeHidden();
+    await expect(page.locator('#launcher-button')).toHaveAttribute('aria-expanded', 'false');
+    await page.locator('#launcher-button').click();
+    await search.press('Escape');
+    await expect(page.locator('#launcher')).toBeHidden();
+    await expect(page.locator('#launcher-button')).toBeFocused();
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('KRunner restores application focus after repeated shortcut activation', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await launch(page, 'console', 'Konsole');
+    const command = page.locator('#console-sessions .console-session:not([hidden]) .session-form input').first();
+    await command.focus();
+    await page.keyboard.press('Alt+Space');
+    await expect(page.locator('#runner-search')).toBeFocused();
+    await page.keyboard.press('Alt+Space');
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#krunner')).toBeHidden();
+    await expect(command).toBeFocused();
+    await page.keyboard.type('focus-restored');
+    await expect(command).toHaveValue('focus-restored');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('window thumbnails preserve the current scroll position and decoration', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await launch(page, 'discover', 'Discover');
+    const list = page.locator('#discover-list');
+    await list.evaluate(node => { node.scrollTop = 600; });
+    const position = await list.evaluate(node => node.scrollTop);
+    assert.ok(position > 0, 'the app is showing a scrolled list');
+    await page.locator('#tasks [data-task=discover]').hover();
+    const preview = page.locator('#task-preview');
+    await expect(preview).toBeVisible();
+    await expect.poll(() => preview.locator('.discover-list').evaluate(node => node.scrollTop)).toBe(position);
+    assert.equal(await list.evaluate(node => node.scrollTop), position, 'preview leaves the live app scroll unchanged');
+    const closeGlyph = await preview.locator('[data-window-action=close]').evaluate(node => getComputedStyle(node, '::after').content);
+    assert.notEqual(closeGlyph, 'none', 'window decoration is present in the thumbnail');
+    await expect(preview.locator('.window-thumbnail [id]')).toHaveCount(0);
+    await page.locator('#discover-window [data-window-action=maximize]').click();
+    await page.waitForFunction(() => !document.querySelector('#discover-window').dataset.motionState);
+    await page.locator('#tasks [data-task=discover]').hover();
+    await expect(preview).toBeVisible();
+    const originalGlyph = await page.locator('#discover-window [data-window-action=maximize]').evaluate(node => getComputedStyle(node, '::after').transform);
+    const previewGlyph = await preview.locator('[data-window-action=maximize]').evaluate(node => getComputedStyle(node, '::after').transform);
+    assert.equal(previewGlyph, originalGlyph, 'maximized thumbnail preserves the restore button glyph');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });

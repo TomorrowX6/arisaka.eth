@@ -14,7 +14,17 @@ Copyright Marijn Haverbeke and contributors. MIT licensed. The generated editor 
 
 ## Desktop wallpapers
 
-Mountain by Andy Betts, Flow by Sandra Smukaste, and Scarlet Tree by axo1otl, from KDE's plasma-workspace-wallpapers collection. Licensed under CC BY-SA 4.0. The images have been resized and JPEG-encoded; pinned source URLs and modifications are recorded in `public/wallpapers/attribution.json`, alongside the full license.
+Nuvole by Krystian Zajdel is the unmodified 2560×1440 dark wallpaper from KDE Breeze v6.3.5 and is the default for new desktop profiles. Mountain by Andy Betts, Flow by Sandra Smukaste, and Scarlet Tree by axo1otl are from KDE's plasma-workspace-wallpapers collection; these three images have been resized and JPEG-encoded. All are licensed under CC BY-SA 4.0. Pinned source URLs and modifications are recorded in `public/wallpapers/attribution.json`, alongside the full license.
+
+## Desktop fonts
+
+Noto Sans Variable (Latin) and Noto Sans SC Regular are licensed under SIL OFL 1.1. Hack Regular 3.003 is licensed under MIT and the Bitstream Vera font license. The local WOFF2 files, full license texts, pinned source URLs, and conversion details are in `public/fonts/` and `public/fonts/attribution.json`.
+
+## KWin spring motion
+
+`public/motion.js` includes a JavaScript adaptation of KWin v6.3.5's SpringMotion numerical integration, copyright 2022 Vlad Zahorodnii, under GPL-2.0-or-later. It samples the spring into Web Animations keyframes and preserves velocity when reversing a desktop transition. The full license is served at `public/licenses/kwin-GPL-2.0-or-later.txt`; the readable modified source is served at `/motion.js`.
+
+Source: https://github.com/KDE/kwin/blob/v6.3.5/src/plugins/slide/springmotion.cpp
 
 ## Browser libraries
 
