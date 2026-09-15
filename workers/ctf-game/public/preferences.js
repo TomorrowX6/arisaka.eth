@@ -179,6 +179,12 @@ export async function editProfile(id, patch, currentPassword = '') {
 export async function removeProfile(id, password = '') {
   if (profiles.users.length === 1 || id === profiles.active) throw new Error('无法删除当前用户');
   if (!await authenticateProfile(id, password)) throw new Error('密码错误');
+  const response = await fetch('/api/profile/delete', {
+    method: 'POST', credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-Afterglow': '1', 'X-Desktop-Profile': profiles.active },
+    body: JSON.stringify({ profile: id }),
+  });
+  if (!response.ok) throw new Error((await response.json()).error || '删除存档失败');
   saveProfiles({ ...profiles, users: profiles.users.filter((user) => user.id !== id) });
   localStorage.removeItem(SETTINGS_KEY + id);
 }

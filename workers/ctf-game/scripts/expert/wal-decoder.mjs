@@ -1,4 +1,5 @@
 import initSqlJs from 'sql.js';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { openSeal } from '../decoders.mjs';
 let engine;
@@ -31,7 +32,7 @@ export function walSnapshots(base,wal){
   return snapshots;
 }
 export async function decodeWalEvidence(base,wal,sealed){
-  const SQL=await(engine??=initSqlJs({locateFile:()=>new URL('../../node_modules/sql.js/dist/sql-wasm.wasm',import.meta.url).pathname}));
+  const SQL=await(engine??=initSqlJs({locateFile:()=>fileURLToPath(new URL('../../node_modules/sql.js/dist/sql-wasm.wasm',import.meta.url))}));
   for(const snapshot of walSnapshots(base,wal)){
     const portable=Buffer.from(snapshot);portable[18]=portable[19]=1;
     const db=new SQL.Database(portable);

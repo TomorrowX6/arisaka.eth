@@ -43,32 +43,42 @@ export function profileCookie(profile = "default"): string {
   if (!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(profile)) throw new Error("Invalid profile");
   return COOKIE + "_" + profile;
 }
-function sessionMessage(profile: string, id: string, expires: string): string {
-  return (profile === "default" ? "afterglow/session/v1/" : "afterglow/session/v2/" + profile + "/") + id + "/" + expires;
+function sessionMessage(profile: string, id: string, owner: string, expires: string): string {
+  return "afterglow/session/v3/" + profile + "/" + id + "/" + owner + "/" + expires;
 }
 
-export async function readSession(request: Request, secret: string, profile = "default"): Promise<string | null> {
+export type SessionIdentity = { id: string; owner: string; expiresAt: number };
+
+export function sessionId(): string {
+  return [...crypto.getRandomValues(new Uint8Array(32))].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function readSession(request: Request, secret: string, profile = "default"): Promise<SessionIdentity | null> {
   const cookie = profileCookie(profile);
   const value = (request.headers.get("Cookie") || "").split(";").map((v) => v.trim())
     .find((v) => v.startsWith(cookie + "="))?.slice(cookie.length + 1);
   if (!value || value.length > 200) return null;
-  const match = /^([a-f0-9]{64})\.([a-z0-9]{1,12})\.([A-Za-z0-9_-]{43})$/.exec(value);
+  const match = /^([a-f0-9]{64})\.([a-f0-9]{64})\.([a-z0-9]{1,12})\.([A-Za-z0-9_-]{43})$/.exec(value);
   if (!match) return null;
-  const [, id, expires, signature] = match;
+  const [, id, owner, expires, signature] = match;
   const expiry = parseInt(expires, 36);
   const now = Math.floor(Date.now() / 1000);
   if (expiry <= now || expiry > now + MAX_AGE + 60) return null;
-  return await verify(secret, sessionMessage(profile, id, expires), signature) ? id : null;
+  return await verify(secret, sessionMessage(profile, id, owner, expires), signature)
+    ? { id, owner, expiresAt: expiry * 1000 } : null;
 }
 
-export async function createSession(secret: string, secure: boolean, profile = "default"): Promise<{ id: string; cookie: string }> {
+export async function createSession(secret: string, secure: boolean, profile = "default", identity?: SessionIdentity): Promise<SessionIdentity & { cookie: string }> {
   const name = profileCookie(profile);
-  const id = [...crypto.getRandomValues(new Uint8Array(32))].map((b) => b.toString(16).padStart(2, "0")).join("");
-  const expires = (Math.floor(Date.now() / 1000) + MAX_AGE).toString(36);
-  const signature = await sign(secret, sessionMessage(profile, id, expires));
+  const now = Math.floor(Date.now() / 1000);
+  const id = identity?.id ?? sessionId();
+  const owner = identity?.owner ?? id;
+  const expiry = identity ? Math.floor(identity.expiresAt / 1000) : now + MAX_AGE;
+  const expires = expiry.toString(36);
+  const signature = await sign(secret, sessionMessage(profile, id, owner, expires));
   return {
-    id,
-    cookie: name + "=" + id + "." + expires + "." + signature + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + MAX_AGE + (secure ? "; Secure" : ""),
+    id, owner, expiresAt: expiry * 1000,
+    cookie: name + "=" + id + "." + owner + "." + expires + "." + signature + "; Path=/; HttpOnly; SameSite=Lax; Max-Age=" + Math.max(0, expiry - now) + (secure ? "; Secure" : ""),
   };
 }
 

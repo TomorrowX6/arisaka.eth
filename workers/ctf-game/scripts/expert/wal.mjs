@@ -1,8 +1,9 @@
 import initSqlJs from 'sql.js';
+import { fileURLToPath } from 'node:url';
 import { seal, sha256 } from '../core.mjs';
 import { u32be } from './formats.mjs';
 let engine;
-const sqlEngine=()=>engine??=initSqlJs({locateFile:()=>new URL('../../node_modules/sql.js/dist/sql-wasm.wasm',import.meta.url).pathname});
+const sqlEngine=()=>engine??=initSqlJs({locateFile:()=>fileURLToPath(new URL('../../node_modules/sql.js/dist/sql-wasm.wasm',import.meta.url))});
 function checksum(bytes,previous=[0,0]){let [a,b]=previous;for(let at=0;at<bytes.length;at+=8){a=(a+bytes.readUInt32LE(at)+b)>>>0;b=(b+bytes.readUInt32LE(at+4)+a)>>>0;}return [a,b];}
 export async function walEvidence(code,receipt,random){
   const SQL=await sqlEngine(),db=new SQL.Database();

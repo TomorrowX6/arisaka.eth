@@ -17,17 +17,24 @@
     "not_found_handling": "none"
   },
   "durable_objects": {
-    "bindings": [{ "name": "GAME_SESSIONS", "class_name": "GameSession" }]
+    "bindings": [
+      { "name": "GAME_SESSIONS", "class_name": "GameSession" },
+      { "name": "DESKTOP_PROFILES", "class_name": "DesktopProfiles" }
+    ]
   },
   "exports": {
-    "GameSession": { "type": "durable-object", "storage": "sqlite" }
+    "GameSession": { "type": "durable-object", "storage": "sqlite" },
+    "DesktopProfiles": { "type": "durable-object", "storage": "sqlite" }
   },
   "env": {
     "local": {
       "name": "arisaka-afterglow-local",
       "secrets": { "required": ["SESSION_SECRET"] },
       "durable_objects": {
-        "bindings": [{ "name": "GAME_SESSIONS", "class_name": "GameSession" }]
+        "bindings": [
+          { "name": "GAME_SESSIONS", "class_name": "GameSession" },
+          { "name": "DESKTOP_PROFILES", "class_name": "DesktopProfiles" }
+        ]
       }
     }
   }

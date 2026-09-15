@@ -16,9 +16,10 @@ export type Failure = { ok: false; status: number; error: string; retryAt?: numb
 const fail = (status: number, error: string): Failure => ({ ok: false, status, error });
 
 export class GameSession extends DurableObject<Env> {
-  constructor(ctx: DurableObjectState, env: Env) {
-    super(ctx, env);
-    const sql = ctx.storage.sql;
+  async initialize(expiresAt: number) {
+    if (expiresAt <= Date.now()) return;
+    if (this.ctx.storage.kv.get<number>("expiresAt")) return;
+    const sql = this.ctx.storage.sql;
     sql.exec("CREATE TABLE IF NOT EXISTS game (id INTEGER PRIMARY KEY CHECK(id = 1), version TEXT NOT NULL, stage INTEGER NOT NULL, started_at INTEGER NOT NULL, completed_at INTEGER)");
     sql.exec("CREATE TABLE IF NOT EXISTS stages (stage INTEGER PRIMARY KEY, attempts INTEGER NOT NULL DEFAULT 0, solved_at INTEGER, failures INTEGER NOT NULL DEFAULT 0, retry_at INTEGER NOT NULL DEFAULT 0, last_failure INTEGER NOT NULL DEFAULT 0)");
     sql.exec("CREATE TABLE IF NOT EXISTS shop (id INTEGER PRIMARY KEY CHECK(id = 1), cards INTEGER NOT NULL, stands INTEGER NOT NULL, redeemed INTEGER NOT NULL DEFAULT 0)");
@@ -27,6 +28,24 @@ export class GameSession extends DurableObject<Env> {
     sql.exec("INSERT OR IGNORE INTO game (id, version, stage, started_at) VALUES (1, ?, 1, ?)", manifest.version, Date.now());
     sql.exec("INSERT OR IGNORE INTO shop (id, cards, stands) VALUES (1, 1, 0)");
     for (let stage = 1; stage <= caseCount; stage++) sql.exec("INSERT OR IGNORE INTO stages (stage) VALUES (?)", stage);
+    this.ctx.storage.kv.put("expiresAt", expiresAt);
+    await this.ctx.storage.setAlarm(expiresAt);
+  }
+
+  async retire() {
+    // With our compatibility date, deleteAll also removes the alarm. Keeping the
+    // constructor read-only prevents old cookies/RPCs from recreating storage.
+    await this.ctx.storage.deleteAll();
+  }
+
+  async alarm() {
+    const expiresAt = this.ctx.storage.kv.get<number>("expiresAt");
+    if (expiresAt && expiresAt > Date.now()) await this.ctx.storage.setAlarm(expiresAt);
+    else await this.retire();
+  }
+
+  private active(): boolean {
+    return (this.ctx.storage.kv.get<number>("expiresAt") ?? 0) > Date.now();
   }
 
   private game(): GameRow {
@@ -34,6 +53,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   private gate(stage: number): Failure | null {
+    if (!this.active()) return fail(401, "会话已失效");
     const game = this.game();
     if (game.version !== manifest.version) return fail(409, "存档版本已失效");
     if (stage < 1 || stage > caseCount || !Number.isInteger(stage)) return fail(404, "不存在");
@@ -42,6 +62,7 @@ export class GameSession extends DurableObject<Env> {
   }
 
   state() {
+    if (!this.active()) return { started: false as const };
     const game = this.game();
     const stages = this.ctx.storage.sql.exec<StageRow>("SELECT * FROM stages ORDER BY stage").toArray();
     return {

@@ -1,8 +1,9 @@
 import { catalog, cases, caseCount } from "./cases";
-import { createProof, createSession, digest, matchesDigest, readSession, verifyProof } from "./crypto";
+import { createProof, createSession, digest, matchesDigest, profileCookie, readSession, verifyProof, type SessionIdentity } from "./crypto";
 import manifest from "./generated/manifest.json";
 import { GameSession } from "./session";
-export { GameSession };
+import { DesktopProfiles } from "./profiles";
+export { GameSession, DesktopProfiles };
 
 const publicFiles = new Set([
   "/", "/index.html", "/style.css", "/native.css", "/app.js", "/desktop.js", "/system.js",
@@ -111,6 +112,25 @@ function stringValue(value: unknown, maximum: number): string {
   return value;
 }
 
+function validProfile(profile: string): boolean {
+  return profile === "default" || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(profile);
+}
+
+async function desktopAuthority(request: Request, env: Env, profile: string, identity: SessionIdentity | null) {
+  // Any current profile can keep the same owner alive when the local default
+  // user was deleted. Only signed, registered cookies may authorize new slots.
+  const otherProfiles = (request.headers.get("Cookie") || "").split(";")
+    .map(value => /^afterglow_session_([^=]+)=/.exec(value.trim())?.[1])
+    .filter((value): value is string => Boolean(value && validProfile(value))).slice(0, 8);
+  for (const candidate of new Set([profile, "default", ...otherProfiles])) {
+    const session = candidate === profile ? identity : await readSession(request, env.SESSION_SECRET, candidate);
+    if (session && await env.DESKTOP_PROFILES.getByName(session.owner).authorizes({ profile: candidate, id: session.id }, candidate === profile)) {
+      return { ...session, profile: candidate };
+    }
+  }
+  return undefined;
+}
+
 function rpcReply(result: { ok: boolean; status?: number; retryAt?: number }): Response {
   return json(result, result.ok ? 200 : result.status || 400,
     result.status === 429 && typeof result.retryAt === "number"
@@ -192,32 +212,49 @@ async function route(request: Request, env: Env): Promise<Response> {
     return completion ? json({ ok: true, completion }) : json({ ok: false, error: "凭证无效" }, 400);
   }
   const profile = request.headers.get("X-Desktop-Profile") || url.searchParams.get("profile") || "default";
-  if (profile !== "default" && !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(profile)) throw new HttpError(400, "用户编号无效");
-  let id = await readSession(request, env.SESSION_SECRET, profile);
-  const anchor = profile === "default" ? id : await readSession(request, env.SESSION_SECRET);
+  if (!validProfile(profile)) throw new HttpError(400, "用户编号无效");
+  const identity = await readSession(request, env.SESSION_SECRET, profile);
+  let authority = await desktopAuthority(request, env, profile, identity);
+  const id = identity && await env.DESKTOP_PROFILES.getByName(identity.owner).authorizes({ profile, id: identity.id }) ? identity.id : null;
   if ((path === "/api/start" || path === "/api/restart") && request.method === "POST") {
-    if (!id && !anchor) {
+    const cookies: string[] = [];
+    let fresh = false;
+    if (!authority) {
       const entry = typeof data.entry === "string" ? data.entry : "";
       if (!/^[a-z0-9]{20}$/.test(entry)
         || !await matchesDigest("afterglow/entry/v1/" + entry, manifest.entryDigest)) {
         throw new HttpError(403, "未解锁");
       }
+      const anchor = await createSession(env.SESSION_SECRET, url.protocol === "https:");
+      await env.DESKTOP_PROFILES.getByName(anchor.owner).initialize(anchor.id, anchor.expiresAt);
+      authority = { ...anchor, profile: "default" };
+      fresh = true;
+      if (profile !== "default") cookies.push(anchor.cookie);
     }
-    const cookies: string[] = [];
-    if (!id || path === "/api/restart") {
-      const session = await createSession(env.SESSION_SECRET, url.protocol === "https:", profile);
-      id = session.id;
+    const opened = await env.DESKTOP_PROFILES.getByName(authority.owner).open(profile, !fresh && path === "/api/restart", authority);
+    if (!opened.ok) return rpcReply(opened);
+    if (opened.id !== id) {
+      const session = await createSession(env.SESSION_SECRET, url.protocol === "https:", profile, {
+        id: opened.id, owner: authority.owner, expiresAt: opened.expiresAt,
+      });
       cookies.push(session.cookie);
     }
-    if (profile !== "default" && !anchor) cookies.push((await createSession(env.SESSION_SECRET, url.protocol === "https:")).cookie);
-    const state = await env.GAME_SESSIONS.getByName(id).state();
+    const state = await env.GAME_SESSIONS.getByName(opened.id).state();
     const headers = new Headers();
     for (const cookie of cookies) headers.append("Set-Cookie", cookie);
-    return json({ ...state, player: (await digest(id)).slice(0, 12), catalog }, 200, headers);
+    return json({ ...state, player: (await digest(opened.id)).slice(0, 12), catalog }, 200, headers);
   }
   if (path === "/api/session" && request.method === "GET") {
-    if (!id) return json({ started: false, canStart: Boolean(anchor), catalog });
+    if (!id) return json({ started: false, canStart: Boolean(authority), catalog });
     return json({ ...await env.GAME_SESSIONS.getByName(id).state(), player: (await digest(id)).slice(0, 12), catalog });
+  }
+  if (path === "/api/profile/delete" && request.method === "POST") {
+    const target = stringValue(data.profile, 36);
+    if (!validProfile(target)) throw new HttpError(400, "用户编号无效");
+    if (!authority) return json({ ok: true });
+    const result = await env.DESKTOP_PROFILES.getByName(authority.owner).remove(target, authority);
+    if (!result.ok) return rpcReply(result);
+    return json(result, 200, { "Set-Cookie": profileCookie(target) + "=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0" + (url.protocol === "https:" ? "; Secure" : "") });
   }
   if (!id) throw new HttpError(401, "会话已失效");
   const session = env.GAME_SESSIONS.getByName(id);
@@ -282,7 +319,7 @@ async function route(request: Request, env: Env): Promise<Response> {
   if (path === "/api/shop/reset" && request.method === "POST") return rpcReply(await session.resetShop());
   if (path === "/api/proof" && request.method === "GET") {
     const state = await session.state();
-    if (state.outdated || state.stage !== caseCount + 1 || !state.completedAt) throw new HttpError(403, "未通关");
+    if (!state.started || state.outdated || state.stage !== caseCount + 1 || !state.completedAt) throw new HttpError(403, "未通关");
     const completion = {
       format: "afterglow-completion-v1" as const, edition: state.edition, player: (await digest(id)).slice(0, 12),
       completedAt: state.completedAt, elapsedMs: state.completedAt - state.startedAt,

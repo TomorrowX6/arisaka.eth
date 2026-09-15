@@ -129,7 +129,7 @@ test('IndexedDB preserves large files, migrations, directory trash, and concurre
   } finally { await context.close(); }
 });
 
-test('user creation, password validation, switching, and per-user appearance', { timeout: 120000 }, async () => {
+test('user creation, password validation, switching, appearance, and save deletion', { timeout: 120000 }, async () => {
   const { context, page, errors } = await desktop();
   try {
     const original = await page.evaluate(async () => (await (await fetch('/api/session')).json()).player);
@@ -163,6 +163,19 @@ test('user creation, password validation, switching, and per-user appearance', {
     await expect.poll(() => page.evaluate(async () => (await import('/filesystem.js')).HOME)).toBe('/home/user');
     await expect(page.locator('#screen-lock')).toBeHidden();
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'breeze-dark');
+    await expect(page.locator('#play')).toBeVisible();
+    await expect(page.locator('#answer-button')).toBeEnabled();
+    const expertId = await page.evaluate(async () => (await import('/preferences.js')).listProfiles().find(user => user.username === 'expert').id);
+    const previousCookies = (await context.cookies()).map(cookie => cookie.name + '=' + cookie.value).join('; ');
+    await launch(page, 'settings', '系统设置');
+    await page.locator('[data-settings-page="users"]').click();
+    await page.locator('.user-card').filter({hasText:'Expert'}).click();
+    await page.locator('dialog[open] [name="current"]').fill('test-password');
+    await page.locator('dialog[open] [data-delete]').click();
+    await expect(page.locator('dialog[open]')).toHaveCount(0);
+    await expect(page.locator('.user-card').filter({hasText:'Expert'})).toHaveCount(0);
+    const retired = await context.request.get(base + '/api/cases/1', { headers: { Cookie: previousCookies, 'X-Desktop-Profile': expertId } });
+    assert.equal(retired.status(), 401, 'deleted profile cookie no longer opens the save');
     assert.deepEqual(errors, []);
   } finally { await context.close(); }
 });
