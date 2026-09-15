@@ -2,6 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium, expect as baseExpect } from '@playwright/test';
+import caseCatalog from '../src/case-catalog.json' with { type: 'json' };
 import { openSeal, decodeQr, decodeWave, decodeImages, decodeSignatures, signatureMaterial, decodeWasm, reconstruct } from '../scripts/decoders.mjs';
 import { recoverMachineInput } from '../scripts/expert/vm-decoder.mjs';
 import { recoverGitSeed } from '../scripts/expert/git-decoder.mjs';
@@ -93,7 +94,7 @@ test('the complete campaign is independently recovered through Plasma applicatio
     const started = await call('/api/start', { entry: entryToken });
     const receipts = [];
     const final = started.total;
-    assert.equal(final, 29);
+    assert.equal(final, caseCatalog.length);
     for (let stage = 1; stage <= final; stage++) {
       let completed = false;
       await t.test('case ' + String(stage).padStart(2, '0'), async () => {
