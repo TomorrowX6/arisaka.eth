@@ -6,21 +6,18 @@ import { pathToFileURL } from 'node:url';
 import { runtimeRoot } from './build-runtimes.mjs';
 import { prepareRuntimes } from './prepare-runtimes.mjs';
 import { verifyRuntimeDeployment, verifyMusicDeployment } from './runtime-deployment-health.mjs';
+import { deploymentArguments, deploymentTarget } from './deployment-target.mjs';
 
 const require = createRequire(import.meta.url);
 
-export async function deployRuntimes() {
+export async function deployRuntimes({ target = 'production' } = {}) {
   const desktop = JSON.parse(await readFile(resolve(runtimeRoot, 'wrangler.jsonc'), 'utf8'));
   const runtime = JSON.parse(await readFile(resolve(runtimeRoot, 'runtime/wrangler.jsonc'), 'utf8'));
-  const origin = new URL(desktop.vars.DESKTOP_APPS_ORIGIN);
-  if (origin.origin !== desktop.vars.DESKTOP_APPS_ORIGIN || origin.protocol !== 'https:'
-    || !origin.hostname.startsWith(runtime.name + '.') || !origin.hostname.endsWith('.workers.dev')) throw new Error('Desktop runtime origin does not match the runtime Worker configuration');
-  const desktopOrigin = origin.origin.replace('https://' + runtime.name + '.', 'https://' + desktop.name + '.');
-  if (runtime.vars.DESKTOP_ORIGIN !== desktopOrigin || runtime.account_id !== desktop.account_id) throw new Error('The runtime and desktop Workers must use the same account and matching origins');
+  const selected = deploymentTarget(target, desktop, runtime), origin = new URL(selected.assetsOrigin), desktopOrigin = selected.desktopOrigin;
   const manifests = await prepareRuntimes();
   const wrangler = resolve(dirname(require.resolve('wrangler/package.json')), 'bin/wrangler.js');
   let output = '';
-  const child = spawn(process.execPath, [wrangler, 'deploy', '--config', 'runtime/wrangler.jsonc', '--env', ''], {
+  const child = spawn(process.execPath, [wrangler, 'deploy', '--config', 'runtime/wrangler.jsonc', '--env', selected.environment], {
     cwd: runtimeRoot, env: process.env, stdio: ['inherit', 'pipe', 'inherit'], windowsHide: true,
   });
   child.stdout.on('data', chunk => { process.stdout.write(chunk); output += chunk.toString(); });
@@ -35,4 +32,4 @@ export async function deployRuntimes() {
   return origin.origin;
 }
 
-if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) await deployRuntimes();
+if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) await deployRuntimes(deploymentArguments(process.argv.slice(2), { runtimeOnly: true }));

@@ -17,6 +17,10 @@
     "not_found_handling": "none"
   },
   "env": {
+    "expert": {
+      "name": "arisaka-desktop-apps-expert",
+      "vars": { "DESKTOP_ORIGIN": "https://arisaka-afterglow-expert.454565615.workers.dev" }
+    },
     "local": {
       "name": "arisaka-desktop-apps-local",
       "vars": { "DESKTOP_ORIGIN": "http://127.0.0.1:*" }
