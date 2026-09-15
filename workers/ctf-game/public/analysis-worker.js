@@ -3,6 +3,7 @@ import { parseVcd, decodeSpi } from './logic-data.js';
 import { inspectStructure } from './binary-structure.js';
 import { runDiscreteMath } from './discrete-math.js';
 import { loadSignals, analyzeSignals } from './signal-data.js';
+import { analyzeGraph } from './graph-data.js';
 
 self.onmessage = async ({ data }) => {
   try {
@@ -12,6 +13,10 @@ self.onmessage = async ({ data }) => {
     else if (data.operation === 'spi') result = decodeSpi(parseVcd(data.source), data.options);
     else if (data.operation === 'structure') result = inspectStructure(data.bytes, data.format);
     else if (data.operation === 'algebra') result = runDiscreteMath(data.kind, data.input);
+    else if (data.operation === 'graph') {
+      result = analyzeGraph(data.bytes, data.options);
+      result.sourceSha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data.bytes)), n => n.toString(16).padStart(2, '0')).join('');
+    }
     else if (data.operation === 'signalLoad' || data.operation === 'signalAnalyze') {
       result = data.operation === 'signalLoad' ? loadSignals(data.bytes, data.options) : analyzeSignals(data.bytes, data.options);
       result.sourceSha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data.bytes)), n => n.toString(16).padStart(2, '0')).join('');

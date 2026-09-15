@@ -29,6 +29,7 @@ import { decodeFrostEvidence, recoverFrostMaterial } from '../scripts/expert/fro
 import { decodeRs16Evidence, recoverRs16Material } from '../scripts/expert/rs16-decoder.mjs';
 import { decodeBpfEvidence } from '../scripts/expert/bpf-decoder.mjs';
 import { decodeMlkemEvidence } from '../scripts/expert/mlkem-decoder.mjs';
+import { decodeRadioEvidence } from '../scripts/expert/radio-decoder.mjs';
 import { decodePowerEvidence } from '../scripts/expert/power-decoder.mjs';
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
@@ -198,6 +199,7 @@ test('the complete campaign is independently recovered through Plasma applicatio
         else if (stage === 31) { result = decodeRs16Evidence(files); rs16Material = recoverRs16Material(files).material; }
         else if (stage === 32) result = decodeBpfEvidence(files, frostMaterial, rs16Material);
         else if (stage === 33) result = decodeMlkemEvidence(files);
+        else if (stage === 34) result = decodeRadioEvidence(files);
         else throw Error('Missing independent decoder for case ' + stage);
         assert.match(result.code, /^[a-z0-9]{20}$/, 'recovered code format');
         if (result.receipt) receipts.push(result.receipt);
