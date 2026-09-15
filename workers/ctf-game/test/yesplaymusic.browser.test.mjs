@@ -35,7 +35,8 @@ test('real YesPlayMusic searches, plays audio, survives minimize, and closes cle
       assert.equal(body.code, 200, endpoint + ' upstream status');
       return body;
     }
-    const trackID = 29723096;
+    const trackID = Number(process.env.YESPLAYMUSIC_TRACK_ID || 29723096);
+    assert.ok(Number.isSafeInteger(trackID) && trackID > 0, 'YESPLAYMUSIC_TRACK_ID must be a positive song ID');
     const track = (await api('song/detail', { ids: String(trackID) })).songs[0];
     const audio = (await api('song/url', { id: String(trackID) })).data[0];
     assert.equal(track.id, trackID);
@@ -64,10 +65,10 @@ test('real YesPlayMusic searches, plays audio, survives minimize, and closes cle
     const index = await frame.locator('.search-page .track').evaluateAll((nodes, id) => nodes.findIndex(node => node.__vue__?.track?.id === id), trackID);
     assert.ok(index >= 0, 'the real search results contain the verified playable track');
     await frame.locator('.search-page .track').nth(index).locator('.title').dblclick();
-    await expect.poll(() => frame.locator('body').evaluate(() => {
+    await expect.poll(() => frame.locator('body').evaluate((_body, id) => {
       const player = window.yesplaymusic.player;
-      return player.currentTrackID === 29723096 && player.playing && player.seek() > 1;
-    }), { timeout: 45000 }).toBe(true);
+      return player.currentTrackID === id && player.playing && player.seek() > 1;
+    }, trackID), { timeout: 45000 }).toBe(true);
     const playing = await frame.locator('body').evaluate(() => {
       const player = window.yesplaymusic.player;
       const node = player._howler._sounds[0]._node;
@@ -107,6 +108,16 @@ test('real YesPlayMusic searches, plays audio, survives minimize, and closes cle
     assert.deepEqual(errors, []);
   } catch (error) {
     await page.screenshot({ path: output + '/live-failure.png' }).catch(() => {});
-    throw new Error(error.message + '\nBrowser errors: ' + JSON.stringify(errors), { cause: error });
+    const musicFrame = page.frames().find(frame => /\/yesplaymusic\/profiles\//.test(frame.url()));
+    const playback = await musicFrame?.evaluate(() => {
+      const player = window.yesplaymusic?.player;
+      const node = player?._howler?._sounds?.[0]?._node;
+      return {
+        trackID: player?.currentTrackID, playing: player?.playing, position: player?.seek(),
+        audio: node && { readyState: node.readyState, networkState: node.networkState, paused: node.paused, duration: node.duration, error: node.error?.code },
+      };
+    }).catch(() => undefined);
+    throw new Error(error.message + '\nBrowser errors: ' + JSON.stringify(errors)
+      + '\nPlayback: ' + JSON.stringify(playback) + '\nMedia responses: ' + JSON.stringify(media), { cause: error });
   } finally { await context.close(); }
 });

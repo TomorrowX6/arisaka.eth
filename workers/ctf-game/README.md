@@ -55,7 +55,7 @@ pnpm test:runtimes
 
 `pnpm test:runtimes` 单独运行真实引擎验证：检查 IndexedDB 与两类 Worker 的用户隔离，通过 Minecraft 的实际菜单创建、保存、用另一种引擎重开世界，启动 Gecko 并使用真实地址栏访问网页，同时验证缩放与最小化恢复。测试需要联网和较多内存，截图写入忽略目录 `.private/runtime-qa/`。日常 `test:e2e` 只在应用边界替换大型运行时，仍验证启动、消息校验、焦点、取消重启、关闭与最小化行为。
 
-`node scripts/test-runtimes.mjs test/yesplaymusic.browser.test.mjs` 验证真实音乐搜索、完整音频播放、最小化后播放进度、暂停/继续、关闭重开和二维码接口，需要网易云服务可用。截图写入 `.private/yesplaymusic-qa/`。CI 使用已编译的原版界面和确定性接口夹具，另外验证浏览器存储隔离、重置、登录 Cookie 传输和大歌单分批请求。
+`node scripts/test-runtimes.mjs test/yesplaymusic.browser.test.mjs` 验证真实音乐搜索、完整音频播放、最小化后播放进度、暂停/继续、关闭重开和二维码接口，需要网易云服务可用。默认测试歌曲为 `29723096`，可用 `YESPLAYMUSIC_TRACK_ID` 指定在测试地区可完整播放且超过两分钟的歌曲；音频解码和实际播放断言保持一致。截图写入 `.private/yesplaymusic-qa/`。CI 使用已编译的原版界面和确定性接口夹具，另外验证浏览器存储隔离、重置、登录 Cookie 传输和大歌单分批请求。
 
 `pnpm test:all` 顺序执行上述单元测试和端到端测试。也可用 `CTF_E2E_URL=http://127.0.0.1:8788 pnpm test:e2e` 测试已有本地服务；其版本必须与本地生成的夹具一致。低内存机器不要同时运行 Astro 检查和浏览器测试。
 
