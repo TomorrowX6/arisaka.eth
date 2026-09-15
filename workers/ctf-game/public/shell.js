@@ -93,7 +93,7 @@ export function createShell(controls) {
     if(query){list.removeAttribute('aria-labelledby');list.setAttribute('aria-label','搜索结果');}
     if(focusedApp)(list.querySelector('[data-launch="'+focusedApp+'"]')||list.querySelector('button')||$('#launcher-search')).focus({preventScroll:true});
   }
-  const categories=[['收藏','view-grid'],['所有应用','view-list-icons'],['最近使用','clock'],['系统','preferences-system'],['开发','binary'],['办公','folder-documents'],['多媒体','audio'],['图形','image'],['工具','systemsettings']];
+  const categories=[['收藏','view-grid'],['所有应用','view-list-icons'],['最近使用','clock'],['系统','preferences-system'],['网络','browser'],['游戏','view-grid'],['开发','binary'],['办公','folder-documents'],['多媒体','audio'],['图形','image'],['工具','systemsettings']];
   for(const [index,[category,categoryIcon]]of categories.entries()){
     const button=document.createElement('button');button.type='button';button.id='launcher-category-'+index;button.dataset.launcherCategory=category;button.dataset.icon=categoryIcon;button.setAttribute('role','tab');button.setAttribute('aria-controls','launcher-apps');
     button.innerHTML='<span>'+escape(category)+'</span>';

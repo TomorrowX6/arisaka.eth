@@ -3,6 +3,7 @@ import { createProof, createSession, digest, matchesDigest, profileCookie, readS
 import manifest from "./generated/manifest.json";
 import { GameSession } from "./session";
 import { DesktopProfiles } from "./profiles";
+import runtimeConfiguration from "../public/runtime-config.json";
 export { GameSession, DesktopProfiles };
 
 const publicFiles = new Set([
@@ -14,6 +15,8 @@ const publicFiles = new Set([
   "/fonts/Noto-OFL.txt", "/fonts/Hack-LICENSE.txt", "/fonts/noto-sans-sc.woff2", "/fonts/NotoCJK-OFL.txt",
   "/developer-tools.js", "/developer-tools.css", "/profiler.js",
   "/transport.js", "/python-runner.js", "/recovery.js",
+  "/runtime-apps.js", "/runtime-apps.css", "/runtime-config.json", "/icons/runtime-attribution.txt",
+  "/icons/firefox.webp",
   "/vendor/pyodide/pyodide.mjs", "/vendor/pyodide/pyodide.asm.mjs", "/vendor/pyodide/pyodide.asm.wasm",
   "/vendor/pyodide/python_stdlib.zip", "/vendor/pyodide/pyodide-lock.json", "/vendor/pyodide/LICENSE.txt",
   "/analysis-tools.js", "/media-tools.js", "/crypto-tools.js", "/database.js", "/database-worker.js",
@@ -39,7 +42,7 @@ function json(value: unknown, status = 200, headers: HeadersInit = {}): Response
   return response;
 }
 
-function secured(response: Response, runner: false | "javascript" | "python" = false): Response {
+function secured(response: Response, runner: false | "javascript" | "python" = false, runtimeOrigin = new URL(runtimeConfiguration.minecraft.url).origin): Response {
   const html = response.headers.get("Content-Type")?.includes("text/html") && response.body;
   const nonce = html ? crypto.randomUUID().replaceAll("-", "") : "";
   if (nonce) {
@@ -56,6 +59,10 @@ function secured(response: Response, runner: false | "javascript" | "python" = f
   headers.set("X-Content-Type-Options", "nosniff");
   headers.set("Referrer-Policy", "no-referrer");
   headers.set("Cross-Origin-Resource-Policy", "same-origin");
+  headers.set("Cross-Origin-Opener-Policy", "same-origin");
+  headers.set("Cross-Origin-Embedder-Policy", "require-corp");
+  const firefoxOrigin = new URL(runtimeConfiguration.firefox.url).origin;
+  headers.set("Permissions-Policy", 'cross-origin-isolated=(self "' + runtimeOrigin + '" "' + firefoxOrigin + '")');
   headers.set("X-Frame-Options", "DENY");
   headers.set("X-Robots-Tag", "noindex, nofollow");
   headers.set("Content-Security-Policy", runner ? [
@@ -64,6 +71,7 @@ function secured(response: Response, runner: false | "javascript" | "python" = f
   ].join("; ") : [
     "default-src 'self'", "script-src 'self' 'wasm-unsafe-eval'", "style-src 'self'" + (nonce ? " 'nonce-" + nonce + "'" : ""),
     "img-src 'self' data: blob:", "media-src 'self' blob:", "connect-src 'self'",
+    "frame-src " + runtimeOrigin + " " + firefoxOrigin,
     "object-src 'none'", "base-uri 'none'", "frame-ancestors 'none'", "form-action 'self'", "worker-src 'self'",
   ].join("; "));
   return new Response(response.body, { status: response.status, statusText: response.statusText, headers });
@@ -196,6 +204,10 @@ async function route(request: Request, env: Env): Promise<Response> {
     if ((request.method !== "GET" && request.method !== "HEAD") || !(publicFiles.has(path) || /^\/icons\/[a-z0-9-]+\.svg$/.test(path) || /^\/wallpapers\/(mountain|flow|scarlet)\.jpg$/.test(path) || /^\/vendor\/pdf-(?:cmaps|fonts|wasm)\/[a-zA-Z0-9_.-]+$/.test(path) || /^\/vendor\/pyodide\/[a-zA-Z0-9_.-]+\.whl$/.test(path))) {
       return json({ error: "不存在" }, 404);
     }
+    if (path === "/runtime-config.json") return json({
+      ...runtimeConfiguration,
+      minecraft: { ...runtimeConfiguration.minecraft, url: new URL('/minecraft/1.12.2/', env.DESKTOP_APPS_ORIGIN).href },
+    });
     const asset = await env.ASSETS.fetch(new Request(new URL(path === "/" ? "/index.html" : path, url), request));
     const headers = new Headers(asset.headers);
     headers.set("Cache-Control", "no-cache");
@@ -337,11 +349,11 @@ export default {
   async fetch(request, env): Promise<Response> {
     try {
       const path = new URL(request.url).pathname;
-      return secured(await route(request, env), path === "/runner.js" ? "javascript" : path === "/python-runner.js" ? "python" : false);
+      return secured(await route(request, env), path === "/runner.js" ? "javascript" : path === "/python-runner.js" ? "python" : false, new URL(env.DESKTOP_APPS_ORIGIN).origin);
     } catch (error) {
-      if (error instanceof HttpError) return secured(json({ ok: false, error: error.message }, error.status));
+      if (error instanceof HttpError) return secured(json({ ok: false, error: error.message }, error.status), false, new URL(env.DESKTOP_APPS_ORIGIN).origin);
       console.error({ event: "afterglow_request_failed", errorType: error instanceof Error ? error.name : "Unknown" });
-      return secured(json({ ok: false, error: "请求失败，请重试" }, 503));
+      return secured(json({ ok: false, error: "请求失败，请重试" }, 503), false, new URL(env.DESKTOP_APPS_ORIGIN).origin);
     }
   },
 } satisfies ExportedHandler<Env>;

@@ -61,6 +61,13 @@ async function firstRecovery(context) {
 test('desktop boots every built-in application without missing resources', { timeout: 150000 }, async () => {
   const { context, page, errors, missing } = await desktop();
   try {
+    // This test checks application registration and shell startup. Real game
+    // and Gecko execution are exercised by the separate runtime engine suite.
+    const runtimeConfig = await (await context.request.get(base + '/runtime-config.json')).json();
+    for (const app of Object.values(runtimeConfig)) await context.route(new URL(app.url).origin + '/**', route => route.fulfill({
+      contentType: 'text/html', body: '<!doctype html><title>Runtime shell fixture</title>',
+      headers: { 'Cross-Origin-Embedder-Policy': 'require-corp', 'Cross-Origin-Resource-Policy': 'cross-origin' },
+    }));
     const apps = await page.evaluate(async () => (await import('/applications.js')).applications.filter(app => !app.hidden).map(({id,name}) => ({id,name})));
     for (const { id, name } of apps) {
       await launch(page, id, name);

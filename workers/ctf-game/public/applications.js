@@ -1,4 +1,6 @@
 export const applications = [
+  { id: 'minecraft', name: 'Minecraft 1.12.2', description: '沙盒游戏 · Eaglercraft u3', category: '游戏', aliases: 'minecraft mc 1.12.2 eaglercraft 我的世界 游戏 生存 创造' },
+  { id: 'firefox', name: 'Firefox', description: '网页浏览器 · Gecko WebAssembly', category: '网络', aliases: 'firefox browser gecko wasm web 火狐 浏览器 网页 上网' },
   { id: 'files', name: 'Dolphin', description: '文件管理器', category: '系统', aliases: '文件 主目录 home file manager' },
   { id: 'console', name: 'Konsole', description: '终端', category: '开发', aliases: 'terminal bash shell 终端' },
   { id: 'editor', name: 'Kate', description: '文本与脚本编辑器', category: '开发', aliases: 'code javascript editor 编辑 代码' },

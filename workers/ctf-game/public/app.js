@@ -7,6 +7,7 @@ import { prepareUtilities, createUtilities } from '/utilities.js';
 import { apiFetch } from '/transport.js';
 import { HOME, DOCUMENTS, casePath, normalize } from '/filesystem.js';
 import { createRecovery } from '/recovery.js';
+import { prepareRuntimeApps, createRuntimeApps } from '/runtime-apps.js';
 
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => [...document.querySelectorAll(selector)];
@@ -42,7 +43,9 @@ const recovery = createRecovery({
 });
 prepareShell();
 prepareUtilities();
+prepareRuntimeApps();
 const windows = createDesktop();
+createRuntimeApps({ windows });
 const system = createSystem({
   api, windows, state: () => state, notes: () => notes,
   loadCase, refresh: refreshState, toast, download,

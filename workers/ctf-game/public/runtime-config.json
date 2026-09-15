@@ -1,0 +1,12 @@
+{
+  "minecraft": {
+    "url": "https://arisaka-desktop-apps.454565615.workers.dev/minecraft/1.12.2/",
+    "source": "https://dev.eaglercraft.com/p/downloads",
+    "version": "1.12.2",
+    "build": "u3"
+  },
+  "firefox": {
+    "url": "https://developer.puter.com/labs/firefox-wasm/",
+    "source": "https://github.com/HeyPuter/firefox-wasm"
+  }
+}

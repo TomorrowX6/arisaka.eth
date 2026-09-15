@@ -16,6 +16,7 @@ const shapes = {
   launch: '<path d="m5 8 6 8-6 8m11-16 6 8-6 8" fill="none" stroke="#3daee9" stroke-width="3"/><circle cx="27" cy="6" r="3" fill="#eff0f1"/><circle cx="27" cy="26" r="3" fill="#eff0f1"/>',
 };
 export function icon(name) {
+  if (name === 'minecraft' || name === 'firefox') return '<svg viewBox="0 0 64 64" aria-hidden="true" focusable="false"><image href="/icons/' + name + (name === 'minecraft' ? '.svg' : '.webp') + '" width="64" height="64"/></svg>';
   const assets = { files: 'dolphin', console: 'konsole', editor: 'kate', http: 'browser', notes: 'kwrite', viewer: 'okular', workbench: 'binary', proof: 'text', settings: 'systemsettings', calculator: 'kcalc', archive: 'ark', hex: 'okteta', media: 'elisa', monitor: 'utilities-system-monitor', characters: 'accessories-character-map', search: 'kfind', screenshot: 'spectacle', discover: 'plasmadiscover', keys: 'kleopatra', clock: 'clock', imageviewer: 'gwenview', packets: 'network-wired', help: 'help-contents', database: 'binary', diff: 'view-split-left-right', disk: 'folder-documents', logs: 'text', paint: 'gwenview', profiler: 'utilities-system-monitor', colors: 'preferences-desktop-theme' };
   const asset = assets[name] || name;
   if (assets[name] || /^(?:dolphin|konsole|kate|kwrite|okular|gwenview|browser|folder|folder-documents|user-home|user-trash|text|script|image|audio|binary|pdf)$/.test(asset)) {
@@ -373,7 +374,9 @@ export function createDesktop() {
     restoreSession() {
       if (!settings.rememberWindows) return;
       for (const [id, geometry] of Object.entries(saved)) if (geometry.opened && !['workbench', 'proof'].includes(id) && windows.has(id)) {
-        const item = windows.get(id); item.opened = true; item.minimized = Boolean(geometry.minimized);
+        const item = windows.get(id);
+        if (item.node.dataset.restoreSession === 'false') continue;
+        item.opened = true; item.minimized = Boolean(geometry.minimized);
         if (visible(item)) showSurface(item.node, { effect: 'window' }); else hideSurface(item.node, { effect: 'window' });
         if (visible(item)) item.node.dispatchEvent(new Event('window:open'));
       }

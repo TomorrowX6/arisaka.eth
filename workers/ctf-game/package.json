@@ -7,15 +7,20 @@
   "scripts": {
     "generate": "node scripts/build-challenges.mjs",
     "dev": "pnpm generate && node scripts/setup-local.mjs && wrangler dev --env local --port 8788",
-    "types": "wrangler types",
-    "check": "pnpm generate && wrangler types && tsc --noEmit",
-    "test": "pnpm generate && node --test --test-concurrency=1 test/puzzles.test.mjs test/expert.test.mjs test/toolkit.test.mjs test/deployment.test.mjs test/recovery.test.mjs && vitest run",
+    "types": "wrangler types && node scripts/runtime-types.mjs",
+    "check": "pnpm generate && pnpm types && tsc --noEmit",
+    "test": "pnpm generate && node --test --test-concurrency=1 test/puzzles.test.mjs test/expert.test.mjs test/toolkit.test.mjs test/deployment.test.mjs test/recovery.test.mjs test/runtimes.test.mjs test/runtime-deployment.test.mjs && vitest run",
     "test:browser": "node scripts/test-browser.mjs test/browser.test.mjs",
     "test:campaign": "node scripts/test-browser.mjs test/campaign.test.mjs",
     "test:e2e": "node scripts/test-browser.mjs",
     "test:all": "pnpm test && pnpm test:e2e",
     "build": "pnpm generate && wrangler deploy --env \"\" --dry-run --outdir dist",
     "deploy": "node scripts/deploy.mjs",
+    "runtimes:prepare": "node scripts/build-runtimes.mjs",
+    "runtimes:dev": "pnpm runtimes:prepare && wrangler dev --config runtime/wrangler.jsonc --env local --port 8789",
+    "runtimes:build": "pnpm runtimes:prepare && wrangler deploy --config runtime/wrangler.jsonc --env \"\" --dry-run",
+    "runtimes:deploy": "node scripts/deploy-runtimes.mjs",
+    "test:runtimes": "node scripts/test-runtimes.mjs",
     "startup": "wrangler check startup --outfile .private/startup.cpuprofile"
   },
   "devDependencies": {

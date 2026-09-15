@@ -7,7 +7,7 @@ import { build, root } from './build-challenges.mjs';
 import { verifyDeployment } from './deployment-health.mjs';
 
 const files = process.argv.slice(2);
-if (!files.length) files.push('test/browser.test.mjs', 'test/campaign.test.mjs');
+if (!files.length) files.push('test/browser.test.mjs', 'test/runtime-apps.browser.test.mjs', 'test/campaign.test.mjs');
 let worker, tests, interrupted;
 const interrupt = signal => {
   interrupted = signal;

@@ -6,7 +6,9 @@
 
 - 以 KDE Plasma 6.3.5 / Breeze Dark 为基准的桌面：官方 Nuvole 深色壁纸、本地 Noto Sans / Hack 字体、随字体调整的窗口装饰、Kickoff、四向面板、任务预览、虚拟桌面、锁屏和快捷键。
 - 窗口开关、朝任务图标最小化、最大化/平铺、菜单和弹出面板共享可取消的动画；桌面切换使用 KWin 的弹簧积分，反向时保留速度。系统与桌面“减少动态效果”设置即时生效。
-- 28 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint 和数据包查看器。
+- 30 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、Minecraft 1.12.2 和 Firefox。
+- Minecraft 使用 Eaglercraft 1.12.2 u3 的真实客户端，默认选择 WebAssembly GC，也可切换 JavaScript 兼容模式；世界在独立应用域名的 IndexedDB 中按桌面用户保存。关闭前通过游戏菜单保存并退出，两种模式共用存档。
+- Firefox 使用 HeyPuter 发布的真实 Gecko WASM 与官方 WISP 网络服务，保留应用自己的 Launch Firefox 启动按钮；需支持 JSPI 和 credentialless iframe 的新版 Chrome / Edge。内嵌会话随桌面页面关闭而结束，可通过工具栏独立打开官方应用。
 - JavaScript / Web Crypto / WebAssembly 与 Python 执行环境；Python 提供 NumPy、SymPy、mpmath、PyCryptodome。运行时和依赖均由同一 Worker 提供。
 - 文件通过 IndexedDB 按存档隔离保存，支持目录、导入、回收站、还原和多标签页写入冲突检测。脚本通过有界文件 RPC 读写工作区，不能直接联网；游戏内协议使用限定范围的 `net` API。
 - 服务端校验通行码、解锁附件、保存进度，并签发可独立验证的通关凭证。交互式实验的绑定在 Durable Object 休眠后保持不变。
@@ -29,14 +31,18 @@ pnpm ctf:dev
 
 以下命令均在 `workers/ctf-game` 中运行。
 
+调试 Minecraft 时，另开终端运行 `pnpm runtimes:dev`，使用 `http://127.0.0.1:8788/` 打开桌面。该命令下载并核对固定 SHA-256 的上游构建，将应用服务启动在 `http://127.0.0.1:8789/`。Firefox 使用官方线上应用。
+
 ## 验证
 
 ```sh
 pnpm check
 pnpm test
 pnpm build
+pnpm runtimes:build
 pnpm exec playwright install --with-deps chromium
 pnpm test:e2e
+pnpm test:runtimes
 ```
 
 `pnpm test` 覆盖随机题目版本的独立解码、重建一致性、部署健康检查、26 关附件鉴权、并发提交、账本隔离、实验状态恢复、用户隔离、并发存档配额、重开回收、到期清理和通关凭证。
@@ -46,9 +52,11 @@ pnpm test:e2e
 - `pnpm test:browser`：全部应用启动、文件持久化、用户设置、脚本运行、PDF、SQLite、OpenPGP、窄屏布局，以及快速窗口开关、KWin 弹簧轨迹和反向、减少动态效果、任务预览与启动器键盘操作等真实界面回归。
 - `pnpm test:campaign`：只读取私有夹具中的入口，所有 26 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
 
+`pnpm test:runtimes` 单独运行真实引擎验证：检查 IndexedDB 与两类 Worker 的用户隔离，通过 Minecraft 的实际菜单创建、保存、用另一种引擎重开世界，启动 Gecko 并使用真实地址栏访问网页，同时验证缩放与最小化恢复。测试需要联网和较多内存，截图写入忽略目录 `.private/runtime-qa/`。日常 `test:e2e` 只在应用边界替换大型运行时，仍验证启动、消息校验、焦点、取消重启、关闭与最小化行为。
+
 `pnpm test:all` 顺序执行上述单元测试和端到端测试。也可用 `CTF_E2E_URL=http://127.0.0.1:8788 pnpm test:e2e` 测试已有本地服务；其版本必须与本地生成的夹具一致。低内存机器不要同时运行 Astro 检查和浏览器测试。
 
-PR Checks 中的独立 CTF 作业会执行类型检查、单元测试、生产构建以及完整浏览器回归，不使用生产种子或会话密钥。
+PR Checks 中的独立 CTF 作业会执行两套 Worker 的类型检查和生产构建、单元测试以及完整桌面与关卡回归，不使用生产种子或会话密钥。真实引擎测试由维护者显式运行。
 
 ## 部署与博客入口
 
@@ -57,7 +65,9 @@ pnpm exec wrangler login
 pnpm run deploy
 ```
 
-部署账户在 `wrangler.jsonc` 中配置。脚本先构建和上传 Worker，确认健康接口的版本与实际关卡数均一致后，才更新以下**配对文件**：
+部署账户在 `wrangler.jsonc` 和 `runtime/wrangler.jsonc` 中配置。脚本先发布独立的 `arisaka-desktop-apps` Worker，核对版本、完整资源哈希、响应类型和隔离策略，通过后再发布 `arisaka-afterglow`。两个配置中的应用域名与桌面域名须互相匹配。单独发布应用资源可使用 `pnpm runtimes:deploy`。
+
+桌面健康接口的版本与实际关卡数均确认一致后，才更新以下**配对文件**：
 
 - `../../src/data/ctf-deployment.json`
 - `../../public/README/README.md`

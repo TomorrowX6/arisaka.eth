@@ -78,6 +78,7 @@ jobs:
           pnpm check
           pnpm test
           pnpm build
+          pnpm runtimes:build
       - name: Install browser
         run: pnpm exec playwright install --with-deps chromium
       - name: Test desktop and independently solve all 26 cases

@@ -1,0 +1,11 @@
+Application identity artwork
+
+firefox.webp: logo.webp from HeyPuter/firefox-wasm v0.0.1 chrome demo.
+https://github.com/HeyPuter/firefox-wasm/releases/tag/v0.0.1
+Archive SHA-256: c6fd1c2101722f12cc5a933ec405af8a20c6d0ae849c66a5f1703b6d26db8e8b
+Firefox artwork and trademarks belong to Mozilla; used to identify the actual
+Firefox WASM application. Project source is licensed under MPL-2.0.
+
+minecraft.svg: original grass-block illustration for this desktop integration.
+Minecraft trademarks belong to Mojang Studios / Microsoft; the illustration
+identifies the Minecraft 1.12.2 application and is not an official brand logo.

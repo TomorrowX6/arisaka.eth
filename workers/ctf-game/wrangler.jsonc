@@ -8,6 +8,7 @@
   "workers_dev": true,
   "preview_urls": false,
   "observability": { "enabled": true, "head_sampling_rate": 0.1 },
+  "vars": { "DESKTOP_APPS_ORIGIN": "https://arisaka-desktop-apps.454565615.workers.dev" },
   "secrets": { "required": ["SESSION_SECRET"] },
   "assets": {
     "directory": "./public",
@@ -29,6 +30,7 @@
   "env": {
     "local": {
       "name": "arisaka-afterglow-local",
+      "vars": { "DESKTOP_APPS_ORIGIN": "http://127.0.0.1:8789" },
       "secrets": { "required": ["SESSION_SECRET"] },
       "durable_objects": {
         "bindings": [
