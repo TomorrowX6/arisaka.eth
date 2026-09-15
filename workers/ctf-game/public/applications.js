@@ -1,0 +1,36 @@
+export const applications = [
+  { id: 'files', name: 'Dolphin', description: '文件管理器', category: '系统', aliases: '文件 主目录 home file manager' },
+  { id: 'console', name: 'Konsole', description: '终端', category: '开发', aliases: 'terminal bash shell 终端' },
+  { id: 'editor', name: 'Kate', description: '文本与脚本编辑器', category: '开发', aliases: 'code javascript editor 编辑 代码' },
+  { id: 'http', name: 'Konqueror', description: 'HTTP 客户端', category: '开发', aliases: 'browser network curl 请求 网络' },
+  { id: 'viewer', name: 'Okular', description: '文档查看器', category: '办公', aliases: 'document 文档 阅读' },
+  { id: 'notes', name: 'KWrite', description: '文本编辑器', category: '办公', aliases: 'notes text 笔记' },
+  { id: 'settings', name: '系统设置', description: '工作区与个人设置', category: '系统', aliases: 'systemsettings preferences theme wallpaper 用户 主题 设置 壁纸' },
+  { id: 'calculator', name: 'KCalc', description: '科学计算器', category: '工具', aliases: 'calculator calc 计算 数学' },
+  { id: 'archive', name: 'Ark', description: '压缩文件管理器', category: '工具', aliases: 'zip tar gzip archive 压缩 归档' },
+  { id: 'hex', name: 'Okteta', description: '十六进制编辑器', category: '开发', aliases: 'hex binary bytes 二进制 字节' },
+  { id: 'imageviewer', name: 'Gwenview', description: '图像查看器', category: '多媒体', aliases: 'image photo png jpg 图片 图像' },
+  { id: 'media', name: 'Elisa', description: '音频播放器', category: '多媒体', aliases: 'music audio wav player 音乐 音频' },
+  { id: 'monitor', name: '系统监视器', description: '应用与资源', category: '系统', aliases: 'monitor process task 系统 进程 资源' },
+  { id: 'characters', name: 'KCharSelect', description: '字符选择器', category: '工具', aliases: 'unicode character codepoint 字符 编码' },
+  { id: 'search', name: 'KFind', description: '查找文件', category: '工具', aliases: 'find search grep 搜索 查找' },
+  { id: 'clock', name: 'KClock', description: '时钟、闹钟与计时器', category: '工具', aliases: 'clock alarm timer 时钟 计时 闹钟' },
+  { id: 'keys', name: 'Kleopatra', description: '文件加密与校验', category: '工具', aliases: 'crypto hash encrypt aes sha 密码 加密 校验' },
+  { id: 'packets', name: '数据包查看器', description: 'PCAP 网络捕获', category: '开发', aliases: 'pcap tcp udp dns packet network 网络 数据包' },
+  { id: 'database', name: 'SQLite', description: '数据库与 SQL 查询', category: '开发', aliases: 'database sql sqlite db 数据库 查询' },
+  { id: 'diff', name: 'KDiff3', description: '文件比较与三方合并', category: '开发', aliases: 'diff merge compare patch 差异 比较 合并' },
+  { id: 'disk', name: 'Filelight', description: '磁盘使用分析', category: '系统', aliases: 'disk storage space usage 磁盘 空间 存储' },
+  { id: 'logs', name: 'KSystemLog', description: '桌面活动日志', category: '系统', aliases: 'journal log audit 日志 活动 记录' },
+  { id: 'paint', name: 'KolourPaint', description: '像素图像编辑器', category: '多媒体', aliases: 'paint draw image pixel 绘图 画图 像素 图像' },
+  { id: 'profiler', name: 'KCachegrind', description: '性能数据与调用关系', category: '开发', aliases: 'profile profiler callgrind cachegrind trace 函数 性能 调用' },
+  { id: 'colors', name: 'KColorChooser', description: '取色与调色板', category: '图形', aliases: 'color colour palette rgb hsv cmyk 颜色 取色 调色板' },
+  { id: 'screenshot', name: 'Spectacle', description: '屏幕截图', category: '工具', aliases: 'screenshot capture 截图' },
+  { id: 'discover', name: 'Discover', description: '应用程序目录', category: '系统', aliases: 'apps software application 应用 软件' },
+  { id: 'help', name: 'KHelpCenter', description: '工具手册', category: '系统', aliases: 'manual help docs 手册 文档' },
+  { id: 'workbench', name: '档案', category: '开发', hidden: true },
+  { id: 'proof', name: '通关凭证', category: '系统', hidden: true },
+];
+export function findApplications(query = '') {
+  const words = query.trim().toLowerCase().split(/\s+/);
+  return applications.filter((app) => !app.hidden && words.every((word) => [app.name, app.description, app.aliases].join(' ').toLowerCase().includes(word)));
+}

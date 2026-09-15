@@ -55,3 +55,30 @@ jobs:
           pnpm --dir workers/live2d-chat check
           pnpm --dir workers/live2d-chat test
           pnpm --dir workers/live2d-chat build
+
+  ctf:
+    name: CTF — 26-case campaign and Plasma desktop
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: workers/ctf-game
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: workers/ctf-game/pnpm-lock.yaml
+      - name: Install CTF Worker dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Check, test, and build CTF Worker
+        run: |
+          pnpm check
+          pnpm test
+          pnpm build
+      - name: Install browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Test desktop and independently solve all 26 cases
+        run: pnpm test:e2e

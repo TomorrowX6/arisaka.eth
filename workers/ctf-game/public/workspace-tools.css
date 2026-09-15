@@ -1,0 +1,51 @@
+.diff-inputs { display: flex; height: 160px; flex: 0 0 160px; border-bottom: 1px solid var(--line); }
+.diff-inputs > label { flex: 1; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--line); }
+.diff-inputs > label > span { padding: 4px 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.diff-inputs textarea { flex: 1; min-height: 0; width: 100%; border: 0; resize: none; font: 12px/1.5 var(--mono); padding: 8px; tab-size: 4; white-space: pre; }
+.diff-lines { min-height: 70px; font: 12px/1.5 var(--mono); }
+.diff-line { display: grid; grid-template-columns: 4em 4em minmax(0, 1fr); }
+.diff-line > span { text-align: right; color: var(--muted); padding-right: 8px; border-right: 1px solid var(--edge); user-select: none; }
+.diff-line pre { margin: 0; padding-left: 8px; min-height: 18px; white-space: pre; }
+.diff-delete { background: color-mix(in srgb, #da4453 15%, var(--bg)); }
+.diff-insert { background: color-mix(in srgb, #27ae60 15%, var(--bg)); }
+.diff-output { flex: 0 1 160px; min-height: 70px; border: 0; border-top: 1px solid var(--line); border-radius: 0; padding: 8px; resize: none; font: 12px/1.5 var(--mono); white-space: pre; }
+.merge-block { padding: 4px 8px; margin: 0; white-space: pre; }
+.merge-block[data-conflict] { background: color-mix(in srgb, #da4453 18%, var(--bg)); cursor: pointer; }
+.merge-block.selected { outline: 1px solid var(--accent); outline-offset: -1px; }
+.merge-block.resolved { background: color-mix(in srgb, #27ae60 15%, var(--bg)); }
+#diff-save-path { font-size: 10px; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.disk-summary { display: flex; padding: 16px; align-items: center; gap: 12px; border-bottom: 1px solid var(--line); }
+.disk-summary strong { font: 22px var(--mono); white-space: nowrap; }
+.disk-summary progress { flex: 1; min-width: 0; height: 12px; accent-color: var(--accent); }
+.disk-content { display: flex; flex: 1; min-height: 0; }
+#disk-chart { flex: 0 1 45%; min-width: 180px; align-self: center; padding: 12px; }
+#disk-chart svg { width: 100%; max-height: 340px; }
+#disk-chart svg text { fill: var(--ink); font: 16px var(--mono); }
+#disk-chart svg path { cursor: pointer; outline: none; }
+#disk-chart svg path:hover, #disk-chart svg path:focus { opacity: .7; }
+.log-table { font: 11px/1.5 var(--mono); }
+#logs-filter { flex: 1; min-width: 50px; }
+.paint-workspace { display: flex; flex: 1; min-height: 0; }
+.paint-tools { display: flex; flex-direction: column; width: 85px; flex-shrink: 0; gap: 4px; padding: 6px; border-right: 1px solid var(--line); overflow: auto; }
+.paint-tools button { padding: 5px 2px; font-size: 11px; }
+.paint-tools button[aria-pressed="true"] { background: var(--selected); border-color: var(--accent); }
+.paint-tools label { display: flex; flex-direction: column; gap: 3px; font-size: 11px; padding-top: 6px; }
+.paint-tools input { width: 100%; min-width: 0; }
+.paint-tools .setting-check { flex-direction: row; }
+.paint-tools .setting-check input { width: auto; }
+.paint-scroll { flex: 1; min-width: 0; overflow: auto; padding: 20px; background: var(--sidebar); }
+#paint-canvas { display: block; background: conic-gradient(#d0d0d0 25%, #fff 0 50%, #d0d0d0 0 75%, #fff 0) 0 0 / 16px 16px; box-shadow: 0 2px 9px #0005; image-rendering: pixelated; touch-action: none; cursor: crosshair; max-width: none; }
+.paint-palette { display: flex; flex-wrap: wrap; gap: 3px; padding: 5px 8px; border-top: 1px solid var(--line); }
+.paint-palette button { width: 22px; height: 22px; min-height: 0; padding: 0; border: 1px solid var(--line); border-radius: 0; }
+#paint-coordinates { margin-left: 16px; }
+#paint-path { font-size: 10px; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 600px) {
+  .diff-inputs { height: 125px; flex-basis: 125px; }
+  .diff-inputs > label > span { font-size: 10px; }
+  .disk-content { flex-direction: column; overflow: auto; }
+  #disk-chart { width: 100%; max-height: 180px; }
+  #disk-chart svg { height: 155px; }
+  .disk-content > .utility-scroll { min-height: 130px; }
+  .disk-summary { padding: 8px; gap: 6px; }
+  .disk-summary strong { font-size: 16px; }
+}

@@ -1,0 +1,44 @@
+name: Deploy CTF
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-ctf
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CTF_BUILD_SEED: ${{ secrets.CTF_BUILD_SEED }}
+      CTF_SESSION_SECRET: ${{ secrets.CTF_SESSION_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: workers/ctf-game/pnpm-lock.yaml
+      - name: Install
+        run: pnpm --dir workers/ctf-game install --frozen-lockfile
+      - name: Validate
+        run: |
+          pnpm --dir workers/ctf-game check
+          pnpm --dir workers/ctf-game test
+      - name: Deploy
+        run: pnpm --dir workers/ctf-game deploy
+      - name: Save verified entrance
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctf-deployment
+          path: |
+            src/data/ctf-deployment.json
+            public/README/README.md
+          if-no-files-found: error

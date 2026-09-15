@@ -120,6 +120,8 @@ pnpm midi:scan
 
 桌面端会加载本地 Live2D 模型。角色菜单可打开一个不会离开页面的终端窗口，终端实现了真实的命令解析、历史记录、Tab 补全与虚拟文件系统。
 
+CTF 保留原终端加密入口，主游戏是包含 26 关顺序挑战的 Plasma 风格浏览器桌面，独立部署在 Cloudflare Workers。运行、完整通关测试、存档隔离及入口发布流程见 [CTF Worker](workers/ctf-game/README.md)。
+
 角色也可与访客聊天：公开文章每 10 秒向 Cloudflare Worker 请求下一条 AI 话题，Worker 为每篇文章缓存 39 条简短开场白；非文章页面从 1,490 条有作品出处的动漫语录中按偏好抽取，每轮缓存 39 条、同样每 10 秒更换一句。优先催泪、百合、恋爱、日常、治愈及神作题材，输入或等待回复时暂停。发送按钮为输入框内的绿色圆形上箭头。配置、运行与缓存说明见 [Roro 聊天后端](workers/live2d-chat/README.md)，语料来源和更新方式见 [动漫语料说明](src/data/README.md)。
 
 ```text
@@ -335,6 +337,10 @@ node scripts/sync-cache-from-manifest.mjs <manifest-txid>
 | `pnpm midi:scan` | 重建 MIDI 播放列表 |
 | `pnpm test` | 运行文章加密与密码解析测试 |
 | `pnpm check` | 运行 Astro 类型和模板检查 |
+| `pnpm ctf:dev` | 启动本地 CTF Worker |
+| `pnpm ctf:check` | 检查 CTF Worker 类型 |
+| `pnpm ctf:test` | 测试题目生成、校验与存档 |
+| `pnpm ctf:test:e2e` | 自动启动隔离 Worker，验证桌面与 26 关完整通关 |
 | `pnpm type-check` | 运行 TypeScript 声明检查 |
 | `pnpm lint` | 使用 Biome 检查并修复 `src/` |
 | `pnpm format` | 格式化 `src/` |
