@@ -33,6 +33,7 @@ export const applications = [
   { id: 'bpf', name: 'eBPF 调试器', description: '离线指令、ELF 与单步执行', category: '开发', aliases: 'ebpf bpf debugger elf reverse disassemble registers breakpoint 调试 逆向 反汇编 断点 寄存器' },
   { id: 'signal', name: '信号分析台', width: 1060, height: 820, description: 'CSV / TRS 波形、频谱与互相关', category: '开发', aliases: 'signal analog fft spectrum correlation histogram trs csv traces oscilloscope 信号 模拟 示波器 频谱 相关 统计 采样' },
   { id: 'graph', name: '图分析台', width: 1120, height: 870, description: '连通分量、精确最短路与支配树', category: '开发', aliases: 'graph scc dag dominator frontier shortest path dot graphviz cfg control flow 图 节点 边 关系 拓扑 最短路 支配树 控制流' },
+  { id: 'rf', name: 'RF / IQ 工坊', width: 1140, height: 900, description: 'SigMF 复数频谱、星座与抗混叠抽取', category: '开发', aliases: 'rf iq sigmf sdr radio spectrum spectrogram constellation complex welch fir decimation 射频 复数 基带 星座 瀑布 频移 抽取' },
   { id: 'colors', name: 'KColorChooser', description: '取色与调色板', category: '图形', aliases: 'color colour palette rgb hsv cmyk 颜色 取色 调色板' },
   { id: 'screenshot', name: 'Spectacle', description: '屏幕截图', category: '工具', aliases: 'screenshot capture 截图' },
   { id: 'discover', name: 'Discover', description: '应用程序目录', category: '系统', aliases: 'apps software application 应用 软件' },

@@ -145,7 +145,7 @@ export function createSystem(controls) {
       return;
     }
     const kind = mode === 'hex' ? 'hex' : /(?:callgrind|cachegrind)(?:\.out)?(?:\.\d+)?$|\.callgrind$/i.test(path) ? 'profiler' : /\.(zip|tar|gz|tgz)$/i.test(path) ? 'archive'
-      : /(?:\.graph\.json|\.edges\.csv)$/i.test(path) ? 'graph' : /(?:\.trs|\.signal\.(?:csv|tsv))$/i.test(path) ? 'signal' : /\.bpf(?:\.o)?$/i.test(path) ? 'bpf' : /\.vcd$/i.test(path) ? 'logic' : /\.(der|cer|cbor|cborseq)$/i.test(path) ? 'structure' : /\.(pcap|pcapng|cap)$/i.test(path) ? 'packets' : /\.(db|sqlite|sqlite3)$/i.test(path) ? 'database'
+      : /\.sigmf-(?:meta|data)$/i.test(path) ? 'rf' : /(?:\.graph\.json|\.edges\.csv)$/i.test(path) ? 'graph' : /(?:\.trs|\.signal\.(?:csv|tsv))$/i.test(path) ? 'signal' : /\.bpf(?:\.o)?$/i.test(path) ? 'bpf' : /\.vcd$/i.test(path) ? 'logic' : /\.(der|cer|crl|roa|mft|cbor|cborseq)$/i.test(path) ? 'structure' : /\.(pcap|pcapng|cap)$/i.test(path) ? 'packets' : /\.(db|sqlite|sqlite3)$/i.test(path) ? 'database'
       : /\.(png|jpe?g|webp)$/i.test(path) ? 'imageviewer' : /\.(wav|mp3|ogg|flac)$/i.test(path) ? 'media'
       : /\.(bin|elf|wasm|o|rom|rs16|journal)$/i.test(path) ? 'hex' : null;
     if (mode !== 'edit' && kind && applications[kind]) { await applications[kind].open(path); return; }

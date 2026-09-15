@@ -4,6 +4,7 @@ import { inspectStructure } from './binary-structure.js';
 import { runDiscreteMath } from './discrete-math.js';
 import { loadSignals, analyzeSignals } from './signal-data.js';
 import { analyzeGraph } from './graph-data.js';
+import { loadRF, analyzeRF, transformRF, rfCsv } from './rf-data.js';
 
 self.onmessage = async ({ data }) => {
   try {
@@ -17,6 +18,10 @@ self.onmessage = async ({ data }) => {
       result = analyzeGraph(data.bytes, data.options);
       result.sourceSha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data.bytes)), n => n.toString(16).padStart(2, '0')).join('');
     }
+    else if (data.operation === 'rfLoad') result = await loadRF(data.metadataBytes, data.bytes);
+    else if (data.operation === 'rfAnalyze') result = await analyzeRF(data.metadataBytes, data.bytes, data.options);
+    else if (data.operation === 'rfTransform') result = await transformRF(data.metadataBytes, data.bytes, data.options);
+    else if (data.operation === 'rfCsv') result = { bytes: rfCsv(await loadRF(data.metadataBytes, data.bytes), data.options.start, data.options.end) };
     else if (data.operation === 'signalLoad' || data.operation === 'signalAnalyze') {
       result = data.operation === 'signalLoad' ? loadSignals(data.bytes, data.options) : analyzeSignals(data.bytes, data.options);
       result.sourceSha256 = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', data.bytes)), n => n.toString(16).padStart(2, '0')).join('');
