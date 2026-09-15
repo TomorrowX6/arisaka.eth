@@ -48,3 +48,15 @@ YesPlayMusic 0.4.10, copyright qier222 and contributors, is MIT licensed. Source
 The Workers API adapts the NetEase protocol from `@neteasecloudmusicapienhanced/api` 4.40.1 (Binaryify and contributors, MIT), with its license retained in `runtime/music-transport.ts`. Cloud audio metadata uses `music-metadata` 11.14.0 (Borewit and contributors, MIT), pinned in `pnpm-lock.yaml`.
 
 KDE application names describe the interface being emulated. This project is not a KDE distribution and is not affiliated with or endorsed by KDE.
+
+## Maintenance-only cryptography and test data
+
+ML-KEM fixture production uses `@noble/post-quantum` 0.7.1 (Paul Miller and
+contributors, MIT), pinned together with its dependencies in `pnpm-lock.yaml`.
+It is not part of browser or Worker bundles. The readable recovery arithmetic is
+independent and is checked against selected public NIST ACVP FIPS 203 vectors;
+provenance is embedded in `test/fixtures/nist-mlkem768.json`.
+
+The unmodified TRS interoperability fixture from Keysight / Riscure is under the
+Clear BSD license. Full source revision, checksum and license are retained in
+`test/fixtures/trs/`. It is test data, not a public game artifact.
