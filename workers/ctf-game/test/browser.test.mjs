@@ -441,6 +441,9 @@ test('applications can be dragged onto the desktop, moved, and restored after re
     assert.ok(placed.x > moved.x + 200, 'dropping the same application moves its existing shortcut');
     await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
     assert.deepEqual(await shortcut.boundingBox(), placed, 'the chosen position survives reload');
+    // The saved case opens asynchronously after the desktop becomes visible.
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await page.setViewportSize({ width: 800, height: 450 });
     const compact = await shortcut.boundingBox();
     assert.ok(compact.x >= 0 && compact.x + compact.width <= 800 && compact.y + compact.height < 398, 'smaller work areas keep the shortcut above the panel');
@@ -450,7 +453,7 @@ test('applications can be dragged onto the desktop, moved, and restored after re
     // Reload restores application windows; reveal the desktop before dropping onto another icon.
     if (await page.locator('.window:not([hidden]):not([inert])').count()) {
       await page.locator('#show-desktop').click();
-      await expect(page.locator('.window:not([hidden]):not([inert])')).toHaveCount(0);
+      await expect(page.locator('.window:not([hidden])')).toHaveCount(0);
     }
     const home = page.locator('.desktop-icons [data-launch="files"]');
     const homePosition = await home.boundingBox();
@@ -462,6 +465,8 @@ test('applications can be dragged onto the desktop, moved, and restored after re
     await page.locator('.native-menu:not([inert])').getByRole('menuitem', { name: '从桌面移除', exact: true }).click();
     await expect(shortcut).toHaveCount(0);
     await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await expect(shortcut).toHaveCount(0);
     await launch(page, 'calculator', 'KCalc');
     assert.deepEqual(errors, []);
@@ -611,6 +616,8 @@ test('KCachegrind enables cost events only after opening actual profiling data',
       await fs.setPlayer(state.player); await fs.writeFile('layout.callgrind', fixture);
     }, fixture);
     await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await launch(page, 'profiler', 'KCachegrind');
     await page.locator('#profiler-open').click();
     await page.locator('.file-dialog [data-name]').fill('/home/user/Documents/layout.callgrind');
@@ -627,6 +634,8 @@ test('KCachegrind enables cost events only after opening actual profiling data',
     await page.locator('#profiler-relative').uncheck();
     await expect(page.locator('#profiler-functions td').nth(1)).toHaveText('4');
     await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await expect(page.locator('#console-window')).toBeVisible();
+    await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await launch(page, 'profiler', 'KCachegrind');
     await expect(page.locator('#profiler-event')).toBeDisabled();
     await expect(page.locator('#profiler-functions tr')).toHaveCount(0);
