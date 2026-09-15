@@ -37,9 +37,9 @@ test('the campaign artifacts remain solvable for independent random editions', a
       assert.equal(nine.code, codes[8]);
       assert.equal(nine.receipt, answers.shares[3]);
       const shares = [six.receipt, seven.receipt, eight.receipt, nine.receipt];
-      const seal = JSON.parse(a[codes.length]['last-letter.json']);
-      assert.equal(openSeal(seal, reconstruct(shares)).code, codes.at(-1));
-      assert.equal(openSeal(seal, reconstruct(shares.toReversed())).code, codes.at(-1));
+      const seal = JSON.parse(a[26]['last-letter.json']);
+      assert.equal(openSeal(seal, reconstruct(shares)).code, codes[25]);
+      assert.equal(openSeal(seal, reconstruct(shares.toReversed())).code, codes[25]);
       assert.throws(() => reconstruct(shares.slice(0, 3)));
       assert.throws(() => reconstruct([shares[0], shares[0], shares[2], shares[3]]));
       assert.throws(() => openSeal(seal, Buffer.alloc(16)));

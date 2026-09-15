@@ -1,12 +1,14 @@
 # CTF Worker
 
-26 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
+29 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
 
 ## 工作区
 
 - 以 KDE Plasma 6.3.5 / Breeze Dark 为基准的桌面：官方 Nuvole 深色壁纸、本地 Noto Sans / Hack 字体、随字体调整的窗口装饰、Kickoff、四向面板、任务预览、虚拟桌面、锁屏和快捷键。
 - 窗口开关、朝任务图标最小化、最大化/平铺、菜单和弹出面板共享可取消的动画；桌面切换使用 KWin 的弹簧积分，反向时保留速度。系统与桌面“减少动态效果”设置即时生效。
-- 31 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
+- 33 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、数据工坊、逻辑分析仪、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
+- 数据工坊提供可保存 / 载入 / 重排的字节处理配方，支持 Hex、Base64、位操作、XOR、字节序、截取、压缩和哈希。独立 Worker 可停止；预览明确标注截断，保存始终使用完整结果。
+- 逻辑分析仪读取 VCD，保留精确的 64 位时间戳、别名和未知态，支持信号选择、波形缩放 / 平移 / 游标，以及 SPI 四种模式与双位序解码。未知位、时序歧义和不完整传输明确标注，可将完整解码保存到工作区。
 - Minecraft 使用 Eaglercraft 1.12.2 u3 的真实客户端，默认选择 WebAssembly GC，也可切换 JavaScript 兼容模式；世界在独立应用域名的 IndexedDB 中按桌面用户保存。关闭前通过游戏菜单保存并退出，两种模式共用存档。
 - Firefox 使用 HeyPuter 发布的真实 Gecko WASM 与官方 WISP 网络服务，保留应用自己的 Launch Firefox 启动按钮；需支持 JSPI 和 credentialless iframe 的新版 Chrome / Edge。内嵌会话随桌面页面关闭而结束，可通过工具栏独立打开官方应用。
 - YesPlayMusic 使用固定源码版本 0.4.10 的原版界面，默认中文深色，提供搜索、播放、歌词与网易云登录。网页和音乐 API 由独立应用 Worker 提供，设置、缓存与登录状态按桌面用户隔离；最小化继续播放，关闭释放播放器。
@@ -46,12 +48,13 @@ pnpm test:e2e
 pnpm test:runtimes
 ```
 
-`pnpm test` 覆盖随机题目版本的独立解码、重建一致性、部署健康检查、26 关附件鉴权、并发提交、账本隔离、实验状态恢复、用户隔离、并发存档配额、重开回收、到期清理和通关凭证。
+`pnpm test` 覆盖随机题目版本的独立解码、重建一致性、部署健康检查、全部关卡附件鉴权、并发提交、账本隔离、实验状态恢复、用户隔离、并发存档配额、重开回收、到期清理和通关凭证。新增 QUIC 密钥 RFC 向量、DNSSEC 认证链、SPI 多次采样取证、配方解压上限、VCD / SPI 精度与未知态测试。
 
 `pnpm test:e2e` 自动生成题目、启动随机端口的本地 Worker、检查版本、运行浏览器测试并关闭 Worker；存储与日常开发存档隔离，不更新博客入口，不需要 Cloudflare 部署凭证。它包含：
 
 - `pnpm test:browser`：全部应用启动、文件持久化、用户设置、脚本运行、PDF、SQLite、OpenPGP、窄屏布局，以及快速窗口开关、KWin 弹簧轨迹和反向、减少动态效果、任务预览与启动器键盘操作等真实界面回归。
-- `pnpm test:campaign`：只读取私有夹具中的入口，所有 26 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
+- `pnpm test:campaign`：只读取私有夹具中的入口，所有 29 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
+- 新工具浏览器回归：`node scripts/test-browser.mjs test/analysis-apps.browser.test.mjs`，验证真实分析 Worker、二进制保存、配方往返、完整 VCD / SPI、取消与窄屏键盘操作；截图位于忽略目录 `.private/professional-qa/`。
 
 `pnpm test:runtimes` 单独运行真实引擎验证：检查 IndexedDB 与两类 Worker 的用户隔离，通过 Minecraft 的实际菜单创建、保存、用另一种引擎重开世界，启动 Gecko 并使用真实地址栏访问网页，同时验证缩放与最小化恢复。测试需要联网和较多内存，截图写入忽略目录 `.private/runtime-qa/`。日常 `test:e2e` 只在应用边界替换大型运行时，仍验证启动、消息校验、焦点、取消重启、关闭与最小化行为。
 
@@ -88,6 +91,18 @@ pnpm run deploy
 CI 发布必须配置三个变量。本地首次构建创建 `.private/build-seed`，首次发布创建 `.private/session-secret`；本地开发另用 `.dev.vars.local`。不要删除、公开或随意轮换生产种子和密钥。要沿用本地版本发布 CI，应将同一组值安全配置为 GitHub Secrets。
 
 更换种子或不兼容的题目格式会使旧版存档显示失效，不会静默覆盖旧进度。改变题目生成或校验语义时应同步提升 `build-challenges.mjs` 中的版本域，并重新执行所有测试。回滚时同时恢复 Worker 版本、上述配对入口文件及对应私有种子 / 签名密钥。
+
+## 追加战役与存档兼容
+
+第 26 关保留原编号、附件和回执重建流程；27–29 是面向专业玩家的协议与硬件取证延伸。原 26 关在固定测试种子下有逐字节摘要回归，不因追加而重写。
+
+生成器显式列出同一种子、同一兼容域的历史 edition。首次访问时在 Durable Object 同步事务内升级已声明兼容的存档，保留玩家身份、开始时间、已解锁位置、尝试次数、冷却、账本和实验绑定，只补建新关卡记录。未通关者继续原位置；已完成 26 关者从 27 开始，不能越级读取 28/29。
+
+旧通关记录单独保留；Dolphin 状态栏的“通关记录”可重新查看和下载历史凭证，也可通过 `GET /api/proof?cases=26` 获取。历史凭证仍可独立验证，不会伪装成扩展战役已完成。未知版本、不同种子或不兼容格式仍要求重开。
+
+存档升级是向前的：已经写入新 edition 的存档，不能直接交给不含迁移逻辑的旧 26 关 Worker 继续。回滚前应保留兼容读取代码或相应存储备份；单纯回滚静态资源或更换种子不会回退进度。
+
+`generate`、`check`、`test`、`build` 默认不修改博客入口。只有本地 `dev` 的显式 `--sync-entrance`，或完成发布健康校验后的部署脚本，才更新配对入口文件。追加后需沿用生产私有种子及会话密钥，不可用新生成的本地种子直接覆盖生产。
 
 ## 发布边界
 

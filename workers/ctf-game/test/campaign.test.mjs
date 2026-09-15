@@ -21,6 +21,9 @@ import { decodeCoreEvidence } from '../scripts/expert/core-decoder.mjs';
 import { decodePdfEvidence } from '../scripts/expert/pdf-decoder.mjs';
 import { decodeLatticeEvidence } from '../scripts/expert/lattice-decoder.mjs';
 import { forgeWotsSignature } from '../scripts/expert/wots-decoder.mjs';
+import { decodeQuicEvidence } from '../scripts/expert/quic-decoder.mjs';
+import { decodeDnssecEvidence } from '../scripts/expert/dnssec-decoder.mjs';
+import { decodeLogicEvidence } from '../scripts/expert/logic-decoder.mjs';
 import { decodePowerEvidence } from '../scripts/expert/power-decoder.mjs';
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
@@ -88,7 +91,7 @@ test('the complete campaign is independently recovered through Plasma applicatio
     const started = await call('/api/start', { entry: entryToken });
     const receipts = [];
     const final = started.total;
-    assert.equal(final, 26);
+    assert.equal(final, 29);
     for (let stage = 1; stage <= final; stage++) {
       let completed = false;
       await t.test('case ' + String(stage).padStart(2, '0'), async () => {
@@ -174,11 +177,14 @@ test('the complete campaign is independently recovered through Plasma applicatio
           recoveredInApp = true;
         }
         else if (stage === 25) result = decodePowerEvidence(files);
-        else if (stage === final) result = openSeal(json('last-letter.json'), reconstruct(receipts));
+        else if (stage === 26) result = openSeal(json('last-letter.json'), reconstruct(receipts));
+        else if (stage === 27) result = decodeQuicEvidence(files);
+        else if (stage === 28) result = decodeDnssecEvidence(files);
+        else if (stage === 29) result = decodeLogicEvidence(files);
         else throw Error('Missing independent decoder for case ' + stage);
         assert.match(result.code, /^[a-z0-9]{20}$/, 'recovered code format');
         if (result.receipt) receipts.push(result.receipt);
-        if ([8, 9, final].includes(stage)) {
+        if ([8, 9, 26].includes(stage)) {
           const material = stage === 8 ? signatureMaterial(json('ledger.json')).toString('hex')
             : stage === 9 ? (await recoverMachineInput(files['glass.wasm'])).toString('ascii')
             : reconstruct(receipts).toString('hex');

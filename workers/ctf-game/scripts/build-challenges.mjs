@@ -24,6 +24,9 @@ import { latticeEvidence } from './expert/lattice.mjs';
 import { wotsEvidence } from './expert/wots.mjs';
 import { sequencerEvidence } from './expert/sequencer.mjs';
 import { powerEvidence } from './expert/power.mjs';
+import { quicEvidence } from './expert/quic.mjs';
+import { dnssecEvidence } from './expert/dnssec.mjs';
+import { logicEvidence } from './expert/logic.mjs';
 import caseWidgets from '../src/case-catalog.json' with { type: 'json' };
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -54,7 +57,11 @@ async function buildSeed() {
 
 export async function generate(seed) {
   if (seed.length !== 32) throw new Error('The build seed must be 32 bytes.');
-  const version = sha256(Buffer.concat([Buffer.from('afterglow-expert-v5:' + JSON.stringify(caseWidgets) + ':'), seed])).toString('hex').slice(0, 16);
+  const edition = count => sha256(Buffer.concat([Buffer.from('afterglow-expert-v5:' + JSON.stringify(caseWidgets.slice(0, count)) + ':'), seed])).toString('hex').slice(0, 16);
+  const version = edition(caseWidgets.length);
+  // An explicit append-only release lineage, not a blanket acceptance of any
+  // old version. Bump the domain above for an incompatible artifact change.
+  const compatibleEditions = [26].filter(cases => cases < caseWidgets.length).map(cases => ({ version: edition(cases), cases }));
   const entryToken = randomPath(seededRandom(seed, 'terminal-entry-route'));
   const codes = Array.from({ length: caseWidgets.length }, (_, i) => randomPath(seededRandom(seed, 'code/' + (i + 1))));
   const finalKey = seededRandom(seed, 'final-key')(16);
@@ -106,18 +113,22 @@ export async function generate(seed) {
     23: latticeEvidence(codes[22], undefined, seededRandom(seed, 'lattice-evidence')),
     24: wots.files,
     25: powerEvidence(codes[24], undefined, seededRandom(seed, 'power-evidence')),
-    [caseWidgets.length]: {
+    26: {
       'last-letter.json': json({
         ...seal({
-          code: codes.at(-1),
+          code: codes[25],
         }, finalKey, 'afterglow/final', seededRandom(seed, 'final-seal')),
       }),
       'custody.json': json({ version: 1, field: 256, polynomial: 283, threshold: 4, members: 4, width: 16 }),
     },
+    27: quicEvidence(codes[26], seededRandom(seed, 'quic-evidence')),
+    28: dnssecEvidence(codes[27], seededRandom(seed, 'dnssec-evidence')),
+    29: logicEvidence(codes[28], seededRandom(seed, 'logic-evidence')),
   };
   const files = Object.fromEntries(Object.entries(artifacts).map(([stage, entries]) => [stage, Object.keys(entries)]));
   const manifest = {
     version,
+    compatibleEditions,
     entryDigest: sha256('afterglow/entry/v1/' + entryToken).toString('hex'),
     digests: codes.map((code, i) => sha256('afterglow:' + version + ':' + (i + 1) + ':' + code).toString('hex')),
     files,
@@ -142,7 +153,7 @@ export async function publishEntrance(generated, url, blogRoot = resolve(root, '
   await writeFile(deploymentPath, json({ url: url ?? deployment.url ?? '', entrance: generated.answers.entryToken }));
 }
 
-export async function build({ syncEntrance = true } = {}) {
+export async function build({ syncEntrance = false } = {}) {
   const seed = await buildSeed();
   const generated = await generate(seed);
   const entranceRoot = resolve(root, '..', '..', 'public', 'README');
@@ -186,5 +197,5 @@ export async function build({ syncEntrance = true } = {}) {
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  await build();
+  await build({ syncEntrance: process.argv.includes('--sync-entrance') });
 }

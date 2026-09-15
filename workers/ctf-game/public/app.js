@@ -28,6 +28,7 @@ let workbenchReady = false;
 let workbenchLoading = false;
 let toastTimer;
 let proofData;
+let proofRequest = 0;
 let notes = { text: '', receipts: ['', '', '', ''] };
 const nativeCases = new Set(['terminal', 'http', 'artifacts', 'audio']);
 const recovery = createRecovery({
@@ -105,6 +106,8 @@ function updateState(value) {
   const previousPlayer = state.player;
   state = { ...state, ...value };
   if (previousPlayer !== state.player) {
+    proofRequest++; proofData = undefined;
+    $('#proof-output').value = ''; $('#proof-cases').replaceChildren();
     recovery.reset();
     readNotes();
     system.setPlayer(state.player || '');
@@ -125,6 +128,7 @@ function renderIndex() {
   $('#progress-bar').max = totalCases();
   $('#progress-bar').value = state.stage - 1;
   $('#player-label').textContent = (state.player || '').toUpperCase();
+  $('#files-proofs').hidden = !(state.milestones?.length || state.completedAt);
   void system.refreshFiles();
 }
 function showFolder(kind) {
@@ -257,18 +261,26 @@ $('#confirm-restart').addEventListener('click', async () => {
   } catch (error) { toast(error.message); }
   finally { $('#confirm-restart').disabled = false; }
 });
-async function showCompletion() {
+async function showCompletion(count = totalCases()) {
+  const request = ++proofRequest, player = state.player;
   try {
-    proofData = await api('/api/proof');
+    const result = await api('/api/proof' + (count === totalCases() ? '' : '?cases=' + count));
+    if (request !== proofRequest || player !== state.player) return;
+    proofData = result;
+    const choices = [...(state.milestones || []).map(item => item.cases), ...(state.completedAt ? [totalCases()] : [])];
+    $('#proof-cases').replaceChildren(...[...new Set(choices)].map(cases => new Option(cases + ' 关' + (cases === totalCases() ? ' · 当前战役' : ' · 历史记录'), String(cases))));
+    $('#proof-cases').value = String(count);
     $('#proof-output').value = proofData.proof;
     $('#completion h1').textContent = proofData.completion.cases + ' / ' + proofData.completion.cases;
     windows.open('proof');
-    history.replaceState(null, '', '#complete');
-  } catch (error) { toast(error.message); }
+    history.replaceState(null, '', count === totalCases() ? '#complete' : '#complete-' + count);
+  } catch (error) { if (request === proofRequest && player === state.player) toast(error.message); }
 }
+$('#files-proofs').addEventListener('click', () => void showCompletion(state.completedAt ? totalCases() : state.milestones?.at(-1)?.cases));
+$('#proof-cases').addEventListener('change', () => void showCompletion(Number($('#proof-cases').value)));
 $('#copy-proof').addEventListener('click', () => proofData && void copy(proofData.proof));
-$('#download-proof').addEventListener('click', () => proofData && download('completion-' + state.player + '.json', JSON.stringify(proofData, null, 2), 'application/json'));
-$('#revisit-button').addEventListener('click', () => void loadCase(totalCases()));
+$('#download-proof').addEventListener('click', () => proofData && download('completion-' + state.player + '-' + proofData.completion.cases + '.json', JSON.stringify(proofData, null, 2), 'application/json'));
+$('#revisit-button').addEventListener('click', () => void loadCase(Math.min(proofData?.completion.cases || totalCases(), state.stage, totalCases())));
 $('#verify-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const button = $('#verify-form button'); button.disabled = true;
@@ -285,7 +297,9 @@ $('#verify-form').addEventListener('submit', async (event) => {
 async function openLocation(restoreDefault = false) {
   if (!state.started || state.outdated) return;
   const match = /^#case-([1-9][0-9]{0,2})$/.exec(location.hash);
+  const historical = /^#complete-([1-9][0-9]{0,2})$/.exec(location.hash);
   if (location.hash === '#complete' && state.stage === totalCases() + 1) await showCompletion();
+  else if (historical && state.milestones?.some(item => item.cases === Number(historical[1]))) await showCompletion(Number(historical[1]));
   else if (match || restoreDefault) {
     const number = Math.min(match ? Number(match[1]) : state.stage, state.stage, totalCases());
     await loadCase(number, Boolean(match));
@@ -303,7 +317,11 @@ async function boot() {
       session = await api('/api/start', { entry });
     }
     updateState(session);
-    $('#gate').hidden = true;
+    // Keep the loading surface until the initial navigation and session restore
+    // have finished. Otherwise a late programmatic window launch can close a
+    // launcher the player has already opened and steal their keyboard focus.
+    // visibility (rather than display:none) preserves layout during bootstrap.
+    $('#desktop').setAttribute('aria-busy', 'true');
     $('#desktop').hidden = false;
     windows.open('files');
     showFolder('root');
@@ -314,6 +332,11 @@ async function boot() {
     $('.connection').classList.add('offline');
     $('#connection-label').textContent = '离线';
     $('#gate-status').textContent = error.status === 403 ? '403' : '连接失败';
+  } finally {
+    if (!$('#desktop').hidden) {
+      $('#desktop').removeAttribute('aria-busy');
+      $('#gate').hidden = true;
+    }
   }
 }
 await boot();

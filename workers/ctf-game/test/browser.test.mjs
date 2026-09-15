@@ -7,7 +7,7 @@ import { recoverGitSeed } from '../scripts/expert/git-decoder.mjs';
 const expect = baseExpect.configure({ timeout: 20000 });
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
-const { entryToken } = JSON.parse(await readFile(new URL('../.private/answers.json', import.meta.url), 'utf8'));
+const { entryToken, codes } = JSON.parse(await readFile(new URL('../.private/answers.json', import.meta.url), 'utf8'));
 let browser;
 before(async () => { browser = await chromium.launch({ headless: true, args: ['--no-sandbox', '--disable-dev-shm-usage'] }); });
 after(async () => { await browser?.close(); });
@@ -718,7 +718,7 @@ test('a decrypted capsule saved by Konsole recovers its case and keeps the termi
       'console.log(JSON.parse(new TextDecoder().decode(clear)));',
     ].join(' ');
     await shell(page, "node -e '" + source + "' > ~/Documents/recovered-01.json");
-    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#progress-count')).toHaveText('01 / ' + codes.length);
     await expect(page.locator('#console-window')).toBeVisible();
     await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await expect(page.locator('#console-sessions .session-form input').first()).toBeFocused();
@@ -751,13 +751,13 @@ test('Kate recovers only a successfully saved document and restores it after rel
     await page.locator('#editor-save').click();
     await page.locator('dialog[open] input').fill('recovered-01.json');
     await page.locator('dialog[open]').getByRole('button', { name: '确定', exact: true }).click();
-    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#progress-count')).toHaveText('01 / ' + codes.length);
     await expect(page.locator('#editor-name')).toHaveValue('recovered-01.json');
     await expect(page.locator('#editor-window')).toHaveClass(/focused/);
     await page.locator('#editor-save').click();
     assert.deepEqual(attempts, [{ stage: 1, code: result.code }]);
     await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#progress-count')).toHaveText('01 / ' + codes.length);
     await expect(page.locator('#console-window')).toBeVisible();
     await expect(page.locator('#console-directory')).toHaveText('/home/user/档案/01');
     await launch(page, 'editor', 'Kate');
@@ -791,10 +791,10 @@ test('a delayed HTTP session refresh cannot roll back a recovery from another ap
     await refreshing;
     await launch(page, 'console', 'Konsole');
     await shell(page, 'node -e \'console.log(' + JSON.stringify(result) + ');\'');
-    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#progress-count')).toHaveText('01 / ' + codes.length);
     release();
     await expect(page.locator('#network-send')).toBeEnabled();
-    await expect(page.locator('#progress-count')).toHaveText('01 / 26');
+    await expect(page.locator('#progress-count')).toHaveText('01 / ' + codes.length);
     assert.equal((await (await context.request.get(base + '/api/session')).json()).stage, 2);
     assert.deepEqual(errors, []);
   } finally { release(); await context.close(); }
@@ -838,7 +838,7 @@ test('Dolphin groups all cases in one folder and reports access denied when open
     await expect(page.locator('#files-primary [data-file-path="/home/user/01"]')).toHaveCount(0);
     await archive.dblclick();
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
-    await expect(page.locator('#files-primary .file-item')).toHaveCount(26);
+    await expect(page.locator('#files-primary .file-item')).toHaveCount(codes.length);
     const locked = page.locator('#files-primary [data-file-path="/home/user/档案/02"]');
     await locked.dblclick();
     await expect(page.getByRole('dialog', { name: '禁止访问', exact: true })).toBeVisible();
@@ -852,37 +852,42 @@ test('Dolphin groups all cases in one folder and reports access denied when open
   } finally { await context.close(); }
 });
 
-test('Dolphin completes a case-folder navigation when a delayed boot refresh arrives', { timeout: 60000 }, async () => {
+test('Dolphin completes an in-flight folder navigation when a metadata refresh arrives', { timeout: 60000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const held = [], errors = [];
-  let requests = 0;
+  let requests = 0, finishing = false;
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/cases/1', async route => {
     const index = requests++;
     const response = await route.fetch();
-    await new Promise(resolve => { held[index] = resolve; });
+    await new Promise(resolve => { held[index] = resolve; if (finishing) resolve(); });
     await route.fulfill({ response });
   });
   try {
     const start = await context.request.post(base + '/api/start', { data: { entry: entryToken }, headers: { 'X-Afterglow': '1' } });
     assert.equal(start.status(), 200);
+    // Bootstrap now has a readiness boundary. Start at case 2, then hold an
+    // uncached case-1 folder request after bootstrap, not the bootstrap itself.
+    assert.equal((await context.request.post(base + '/api/answer', { data: { stage: 1, code: codes[0] }, headers: { 'X-Afterglow': '1' } })).status(), 200);
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#desktop')).toBeVisible();
-    await expect.poll(() => held.filter(Boolean).length).toBe(1);
     await page.locator('#files-home').click();
     await page.locator('#files-primary [data-file-path="/home/user/档案"]').dblclick();
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
     await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').dblclick();
-    await expect.poll(() => held.filter(Boolean).length).toBe(2);
-    held[0]();
-    await page.waitForURL('**/#case-1');
+    await expect.poll(() => held.filter(Boolean).length).toBe(1);
+    // A refresh must update metadata without superseding the pending path.
+    const previousRow = await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').elementHandle();
+    await page.locator('#files-primary').press('F5');
+    await expect.poll(() => previousRow.evaluate(node => node.isConnected)).toBe(false);
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
-    held[1]();
+    held[0]();
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案/01');
     await expect(page.locator('#files-primary [data-file-path="/home/user/档案/01/objects.pack"]')).toBeVisible();
     assert.deepEqual(errors, []);
   } finally {
+    finishing = true;
     held.forEach(release => release());
     await page.unrouteAll({ behavior: 'wait' });
     await context.close();
