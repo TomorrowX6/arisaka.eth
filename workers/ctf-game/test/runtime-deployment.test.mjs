@@ -70,6 +70,7 @@ const musicFiles = {
   'bridge.js': { body: 'installProfile();', type: 'text/javascript' },
   'js/index.abc123.js': { body: 'mountMusic();', type: 'text/javascript' },
   'img/logos/music.svg': { body: '<svg/>', type: 'image/svg+xml' },
+  'img/icons/menu-dark@88.png': { body: 'icon fixture', type: 'image/png' },
   'fonts/font.abc123.woff2': { body: 'font fixture', type: 'font/woff2' },
 };
 const musicManifest = {
@@ -79,6 +80,7 @@ const musicManifest = {
 const musicSecurity = { ...security, 'Cross-Origin-Embedder-Policy': 'credentialless', 'Cache-Control': 'no-cache' };
 function musicFixture(url, options) {
   const path = new URL(url).pathname;
+  if (path.includes('@')) return new Response(null, { status: 307, headers: { Location: path.replace('@', '%40') } });
   if (path === '/runtime-policy.json') return fixture(url);
   if (path === '/yesplaymusic/manifest.json') return Response.json(musicManifest, { headers: musicSecurity });
   if (path === '/yesplaymusic/profiles/default/api/login/qr/create') {
@@ -86,7 +88,7 @@ function musicFixture(url, options) {
     assert.equal(JSON.parse(options.body).qrimg, false);
     return Response.json({ code: 200, data: { qrurl: 'https://music.163.com/login?codekey=runtime-deployment-health', qrimg: '' } }, { headers: { ...musicSecurity, 'Cache-Control': 'no-store' } });
   }
-  const name = path === '/yesplaymusic/profiles/default/settings' ? 'index.html' : path.slice('/yesplaymusic/'.length);
+  const name = path === '/yesplaymusic/profiles/default/settings' ? 'index.html' : decodeURIComponent(path.slice('/yesplaymusic/'.length));
   const file = musicFiles[name];
   return file ? new Response(file.body, { headers: { ...musicSecurity, 'Content-Type': file.type } }) : new Response('Not found', { status: 404 });
 }
@@ -100,7 +102,7 @@ test('music deployment checks every asset, a deep profile page, and POST API rou
   });
   assert.deepEqual(new Set(visited), new Set([
     '/runtime-policy.json', '/yesplaymusic/manifest.json', '/yesplaymusic/profiles/default/settings',
-    '/yesplaymusic/profiles/default/api/login/qr/create', ...Object.keys(musicFiles).map(name => '/yesplaymusic/' + name),
+    '/yesplaymusic/profiles/default/api/login/qr/create', ...Object.keys(musicFiles).map(name => '/yesplaymusic/' + name.split('/').map(encodeURIComponent).join('/')),
   ]));
 });
 

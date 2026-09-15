@@ -106,3 +106,27 @@ test('music profile API uses POST without falling through to assets or shared co
     expect(missing.headers.get('Cache-Control')).toBe('no-store');
   }
 });
+
+test('music assets use Cloudflare canonical encoding while retaining the public allowlist', async () => {
+  const visited: string[] = [];
+  const canonical = '/yesplaymusic/img/icons/menu-dark%4088.png';
+  const env = {
+    DESKTOP_ORIGIN: 'https://desktop.example',
+    ASSETS: { fetch: async (request: Request) => {
+      const path = new URL(request.url).pathname;
+      visited.push(path);
+      if (path.includes('@')) return new Response(null, { status: 307, headers: { Location: canonical } });
+      if (path === canonical) return new Response('icon bytes', { headers: { 'Content-Type': 'image/png' } });
+      throw new Error('Unexpected static asset');
+    } } as unknown as Fetcher,
+  };
+  for (const path of ['/yesplaymusic/img/icons/menu-dark@88.png', canonical]) {
+    const response = await runtime.fetch(new Request('https://apps.example' + path), env);
+    expect(response.status).toBe(200);
+    expect(new Uint8Array(await response.arrayBuffer())).toEqual(new TextEncoder().encode('icon bytes'));
+  }
+  for (const path of ['/yesplaymusic/img/%2Eprivate/secret.png', '/yesplaymusic/img/%2540private.png', '/yesplaymusic/img/%FF.png']) {
+    expect((await runtime.fetch(new Request('https://apps.example' + path), env)).status).toBe(404);
+  }
+  expect(visited).toEqual([canonical, canonical]);
+});

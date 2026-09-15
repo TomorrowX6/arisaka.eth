@@ -105,6 +105,9 @@ export async function verifyMusicDeployment(url, manifest, { desktopOrigin, requ
     if (response.headers.get('Cache-Control') !== 'no-store' || response.headers.has('Set-Cookie')
       || body?.code !== 200 || body.data?.qrurl !== 'https://music.163.com/login?codekey=runtime-deployment-health') throw new Error('music profile API is not ready');
   });
-  for (const [name, expected] of Object.entries(manifest.files)) await retry(() => checkFile('yesplaymusic/' + name, name, expected));
+  for (const [name, expected] of Object.entries(manifest.files)) {
+    const path = 'yesplaymusic/' + name.split('/').map(encodeURIComponent).join('/');
+    await retry(() => checkFile(path, name, expected));
+  }
   await retry(() => checkFile('yesplaymusic/profiles/default/settings', 'index.html', manifest.files['index.html']));
 }

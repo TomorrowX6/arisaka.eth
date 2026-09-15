@@ -53,9 +53,12 @@ export default {
         url.pathname = profile ? url.pathname + '/' : musicPrefix + 'profiles/default/';
         return secured(new Response(null, { status: 302, headers: { Location: url.pathname + url.search } }), env, false, true);
       }
-      const name = profile && musicPage(profile[2]) ? 'index.html' : url.pathname.slice(musicPrefix.length);
+      let name = profile && musicPage(profile[2]) ? 'index.html' : url.pathname.slice(musicPrefix.length);
+      try { name = decodeURIComponent(name); }
+      catch { return secured(new Response('Not found', { status: 404 }), env, false, true); }
       if (!musicAsset(name)) return secured(new Response('Not found', { status: 404 }), env, false, true);
-      const response = await env.ASSETS.fetch(new Request(new URL(musicPrefix + name, url), request));
+      const asset = musicPrefix + name.split('/').map(encodeURIComponent).join('/');
+      const response = await env.ASSETS.fetch(new Request(new URL(asset, url), request));
       return secured(response, env, /\.[a-f0-9]{6,64}\./.test(name), true);
     }
     if (url.pathname === '/runtime-policy.json') return secured(Response.json({ desktopOrigin: env.DESKTOP_ORIGIN }), env);
