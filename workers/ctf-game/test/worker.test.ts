@@ -213,6 +213,32 @@ describe("private, sequential archive", () => {
     expect((await (await player.request("/api/session")).json<any>()).milestones).toEqual(expected);
   });
 
+  test("34-case completions retain historical proofs while opening the RPKI archive", async () => {
+    const player = client(), started = await player.start();
+    const predecessor = manifest.compatibleEditions.find(item => item.cases === 34)!;
+    const completedAt = started.startedAt + 2500;
+    const earlier = manifest.compatibleEditions.filter(item => item.cases < 34).map(item => ({ edition: item.version, cases: item.cases, completedAt: started.startedAt + item.cases, attempts: item.cases }));
+    await runInDurableObject(player.stub(), (_instance, context) => {
+      context.storage.sql.exec("UPDATE game SET version = ?, stage = 35, completed_at = ?", predecessor.version, completedAt);
+      context.storage.sql.exec("DELETE FROM stages WHERE stage > 34");
+      context.storage.sql.exec("UPDATE stages SET attempts = 1, solved_at = ?", completedAt);
+      context.storage.kv.put("completionMilestones", earlier);
+    });
+    await evictDurableObject(player.stub());
+    const expected = [...earlier, { edition: predecessor.version, cases: 34, completedAt, attempts: 34 }];
+    const states = await Promise.all(Array.from({ length: 4 }, async () => (await player.request("/api/session")).json<any>()));
+    for (const state of states) {
+      expect(state).toMatchObject({ edition: answers.version, stage: 35, attempts: 34, completedAt: null, startedAt: started.startedAt, milestones: expected });
+      expect(state.stages[34]).toMatchObject({ id: 35, attempts: 0, solvedAt: null, retryAt: 0 });
+    }
+    expect((await player.request("/api/cases/35")).status).toBe(200);
+    const proof = await (await player.request("/api/proof?cases=34")).json<any>();
+    expect((await (await client().request("/api/proof/verify", { proof: proof.proof })).json<any>()).completion).toEqual(proof.completion);
+    await player.advance(answers.codes.length + 1, 35); await evictDurableObject(player.stub());
+    expect(await (await player.request("/api/proof?cases=34")).json()).toEqual(proof);
+    expect((await (await player.request("/api/session")).json<any>()).milestones).toEqual(expected);
+  });
+
   test("health, catalog, and every attachment enforce the complete sequential campaign", async () => {
     const player = client();
     const health = await (await player.request("/api/health")).json<any>();
@@ -235,7 +261,7 @@ describe("private, sequential archive", () => {
       }
       expect((await (await player.request("/api/answer", { stage, code: answers.codes[stage - 1] })).json<any>()).result).toBe("correct");
     }
-    for (const path of ["/scripts/decoders.mjs", "/scripts/expert/gcm-decoder.mjs", "/scripts/expert/frost-decoder.mjs", "/scripts/expert/rs16-decoder.mjs", "/scripts/expert/mlkem-core.mjs", "/scripts/expert/mlkem-decoder.mjs", "/scripts/expert/radio-decoder.mjs", "/test/fixtures/nist-mlkem768.json", "/test/campaign.test.mjs", "/.private/build-seed", "/.dev.vars.local"]) {
+    for (const path of ["/scripts/decoders.mjs", "/scripts/expert/gcm-decoder.mjs", "/scripts/expert/frost-decoder.mjs", "/scripts/expert/rs16-decoder.mjs", "/scripts/expert/mlkem-core.mjs", "/scripts/expert/mlkem-decoder.mjs", "/scripts/expert/radio-decoder.mjs", "/scripts/expert/rpki-decoder.mjs", "/test/fixtures/nist-mlkem768.json", "/test/campaign.test.mjs", "/.private/build-seed", "/.dev.vars.local"]) {
       expect((await player.request(path)).status).toBe(404);
     }
   }, 30000);

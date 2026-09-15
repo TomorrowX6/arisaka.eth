@@ -65,7 +65,8 @@ export function fileType(name) {
   if (/\.pdf$/i.test(name)) return { icon: 'pdf', label: 'PDF 文档' };
   if (/\.vcd$/i.test(name)) return { icon: 'binary', label: '数字波形' };
   if (/\.bpf(?:\.o)?$/i.test(name)) return { icon: 'binary', label: 'eBPF 程序' };
-  if (/\.(der|cer|cbor|cborseq)$/i.test(name)) return { icon: 'binary', label: '结构化二进制' };
+  if (/\.sigmf-(meta|data)$/i.test(name)) return { icon: 'binary', label: 'SigMF 复数基带' };
+  if (/\.(der|cer|crl|roa|mft|cbor|cborseq)$/i.test(name)) return { icon: 'binary', label: '结构化二进制' };
   if (/\.(wasm|bin|zip|rom|rs16|journal)$/i.test(name)) return { icon: 'binary', label: '二进制文件' };
   return { icon: 'text', label: /\.json$/i.test(name) ? 'JSON 文档' : '文本文档' };
 }
@@ -275,6 +276,31 @@ export function createFilesystem(controls) {
       local.set(path, { bytes: copy, modified: Date.now() }); return path;
     }, { operation: 'write', path, bytes: copy.length, recoveryContext });
   }
+  // Paired scientific files must either both persist or neither persist. All
+  // preflight checks and the existing revision-checked storage commit belong to
+  // one mutation; a collision/quota/conflict never leaves half a dataset behind.
+  async function writeFiles(entries, overwrite = false) {
+    const token = epoch; await ready;
+    if (token !== epoch) throw new Error('ECANCELED');
+    if (!Array.isArray(entries) || !entries.length || entries.length > 64) throw new Error('EINVAL: batch size');
+    const paths = new Set(), prepared = entries.map(entry => {
+      if (!entry || typeof entry.path !== 'string') throw new Error('EINVAL: batch path');
+      const path = normalize(entry.path, DOCUMENTS);
+      if (!writable(path) || basename(path).length > 120) throw new Error('EACCES: ' + path);
+      if (paths.has(path)) throw new Error('EINVAL: duplicate batch path'); paths.add(path);
+      if (typeof entry.value !== 'string' && !(entry.value instanceof Uint8Array) && !(entry.value instanceof ArrayBuffer)) throw new Error('EINVAL: batch value');
+      const bytes = typeof entry.value === 'string' ? encode.encode(entry.value) : entry.value instanceof Uint8Array ? entry.value.slice() : new Uint8Array(entry.value.slice(0));
+      if (bytes.length > MAX_FILE_SIZE) throw new Error('EFBIG'); return { path, bytes };
+    });
+    return change(() => {
+      for (const { path } of prepared) {
+        if (!directories.has(parent(path))) throw new Error('EACCES: ' + path);
+        if (directories.has(path) || !overwrite && local.has(path)) throw new Error('EEXIST: ' + path);
+      }
+      const modified = Date.now(); for (const { path, bytes } of prepared) local.set(path, { bytes, modified });
+      return prepared.map(entry => entry.path);
+    }, { operation: 'write-batch', paths: prepared.map(entry => entry.path), bytes: prepared.reduce((sum, entry) => sum + entry.bytes.length, 0) });
+  }
   async function mkdir(input) {
     await ready;
     const path = normalize(input, DOCUMENTS);
@@ -342,5 +368,5 @@ export function createFilesystem(controls) {
     for (const path of [HOME + '/notes.txt', HOME + '/receipts.txt', '/usr/share/doc/javascript.txt', '/usr/share/doc/recovery.txt']) files.set(path, await read(path));
     return [...files].map(([path, bytes]) => [path, bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)]);
   }
-  return { ready: () => ready, flush: () => writes, setPlayer, setCase, entries, read, readText: async (path) => decode.decode(await read(path)), writeFile, mkdir, rename, remove, restore, purge, snapshot, record, events, writable, used: () => [...local.values()].reduce((sum, item) => sum + item.bytes.length, 0) };
+  return { ready: () => ready, flush: () => writes, setPlayer, setCase, entries, read, readText: async (path) => decode.decode(await read(path)), writeFile, writeFiles, mkdir, rename, remove, restore, purge, snapshot, record, events, writable, used: () => [...local.values()].reduce((sum, item) => sum + item.bytes.length, 0) };
 }

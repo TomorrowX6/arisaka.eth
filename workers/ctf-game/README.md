@@ -1,12 +1,12 @@
 # CTF Worker
 
-34 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
+35 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
 
 ## 工作区
 
 - 以 KDE Plasma 6.3.5 / Breeze Dark 为基准的桌面：官方 Nuvole 深色壁纸、本地 Noto Sans / Hack 字体、随字体调整的窗口装饰、Kickoff、四向面板、任务预览、虚拟桌面、锁屏和快捷键。
 - 窗口开关、朝任务图标最小化、最大化/平铺、菜单和弹出面板共享可取消的动画；桌面切换使用 KWin 的弹簧积分，反向时保留速度。系统与桌面“减少动态效果”设置即时生效。
-- 38 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、数据工坊、逻辑分析仪、结构检查器、离散数学工坊、eBPF 调试器、信号分析台、图分析台、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
+- 39 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、数据工坊、逻辑分析仪、结构检查器、离散数学工坊、eBPF 调试器、信号分析台、图分析台、RF / IQ 工坊、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
 - 数据工坊提供可保存 / 载入 / 重排的字节处理配方，支持 Hex、Base64、位操作、XOR、字节序、截取、压缩和哈希。独立 Worker 可停止；预览明确标注截断，保存始终使用完整结果。
 - 逻辑分析仪读取 VCD，保留精确的 64 位时间戳、别名和未知态，支持信号选择、波形缩放 / 平移 / 游标，以及 SPI 四种模式与双位序解码。未知位、时序歧义和不完整传输明确标注，可将完整解码保存到工作区。
 - 结构检查器读取 DER / CBOR 与 CBOR 序列，保留精确偏移、头和负载范围，支持嵌套树、键盘、筛选与分页。CBOR 保留重复 map key；长值明确标注预览。可导出完整节点报告和选中原始字节；不把格式解析当作证书信任或签名验证。
@@ -126,6 +126,14 @@ CI 更新必须配置生产 `CTF_BUILD_SEED` 和 Cloudflare 凭据；首次创�
 信号分析台提供通用 CSV / TRS 查看、精确样本选区、极值保真的波形、双游标、统计 / 直方图、校准单边 FFT 和逐重叠区归一化互相关。输出保留完整数值、参数、trace 元数据及源 SHA-256，不是屏幕预览截取。没有设备泄漏模型或自动猜测密钥。无采样率时明确使用样本单位；非均匀时间轴不偷偷重采样。历史第 25 关 TRS 的可选 0x4b 标签不符合标准长度，应用明确警告并保留原始样本，不以更改历史附件或误认 0x4d 标签的方式掩盖问题；其采样率仍由原 `capture.json` 给出。
 
 图分析台支持有向 / 无向多重图 JSON 和 RFC4180 CSV 边列表，保留自环、平行边、孤立节点、标签和精确整数权重。通用 SCC / 凝聚图 / 拓扑环见证、BFS、DAG / Dijkstra / Bellman–Ford 最短路、Lengauer–Tarjan 支配树及可选支配边界。负环仅污染可达后继，绝不报告伪造的有限距离。完整图 JSON / DOT / 报告包含源 SHA-256；画布最多 400 节点 / 1500 边、表格每页 100 项，均明确区分有界预览和全图计算。文件最多 4 MiB、4096 节点、16384 边；20 秒可取消 Worker，昂贵步骤另有 800 万次运算预算。
+
+第 35 关是离线 RPKI / RRDP 历史取证：真实 RSA-2048 X.509、RFC 3779 前缀 / 非 CIDR 范围 / 继承、CMS 签名属性、manifest / CRL、超出 Number 精度的连续增量序号、先前对象哈希与撤销。无效 EE、资源过度授权、未列入清单的有效签名对象和已撤回 ROA 都不能贡献 VRP；路由状态使用 ANY covering VRP，而非最长前缀匹配。评估时间固定在资料中，不取机器时钟。文件名、CA 名称与 RRDP 记录顺序不标记有效性；维护验证器独立实现，且不发布到浏览器。此前 34 关摘要不变。
+
+RF / IQ 工坊读取单通道 SigMF 文件对，支持复数浮点和 8 / 16 / 32 位整数、大小端、非标准数据集逐段 header / trailer、offset 与 SHA-512 校验。整数不自动归一化，超过安全整数的元数据索引拒绝而非舍入。工作区配对文件或本机多选导入；元数据的 dataset 只允许同目录文件名，不访问 URL。双游标、极值保真 I/Q 波形、完整精确样本分页表、双边 Welch PSD、完整频谱矩阵及等比例手动星座图。FFT 不跨捕获段、不补零，明确统计未覆盖的尾样本；PSD 补偿窗能量，不乘实信号的双倍因子，也不冒称 dBFS。
+
+RF 变换支持选择性减均值、复共轭、确定相位原点的频移和抗混叠 FIR 抽取。只处理一个连续捕获段；仅输出完整滤波支撑区的中心样本，输出 `cf64_le` 和精确来源映射、滤波系数、元数据 / 数据 SHA-256。原始元数据完整保留为 provenance，注释 / UTC / 全局索引不偷偷重投影；复共轭后不假称 RF 方向已校准。可恢复原始数据并导出当前文件对、全量 CSV / 报告。文件对使用单次修订校验与 IndexedDB 提交，名称冲突、配额不足或旧标签页不能留下半份数据。16 MiB / 262144 复数样本、16384 点 FFT、1048576 PSD 单元、20 秒可取消 Worker；画布 / 星座抽样只是明确标注的预览。
+
+RF 格式与数值测试另有 SigMF 官方 Python SDK 1.2.6 的 NCD 读取和 NumPy complex128 DFT 固定参考；生成脚本在 `test/fixtures/generate-sigmf-reference.py`，不要求 Node CI 安装 Python 包。SDK 的 `read_samples` 会将 cf64 缩为 complex64，因此导出精度另由 NumPy `<c16` 逐值确认，不以降低产品精度来迎合参考实现。
 
 桌面静态白名单集中在 `src/public-assets.json`。每次构建会检查入口资源、第一方 ES module 导入（含字面量动态导入）和 Worker 依赖均显式发布，避免漏加新应用文件造成白屏；不会因此放开私有目录、附件或维护端解码器。
 
