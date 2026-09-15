@@ -304,7 +304,12 @@ test('canceling an engine change retains the running engine and keyboard focus',
     assert.equal(calls.length, 1);
     await engine.selectOption('javascript');
     await page.getByRole('dialog', { name: '重新启动 Minecraft', exact: true }).getByRole('button', { name: '重新启动', exact: true }).click();
-    await expect.poll(() => frame.locator('body').evaluate(() => window.instanceId)).not.toBe(identity);
+    // The old frame is intentionally detached on an accepted restart. Wait
+    // for the new engine document rather than evaluating that retiring frame.
+    await expect(page.locator('#minecraft-window iframe')).toHaveAttribute('src', /[&#]engine=javascript(?:&|$)/);
+    await expect(frame.locator('#fixture-input')).toBeVisible();
+    assert.equal(typeof await frame.locator('body').evaluate(() => window.instanceId), 'string');
+    assert.notEqual(await frame.locator('body').evaluate(() => window.instanceId), identity);
     await expect(engine).toHaveValue('javascript');
     const url = await page.locator('#minecraft-window iframe').getAttribute('src');
     assert.equal(new URLSearchParams(new URL(url).hash.slice(1)).get('engine'), 'javascript');
