@@ -95,6 +95,7 @@ pnpm run deploy --target expert
 - 两个 Worker 使用匹配的独立域名和严格 iframe 父源策略；Durable Objects 绑定各自桌面，不引用生产命名空间。Cookie、IndexedDB / 本地文件和玩家进度与生产分开。
 - 专家版不更新博客的任何配对入口文件，不迁移、删除或重置原站存档。它是独立新存档，不是已有玩家的自动升级副本。
 - 健康检查通过后，入口、edition、关卡数和版本 ID 记录在 `.private/releases/expert/release.json`；首次生成的专家版会话密钥单独存放在同目录的 `session-secret`。种子仍取自显式 `CTF_BUILD_SEED` 或本 checkout 的 `.private/build-seed`，需妥善保留。
+- 线上战役回归可显式设置 `CTF_CAMPAIGN_TIMEOUT_MS=600000`，为远程往返预留完整战役总预算；默认本地仍为 300000 ms，各次浏览器操作仍为 20000 ms，不自动重试失败操作。入口须取自同种子的私有构建记录。
 - `--target production` 等同默认更新；`local` 和任意环境名不接受。单独发布专家版资源可用 `pnpm runtimes:deploy --target expert`。
 
 手动 `Deploy CTF` 工作流可选择目标。专家版使用独立的 `CTF_EXPERT_BUILD_SEED` / `CTF_EXPERT_SESSION_SECRET` Secrets，不回退使用生产种子；更新时同样不上传替换会话密钥。工作流只上传指定目标的 `release.json`，生产目标才额外上传配对博客入口；不会上传其他 `.private` 文件。

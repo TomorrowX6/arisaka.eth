@@ -68,4 +68,11 @@
 - 目标选择拒绝生产 / 专家混接、跨 Worker 状态绑定、错误账户、任意环境和未知 CLI 参数。
 - 专家版仅写 `.private/releases/expert/release.json`，不调用生产配对入口发布器；首次会话密钥独立保存，后续沿用线上密钥。
 - 手动 CI 目标使用各自 Secrets，仅打包指定 `release.json`；生产目标才打包博客入口。没有把任何私有密钥或构建种子加入 PR。
-- 本地目标 / 发布策略测试 4 / 4、类型检查、两套专家 Worker dry-run 构建通过；已通过 Cloudflare 账户 API 确认两个新名称未占用，保存原两套 Worker 的部署 ID 供发布后核对。实际发布正在准备。
+- 本地目标 / 发布策略测试 4 / 4、类型检查、两套专家 Worker dry-run 构建通过。实际发布完成，健康、应用资源哈希、父源隔离与版本检查通过。Cloudflare 账户 API 确认原生产两套 Worker 的部署 ID 均未改变，博客配对入口文件逐字节未变。
+
+第四段发布记录（2026-09-15 UTC）：
+
+- [专家版入口](https://arisaka-afterglow-expert.454565615.workers.dev/#entry=43lmkkv2qgbljawg9rxp)，32 关 / 36 应用，edition `cea662a3b14b4e9b`。这是独立新存档，不是原 26 关生产玩家的自动迁移。
+- 桌面版本 `c85672d6-ca04-48bf-a245-b2c767a5ccc4`；应用资源版本 `6d5f755a-fd17-4a87-8764-13ad474bea05`。
+- [PR #17](https://github.com/TomorrowX6/arisaka.eth/pull/17) 首轮 [CI 35014562425](https://github.com/TomorrowX6/arisaka.eth/actions/runs/35014562425) 的 Validate 与 CTF 作业通过。
+- 线上新增工具专项 16 / 16 通过。首轮完整战役在第 28 关触及原有 300 秒总时限，前 27 关通过；不将取消计为通过。增加显式、有限的远程总预算设置，单次操作的 20 秒期限不变；完整战役以 600 秒总预算复验中。

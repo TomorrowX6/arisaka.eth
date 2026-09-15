@@ -32,6 +32,13 @@ import { decodePowerEvidence } from '../scripts/expert/power-decoder.mjs';
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
 const expect = baseExpect.configure({ timeout: 20000 });
+// A live deployment has many more network round trips than the local fixture.
+// Keep every individual action's 20 s deadline; only the whole campaign budget
+// is explicitly adjustable for release verification. Never silently retry it.
+const campaignTimeout = Number(process.env.CTF_CAMPAIGN_TIMEOUT_MS ?? 300000);
+if (!Number.isSafeInteger(campaignTimeout) || campaignTimeout < 300000 || campaignTimeout > 1800000) {
+  throw Error('CTF_CAMPAIGN_TIMEOUT_MS must be an integer from 300000 to 1800000');
+}
 // Only the entrance is read from the private fixture. Every recovered document
 // below comes from the same authenticated evidence available to a player.
 const { entryToken } = JSON.parse(await readFile(new URL('../.private/answers.json', import.meta.url), 'utf8'));
@@ -39,7 +46,7 @@ let browser;
 before(async () => { browser = await chromium.launch({ args: ['--no-sandbox', '--disable-dev-shm-usage'] }); });
 after(async () => { await browser?.close(); });
 
-test('the complete campaign is independently recovered through Plasma applications', { timeout: 300000 }, async t => {
+test('the complete campaign is independently recovered through Plasma applications', { timeout: campaignTimeout }, async t => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   page.setDefaultTimeout(20000);
