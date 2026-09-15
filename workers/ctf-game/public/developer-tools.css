@@ -9,6 +9,7 @@
 #profiler-calls h3 { font-weight: 500; font-size: 13px; padding: 12px 10px 7px; }
 .profiler-edge { border: 0; background: transparent; display: grid; grid-template-columns: minmax(0, 1fr) 65px 55px; width: 100%; text-align: left; gap: 8px; padding: 7px 10px; font-family: var(--mono); font-size: 12px; }
 .profiler-edge span:first-child { overflow: hidden; text-overflow: ellipsis; }
+#profiler-event { min-width: 7.5em; max-width: 14em; }
 #profiler-filter { flex: 1; min-width: 90px; }
 .color-workspace { padding: 16px; }
 .color-selection { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }

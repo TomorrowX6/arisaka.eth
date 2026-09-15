@@ -7,6 +7,7 @@ import { HOME } from '/filesystem.js';
 import { matchesShortcut } from '/desktop-config.js';
 import { showSurface, hideSurface, isSurfaceOpen } from '/motion.js';
 import { createWindowPreview } from '/previews.js';
+import { createDesktopIcons } from '/desktop-icons.js';
 
 const escape = (value) => String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]);
 function readStore(key, fallback) { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } }
@@ -43,7 +44,7 @@ export function createShell(controls) {
   const settingsApp=createSettings({...controls,apps:applications,lock:()=>lock(),notify});
   function save(key,value){try{localStorage.setItem(key,JSON.stringify(value));}catch{}}
   function renderUser(){const user=activeProfile();$('.user-avatar').textContent=user.avatar||user.name.slice(0,1);$('.user-avatar').style.backgroundColor=user.color||'#3daee9';$('.profile-name').textContent=user.name;$('#launcher-user').setAttribute('aria-label',user.name+' — 用户设置');}
-  function appButton(app,compact=false){const button=document.createElement('button');button.type='button';button.dataset.launch=app.id;button.className=compact?'runner-result':'launcher-app';button.title=app.name+(app.description?' — '+app.description:'');button.innerHTML='<span class="app-icon" aria-hidden="true">'+icon(app.id)+'</span><span class="launcher-app-label"><strong>'+escape(app.name)+'</strong><small>'+escape(app.description||'')+'</small></span>';return button;}
+  function appButton(app,compact=false){const button=document.createElement('button');button.type='button';button.dataset.launch=app.id;button.draggable=!compact;button.className=compact?'runner-result':'launcher-app';button.title=app.name+(app.description?' — '+app.description:'');button.innerHTML='<span class="app-icon" aria-hidden="true">'+icon(app.id)+'</span><span class="launcher-app-label"><strong>'+escape(app.name)+'</strong><small>'+escape(app.description||'')+'</small></span>';return button;}
   function surfaceOptions(){return {origin:settings.panelPosition};}
   function syncPanel(){
     $('.plasma-panel').classList.toggle('has-popup',Boolean(popup)||isSurfaceOpen($('#launcher'))||isSurfaceOpen($('#task-preview')));
@@ -269,7 +270,7 @@ export function createShell(controls) {
     anchor?.setAttribute('aria-expanded','true');$('.plasma-panel').classList.add('has-popup');renderPopup();positionPopup();showSurface(box,surfaceOptions());syncPanel();
     box.querySelector(kind==='calendar'?'.calendar-day[aria-pressed="true"]':'input:not([type="checkbox"]),button')?.focus({preventScroll:true});
   }
-  function positionPopup(){positionSurface($('#tray-popup'),popupAnchor||$('#tray-clock'));}
+  function positionPopup(){positionSurface($('#tray-popup'),$('.plasma-panel'),'end');}
   function dateKey(date){return [date.getFullYear(),String(date.getMonth()+1).padStart(2,'0'),String(date.getDate()).padStart(2,'0')].join('-');}
   function calendar(){
     const year=calendarMonth.getFullYear(),month=calendarMonth.getMonth(),today=dateKey(zonedDate()),selected=dateKey(calendarSelected);
@@ -409,8 +410,34 @@ export function createShell(controls) {
   document.addEventListener('keyup',event=>{if(event.key==='Meta'&&!metaUsed&&!locked&&matchesShortcut(event,settings,'launcher'))toggleLauncher();});
   document.addEventListener('pointerdown',(event)=>{if(!event.target.closest('#launcher,#launcher-button,.native-menu'))closeLauncher();if(!event.target.closest('#tray-popup,.system-tray,.native-menu'))closePopup();if(!event.target.closest('#krunner,.native-menu'))closeRunner();if(!event.target.closest('#task-preview,.task-button'))closeTaskPreview();});
   $('#desktop-overview').addEventListener('pointerdown',(event)=>{if(event.target===$('#desktop-overview'))closeOverview(true);});
+  const desktopIcons = $('.desktop-icons');
+  const shortcuts = createDesktopIcons({ onDrop: () => closeLauncher() });
+  function desktopShortcutMenu(button, point) {
+    const id = button.dataset.launch;
+    $$('[data-launch]', desktopIcons).forEach(item => item.classList.toggle('selected', item === button));
+    button.focus({ preventScroll: true });
+    closeMenu();
+    menu([
+      { label: '打开', icon: 'document-open', action: () => windows.open(id) },
+      { label: '固定到任务管理器', checked: settings.pinnedApps.includes(id), action: () => window.dispatchEvent(new CustomEvent('plasma:pin', { detail: id })) },
+      null,
+      { label: '从桌面移除', icon: 'edit-delete', action: () => shortcuts.remove(id) },
+    ], button, point);
+  }
+  desktopIcons.addEventListener('contextmenu', event => {
+    const button = event.target.closest('[data-launch]');
+    if (!button) return;
+    event.preventDefault();
+    desktopShortcutMenu(button, { x: event.clientX, y: event.clientY });
+  });
+  desktopIcons.addEventListener('keydown', event => {
+    const button = event.target.closest('[data-launch]');
+    if (!button || !(event.key === 'ContextMenu' || event.key === 'F10' && event.shiftKey)) return;
+    event.preventDefault();
+    desktopShortcutMenu(button);
+  });
   $('#desktop').addEventListener('contextmenu',(event)=>{
-    if(event.target.closest('.window,.plasma-panel,#launcher,#shell-overlays,.desktop-icons'))return;
+    if(event.defaultPrevented||event.target.closest('.window,.plasma-panel,#launcher,#shell-overlays'))return;
     event.preventDefault();menu([
       {label:'配置桌面和壁纸…',icon:'preferences-desktop-wallpaper',action:()=>settingsApp.open('wallpaper')},
       {label:'桌面概览',icon:'view-grid',action:overview},

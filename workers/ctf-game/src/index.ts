@@ -7,7 +7,7 @@ import runtimeConfiguration from "../public/runtime-config.json";
 export { GameSession, DesktopProfiles };
 
 const publicFiles = new Set([
-  "/", "/index.html", "/style.css", "/native.css", "/app.js", "/desktop.js", "/system.js",
+  "/", "/index.html", "/style.css", "/native.css", "/app.js", "/desktop.js", "/desktop-icons.js", "/system.js",
   "/ui.js", "/filesystem.js", "/storage.js", "/files.js", "/editor.js", "/console.js", "/viewer.js",
   "/preferences.js", "/settings.js", "/shell.js", "/applications.js", "/utilities.js", "/binary.js", "/calculator.js",
   "/desktop-config.js", "/motion.js", "/motion.css", "/previews.js", "/licenses/kwin-GPL-2.0-or-later.txt",

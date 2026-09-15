@@ -18,6 +18,10 @@
 #window-switcher button[aria-selected="true"] { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 20%, transparent); }
 #window-switcher .app-icon { width: 58px; height: 58px; }
 #window-switcher button > span:last-child { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.desktop-icons { --desktop-cell-width: 76px; --desktop-cell-height: 108px; --desktop-inset-x: 4px; --desktop-inset-y: 10px; left: calc(var(--work-x, 8px) + var(--desktop-inset-x)); top: calc(var(--work-y, 8px) + var(--desktop-inset-y)); width: calc(var(--work-width, 100vw) - 2 * var(--desktop-inset-x)); height: calc(var(--work-height, 100dvh) - 2 * var(--desktop-inset-y)); grid-auto-flow: column; grid-template-columns: repeat(auto-fill, var(--desktop-cell-width)); grid-template-rows: repeat(auto-fill, var(--desktop-cell-height)); grid-auto-columns: var(--desktop-cell-width); align-content: start; align-items: start; overflow: auto; scrollbar-width: thin; }
+.desktop-icons button { width: var(--desktop-cell-width); user-select: none; }
+.desktop-icons button.dragging { opacity: .45; }
+.desktop-drop-target { position: absolute; width: var(--desktop-cell-width); height: var(--desktop-cell-height); pointer-events: none; border: 1px dashed var(--accent); border-radius: 3px; background: color-mix(in srgb, var(--accent) 15%, transparent); }
 .desktop-icons button.selected { border-color: #ffffff65; background: #ffffff28; }
 /* Breeze shell metrics follow Plasma 6.3.5 Kickoff and widgets/tasks.svg. */
 .plasma-panel { position: fixed; z-index: 100001; inset: auto var(--panel-gap) var(--panel-gap); height: var(--panel-size); padding: 3px 5px; display: flex; align-items: center; gap: 3px; background: color-mix(in srgb, var(--shell-bg) 94%, transparent); color: var(--shell-ink); border: 1px solid color-mix(in srgb, var(--shell-ink) 20%, transparent); border-radius: 6px; box-shadow: 0 2px 10px #0005, inset 0 1px #ffffff06; backdrop-filter: blur(24px); transition: transform 200ms cubic-bezier(.2, 0, .2, 1), background-color 150ms, border-radius 150ms; }

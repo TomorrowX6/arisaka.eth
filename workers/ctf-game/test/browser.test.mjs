@@ -38,6 +38,14 @@ async function launch(page, id, query = id) {
   await page.locator('#launcher-apps [data-launch="' + id + '"]').click();
   await expect(page.locator('#' + id + '-window')).toBeVisible();
 }
+async function dragOntoDesktop(page, source, point) {
+  await source.hover(); await page.mouse.down();
+  await page.mouse.move(point.x, point.y, { steps: 10 });
+  await page.mouse.move(point.x, point.y);
+  await expect(page.locator('.desktop-drop-target')).toBeVisible();
+  await page.mouse.up();
+  await expect(page.locator('.desktop-drop-target')).toBeHidden();
+}
 async function query(page, sql) {
   await page.locator('#database-sql').fill(sql);
   await page.locator('#database-run').click();
@@ -328,6 +336,302 @@ test('small displays keep application controls within the desktop viewport', { t
     }
     assert.deepEqual(errors,[]);
   } finally {await context.close();}
+});
+
+test('desktop shortcuts remain reachable when the viewport or panel edge changes', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop({ viewport: { width: 1024, height: 720 } });
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    for (const viewport of [{ width: 1024, height: 720 }, { width: 800, height: 450 }, { width: 390, height: 740 }]) {
+      await page.setViewportSize(viewport);
+      for (const edge of ['bottom', 'top', 'left', 'right']) {
+        await page.evaluate(async edge => { (await import('/preferences.js')).updateSettings({ panelPosition: edge }); }, edge);
+        const layout = await page.evaluate(() => {
+          const panel = document.querySelector('.plasma-panel').getBoundingClientRect();
+          return [...document.querySelectorAll('.desktop-icons button')].map(button => {
+            const rect = button.getBoundingClientRect();
+            return {
+              name: button.innerText,
+              onScreen: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight,
+              underPanel: rect.left < panel.right && rect.right > panel.left && rect.top < panel.bottom && rect.bottom > panel.top,
+              reachable: document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)?.closest('.desktop-icons button') === button,
+            };
+          });
+        });
+        for (const item of layout) {
+          const label = item.name + ' at ' + viewport.width + '×' + viewport.height + ' with ' + edge + ' panel';
+          assert.equal(item.onScreen, true, label + ' is within the viewport');
+          assert.equal(item.underPanel, false, label + ' is not covered by the panel');
+          assert.equal(item.reachable, true, label + ' can receive pointer input');
+        }
+      }
+    }
+    await page.locator('.desktop-icons [data-launch="settings"]').click();
+    await expect(page.locator('#settings-window')).toBeVisible();
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('desktop shortcut context menus launch and pin the selected application', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    const shortcut = page.locator('.desktop-icons [data-launch="notes"]');
+    const popup = page.locator('.native-menu:not([inert])');
+    await shortcut.click({ button: 'right' });
+    assert.equal(await popup.count(), 1, 'right-clicking a desktop shortcut opens its native menu');
+    await expect(shortcut).toHaveClass(/selected/);
+    await expect(page.locator('#notes-window')).toBeHidden();
+    await shortcut.click({ button: 'right', position: { x: 8, y: 8 } });
+    await expect(popup).toHaveCount(1);
+    const pin = () => popup.getByRole('menuitemcheckbox', { name: '固定到任务管理器' });
+    await expect(pin()).toHaveAttribute('aria-checked', 'false');
+    await pin().click();
+    await expect(page.locator('#tasks [data-task="notes"]')).toHaveCount(1);
+    await expect(page.locator('#notes-window')).toBeHidden();
+    await shortcut.click({ button: 'right' });
+    await expect(pin()).toHaveAttribute('aria-checked', 'true');
+    await pin().click();
+    await expect(page.locator('#tasks [data-task="notes"]')).toHaveCount(0);
+    await shortcut.click({ button: 'right' });
+    await popup.getByRole('menuitem', { name: '打开', exact: true }).click();
+    await expect(page.locator('#notes-window')).toBeVisible();
+    await page.locator('#notes-window [data-window-action="close"]').click();
+    await expect(page.locator('#notes-window')).toBeHidden();
+    await shortcut.focus(); await page.keyboard.press('Shift+F10');
+    await expect(popup.getByRole('menuitem', { name: '打开', exact: true })).toBeFocused();
+    await page.keyboard.press('Escape');
+    await expect(popup).toHaveCount(0);
+    await expect(shortcut).toBeFocused();
+    const first = await page.locator('.desktop-icons button').first().boundingBox();
+    await page.mouse.click(first.x + first.width / 2, first.y + first.height + 8, { button: 'right' });
+    await expect(popup.getByRole('menuitem', { name: '配置桌面和壁纸…' })).toBeVisible();
+    await expect(popup.getByRole('menuitem', { name: '打开', exact: true })).toHaveCount(0);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('applications can be dragged onto the desktop, moved, and restored after reload', { timeout: 120000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    const shortcut = page.locator('.desktop-icons [data-launch="calculator"]');
+    const add = async point => {
+      await page.locator('#launcher-button').click();
+      await page.locator('#launcher-search').fill('KCalc');
+      await dragOntoDesktop(page, page.locator('#launcher-apps [data-launch="calculator"]'), point);
+    };
+    await add({ x: 1040, y: 140 });
+    assert.equal(await shortcut.count(), 1, 'dropping a launcher application creates a desktop shortcut');
+    await expect(page.locator('#launcher-button')).toHaveAttribute('aria-expanded', 'false');
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    const first = await shortcut.boundingBox();
+    assert.ok(first.x > 900 && first.y < 240, 'shortcut is placed at the drop location');
+    await page.evaluate(async () => { (await import('/preferences.js')).updateSettings({ singleClick: true }); });
+    await dragOntoDesktop(page, shortcut, { x: 780, y: 510 });
+    const moved = await shortcut.boundingBox();
+    assert.ok(moved.x < first.x - 100 && moved.y > first.y + 200, 'desktop icons can be moved');
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    await add({ x: 1130, y: 320 });
+    await expect(shortcut).toHaveCount(1);
+    const placed = await shortcut.boundingBox();
+    assert.ok(placed.x > moved.x + 200, 'dropping the same application moves its existing shortcut');
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    assert.deepEqual(await shortcut.boundingBox(), placed, 'the chosen position survives reload');
+    await page.setViewportSize({ width: 800, height: 450 });
+    const compact = await shortcut.boundingBox();
+    assert.ok(compact.x >= 0 && compact.x + compact.width <= 800 && compact.y + compact.height < 398, 'smaller work areas keep the shortcut above the panel');
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await expect.poll(async () => (await shortcut.boundingBox()).x).toBe(placed.x);
+    assert.deepEqual(await shortcut.boundingBox(), placed, 'temporary resizing preserves the preferred position');
+    // Reload restores application windows; reveal the desktop before dropping onto another icon.
+    if (await page.locator('.window:not([hidden]):not([inert])').count()) {
+      await page.locator('#show-desktop').click();
+      await expect(page.locator('.window:not([hidden]):not([inert])')).toHaveCount(0);
+    }
+    const home = page.locator('.desktop-icons [data-launch="files"]');
+    const homePosition = await home.boundingBox();
+    await dragOntoDesktop(page, shortcut, { x: homePosition.x + homePosition.width / 2, y: homePosition.y + homePosition.height / 2 });
+    const atHome = await shortcut.boundingBox(), displaced = await home.boundingBox();
+    assert.ok(atHome.x + atHome.width <= displaced.x || displaced.x + displaced.width <= atHome.x || atHome.y + atHome.height <= displaced.y || displaced.y + displaced.height <= atHome.y, 'dropping onto an occupied cell does not overlap icons');
+    await expect(page.locator('#calculator-window')).toBeHidden();
+    await shortcut.click({ button: 'right' });
+    await page.locator('.native-menu:not([inert])').getByRole('menuitem', { name: '从桌面移除', exact: true }).click();
+    await expect(shortcut).toHaveCount(0);
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await expect(shortcut).toHaveCount(0);
+    await launch(page, 'calculator', 'KCalc');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('desktop shortcuts retain moves between horizontally scrolled grid cells', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    await page.setViewportSize({ width: 400, height: 260 });
+    const grid = page.locator('.desktop-icons');
+    await grid.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+    const source = page.locator('.desktop-icons [data-launch="notes"]');
+    const target = page.locator('.desktop-icons [data-launch="firefox"]');
+    const beforeSource = await source.boundingBox(), beforeTarget = await target.boundingBox();
+    assert.ok(beforeSource.x >= 0 && beforeTarget.x + beforeTarget.width <= 400, 'both overflow icons are visible after scrolling');
+    await dragOntoDesktop(page, source, { x: beforeTarget.x + beforeTarget.width / 2, y: beforeTarget.y + beforeTarget.height / 2 });
+    assert.deepEqual(await source.boundingBox(), beforeTarget, 'the dragged shortcut stays in its selected overflow cell');
+    assert.deepEqual(await target.boundingBox(), beforeSource, 'the occupied shortcut moves into the vacated cell');
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await grid.evaluate(node => { node.scrollLeft = node.scrollWidth; });
+    assert.deepEqual(await source.boundingBox(), beforeTarget, 'the scrolled arrangement survives reload');
+    assert.deepEqual(await target.boundingBox(), beforeSource);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('desktop shortcut drags ignore cancellation and invalid drop targets', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    const shortcut = page.locator('.desktop-icons [data-launch="notes"]');
+    const original = await shortcut.boundingBox();
+    await shortcut.hover(); await page.mouse.down();
+    await page.mouse.move(1000, 180, { steps: 10 });
+    await expect(page.locator('.desktop-drop-target')).toBeVisible();
+    await page.keyboard.press('Escape'); await page.mouse.up();
+    await expect(page.locator('.desktop-drop-target')).toBeHidden();
+    assert.deepEqual(await shortcut.boundingBox(), original, 'Escape cancels an in-progress move');
+    await shortcut.dragTo(page.locator('#tray-volume'));
+    assert.deepEqual(await shortcut.boundingBox(), original, 'the panel is not a desktop drop target');
+    await expect(page.locator('#notes-window')).toBeHidden();
+    const ids = await page.locator('.desktop-icons [data-launch]').evaluateAll(nodes => nodes.map(node => node.dataset.launch));
+    await page.evaluate(() => {
+      for (const [type, id] of [['application/x-arisaka-desktop-app', 'workbench'], ['application/x-arisaka-desktop-app', 'unknown-app'], ['text/plain', 'calculator']]) {
+        const dataTransfer = new DataTransfer(); dataTransfer.setData(type, id);
+        document.querySelector('#desktop').dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, clientX: 1000, clientY: 180, dataTransfer }));
+      }
+    });
+    assert.deepEqual(await page.locator('.desktop-icons [data-launch]').evaluateAll(nodes => nodes.map(node => node.dataset.launch)), ids, 'only registered visible application drags can add shortcuts');
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    assert.deepEqual(await shortcut.boundingBox(), original, 'cancelled and rejected drags do not persist changes');
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('desktop shortcut layouts are isolated between desktop users', { timeout: 90000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    await page.locator('#launcher-button').click(); await page.locator('#launcher-search').fill('KCalc');
+    await dragOntoDesktop(page, page.locator('#launcher-apps [data-launch="calculator"]'), { x: 1040, y: 140 });
+    const shortcut = page.locator('.desktop-icons [data-launch="calculator"]');
+    await expect(shortcut).toHaveCount(1);
+    const original = await shortcut.boundingBox();
+    const { owner, guest } = await page.evaluate(async () => {
+      const { profileKey, createProfile } = await import('/preferences.js');
+      return { owner: profileKey(), guest: await createProfile({ username: 'desktop_guest', name: 'Desktop Guest' }) };
+    });
+    const switchUser = async id => {
+      await Promise.all([
+        page.waitForEvent('domcontentloaded'),
+        page.evaluate(async id => { await (await import('/preferences.js')).activateProfile(id); }, id),
+      ]);
+      await expect(page.locator('#desktop')).toBeVisible();
+      await expect.poll(() => page.evaluate(async () => (await import('/preferences.js')).profileKey())).toBe(id);
+    };
+    await switchUser(guest);
+    await expect(shortcut).toHaveCount(0);
+    await page.locator('#files-window [data-window-action="close"]').click();
+    await expect(page.locator('#files-window')).toBeHidden();
+    await page.locator('.desktop-icons [data-launch="notes"]').click({ button: 'right' });
+    await page.locator('.native-menu:not([inert])').getByRole('menuitem', { name: '从桌面移除', exact: true }).click();
+    await expect(page.locator('.desktop-icons [data-launch="notes"]')).toHaveCount(0);
+    await switchUser(owner);
+    await expect(shortcut).toHaveCount(1);
+    assert.deepEqual(await shortcut.boundingBox(), original, 'switching back restores the owner’s layout');
+    await expect(page.locator('.desktop-icons [data-launch="notes"]')).toHaveCount(1);
+    await switchUser(guest);
+    await expect(page.locator('.desktop-icons [data-launch="notes"]')).toHaveCount(0);
+    await expect(shortcut).toHaveCount(0);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('tray popups align to the panel end and remain inside every screen edge', { timeout: 120000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    const kinds = { clipboard: 'clipboard', volume: 'volume', network: 'network', notifications: 'notifications', clock: 'calendar' };
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 740 }]) {
+      await page.setViewportSize(viewport);
+      for (const edge of ['bottom', 'top', 'left', 'right']) {
+        await page.evaluate(async edge => { (await import('/preferences.js')).updateSettings({ panelPosition: edge }); }, edge);
+        for (const [button, kind] of Object.entries(kinds)) {
+          // The compact panel intentionally hides secondary tray buttons.
+          if (viewport.width <= 800 && ['clipboard', 'network'].includes(button)) continue;
+          if (viewport.width < 640 && button === 'notifications') continue;
+          await page.locator('#tray-' + button).click();
+          await expect(page.locator('#tray-popup')).toHaveAttribute('data-popup', kind);
+          await page.waitForFunction(() => !document.querySelector('#tray-popup').dataset.motionState);
+          const box = await page.locator('#tray-popup').boundingBox();
+          const panel = await page.locator('.plasma-panel').boundingBox();
+          const label = kind + ' at ' + viewport.width + ' with ' + edge + ' panel';
+          assert.ok(box.x >= 7 && box.y >= 7 && box.x + box.width <= viewport.width - 7 && box.y + box.height <= viewport.height - 7, label + ' fits the screen');
+          if (edge === 'bottom' || edge === 'top') {
+            assert.ok(Math.abs(box.x + box.width - (panel.x + panel.width)) <= 1, label + ' aligns with the panel right edge');
+            assert.ok(edge === 'bottom' ? box.y + box.height <= panel.y - 7 : box.y >= panel.y + panel.height + 7, label + ' clears the panel');
+          } else {
+            assert.ok(Math.abs(box.y + box.height - (panel.y + panel.height)) <= 1, label + ' aligns with the panel bottom edge');
+            assert.ok(edge === 'left' ? box.x >= panel.x + panel.width + 7 : box.x + box.width <= panel.x - 7, label + ' clears the panel');
+          }
+          await page.keyboard.press('Escape');
+          await expect(page.locator('#tray-' + button)).toBeFocused();
+        }
+      }
+    }
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
+});
+
+test('KCachegrind enables cost events only after opening actual profiling data', { timeout: 60000 }, async () => {
+  const { context, page, errors } = await desktop();
+  try {
+    await launch(page, 'profiler', 'KCachegrind');
+    assert.equal(await page.locator('#profiler-event').isDisabled(), true, 'no event can be chosen without profiling data');
+    assert.ok((await page.locator('#profiler-event option:checked').textContent()).trim(), 'the empty selector has a visible label');
+    const fixture = ['version: 1', 'positions: line', 'events: Ir Dr', 'fl=demo.c', 'fn=first', '1 10 4', 'fn=second', '2 30 6'].join('\n');
+    await page.evaluate(async fixture => {
+      const { createFilesystem } = await import('/filesystem.js');
+      const { apiFetch } = await import('/transport.js');
+      const state = await (await apiFetch('/api/session')).json();
+      const fs = createFilesystem({ state: () => state, notes: () => ({ text: '', receipts: [] }), api: async path => (await apiFetch(path)).json() });
+      await fs.setPlayer(state.player); await fs.writeFile('layout.callgrind', fixture);
+    }, fixture);
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await launch(page, 'profiler', 'KCachegrind');
+    await page.locator('#profiler-open').click();
+    await page.locator('.file-dialog [data-name]').fill('/home/user/Documents/layout.callgrind');
+    await page.locator('.file-dialog [type="submit"]').click();
+    await expect(page.locator('.file-dialog')).toHaveCount(0);
+    await expect(page.locator('#profiler-event')).toBeEnabled();
+    await expect(page.locator('#profiler-event option')).toHaveText(['Ir', 'Dr']);
+    await expect(page.locator('#profiler-functions tr')).toHaveCount(2);
+    await page.locator('#profiler-filter').fill('first');
+    await expect(page.locator('#profiler-functions tr')).toHaveCount(1);
+    await expect(page.locator('#profiler-functions td').nth(1)).toHaveText('25%');
+    await page.locator('#profiler-event').selectOption('1');
+    await expect(page.locator('#profiler-functions td').nth(1)).toHaveText('40%');
+    await page.locator('#profiler-relative').uncheck();
+    await expect(page.locator('#profiler-functions td').nth(1)).toHaveText('4');
+    await page.reload(); await expect(page.locator('#desktop')).toBeVisible();
+    await launch(page, 'profiler', 'KCachegrind');
+    await expect(page.locator('#profiler-event')).toBeDisabled();
+    await expect(page.locator('#profiler-functions tr')).toHaveCount(0);
+    assert.deepEqual(errors, []);
+  } finally { await context.close(); }
 });
 
 test('native cases open the real Konsole without a passcode form', { timeout: 60000 }, async () => {
