@@ -229,13 +229,21 @@ test('large playlists use bounded song-detail batches and retain every response 
 
 test('the compiled upstream app mounts, navigates and keeps real browser storage isolated', {
   skip: process.env.YESPLAYMUSIC_BROWSER !== '1', timeout: 90000,
-}, async () => {
+}, async t => {
   const { chromium, expect } = await import('@playwright/test');
-  const directory = resolve('runtime/dist/yesplaymusic');
+  const directory = resolve(process.env.YESPLAYMUSIC_DIST || 'runtime/dist/yesplaymusic');
   const manifest = JSON.parse(await readFile(resolve(directory, 'manifest.json'), 'utf8'));
   const image = await readFile(resolve(directory, 'img/logos/yesplaymusic.png'));
   const calls = [];
   const errors = [];
+  const failures = new Map();
+  const heldRequests = new Map();
+  const homeSections = [
+    { endpoint: 'personalized', title: '推荐歌单', item: 'Homepage playlist' },
+    { endpoint: 'album/new', title: '新专速递', item: 'Homepage album' },
+    { endpoint: 'toplist/artist', title: '推荐艺人', item: 'Homepage artist' },
+    { endpoint: 'toplist', title: '排行榜', item: 'Homepage chart' },
+  ];
   let origin;
   const server = createServer(async (request, response) => {
     try {
@@ -250,6 +258,13 @@ test('the compiled upstream app mounts, navigates and keeps real browser storage
         for await (const chunk of request) chunks.push(chunk);
         const params = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
         calls.push({ profile: endpoint[1], endpoint: endpoint[2], method: request.method, search: url.search, cookie: request.headers.cookie, session: request.headers['x-yesplaymusic-cookie'], params });
+        const key = endpoint[1] + '/' + endpoint[2];
+        if (heldRequests.has(key)) await heldRequests.get(key);
+        if (failures.has(key)) {
+          response.writeHead(400, { 'Content-Type': 'application/json' });
+          response.end(JSON.stringify(failures.get(key)));
+          return;
+        }
         const fixtures = {
           personal_fm: { data: [track, { ...track, id: 12346 }] },
           personalized: { result: [] },
@@ -262,6 +277,14 @@ test('the compiled upstream app mounts, navigates and keeps real browser storage
           'login/qr/key': { data: { unikey: 'build-verification-key' } },
           'login/qr/check': { code: 801 },
         };
+        if (endpoint[1].startsWith('homepage-')) {
+          Object.assign(fixtures, {
+            personalized: { result: [{ id: 30, name: 'Homepage playlist', picUrl: cover, copywriter: 'Fixture recommendation' }] },
+            'album/new': { albums: [{ ...album, name: 'Homepage album', artist }] },
+            'toplist/artist': { list: { artists: Array.from({ length: 100 }, (_, index) => ({ ...artist, id: 100 + index, name: 'Homepage artist' })) } },
+            toplist: { list: [{ id: 19723756, name: 'Homepage chart', coverImgUrl: cover, updateFrequency: 'Fixture chart' }] },
+          });
+        }
         response.writeHead(200, { 'Content-Type': 'application/json' });
         response.end(JSON.stringify({ code: 200, ...fixtures[endpoint[2]] }));
         return;
@@ -304,7 +327,7 @@ test('the compiled upstream app mounts, navigates and keeps real browser storage
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin + '/harness');
     await page.evaluate(() => localStorage.setItem('minecraft-world', 'keep'));
-    async function frame(profile) {
+    async function frame(profile, ready = '.home') {
       await page.evaluate(({ origin, profile }) => {
         const node = document.createElement('iframe');
         node.id = profile;
@@ -313,7 +336,7 @@ test('the compiled upstream app mounts, navigates and keeps real browser storage
         document.querySelector('main').append(node);
       }, { origin, profile });
       const child = page.frameLocator('#' + profile);
-      try { await expect(child.locator('.home')).toBeVisible({ timeout: 30000 }); }
+      try { await expect(child.locator(ready)).toBeVisible({ timeout: 30000 }); }
       catch (error) {
         await mkdir('.private/yesplaymusic-qa', { recursive: true });
         await page.screenshot({ path: '.private/yesplaymusic-qa/boot-failure.png' });
@@ -376,6 +399,71 @@ test('the compiled upstream app mounts, navigates and keeps real browser storage
     assert((await bob.locator('body').evaluate(() => indexedDB.databases())).some(db => db.name === 'yesplaymusic'));
     assert.equal(await page.evaluate(() => localStorage.getItem('minecraft-world')), 'keep');
     assert.equal(await bob.locator('body').evaluate(() => navigator.serviceWorker.getRegistrations().then(items => items.length)), 0);
+    await page.locator('main').evaluate(node => node.replaceChildren());
+    for (const [index, section] of homeSections.entries()) {
+      await t.test('homepage handles ' + section.endpoint + ' failure and retries only that section', async () => {
+        const profile = 'homepage-' + index;
+        const key = profile + '/' + section.endpoint;
+        const errorStart = errors.length;
+        const message = '请完成验证操作';
+        failures.set(key, { code: -462, message });
+        const countRequests = endpoint => calls.filter(call => call.profile === profile && call.endpoint === endpoint).length;
+        let release;
+        try {
+          const child = await frame(profile, 'nav');
+          await expect.poll(() => homeSections.map(item => countRequests(item.endpoint))).toEqual([1, 1, 1, 1]);
+          await expect(child.locator('.home')).toBeVisible({ timeout: 2000 });
+          const row = child.locator('.index-row').filter({ has: child.locator(':scope > .title', { hasText: section.title }) });
+          await expect(row).toHaveCount(1);
+          await expect(row.getByRole('alert')).toContainText(message, { timeout: 2000 });
+          await expect(row.getByRole('link', { name: section.item, exact: true })).toHaveCount(0);
+          for (const successful of homeSections.filter(item => item !== section)) {
+            await expect(child.getByRole('link', { name: successful.item, exact: true }).first()).toBeVisible();
+          }
+          if (index === 0) await page.locator('#' + profile).screenshot({ path: '.private/yesplaymusic-qa/homepage-error.png' });
+          const retry = row.getByRole('button', { name: '重试', exact: true });
+          await expect(retry).toBeEnabled();
+          // A failed retry must retain the original error and remain retryable.
+          await retry.click();
+          await expect.poll(() => countRequests(section.endpoint)).toBe(2);
+          await expect(retry).toBeEnabled();
+          await expect(row.getByRole('alert')).toContainText(message);
+          // Hold the successful retry in flight to verify duplicate clicks are disabled.
+          heldRequests.set(key, new Promise(resolve => { release = resolve; }));
+          failures.delete(key);
+          await retry.click();
+          await expect.poll(() => countRequests(section.endpoint)).toBe(3);
+          await expect(retry).toBeDisabled();
+          await expect(row.getByRole('alert')).toContainText(message);
+          for (const successful of homeSections.filter(item => item !== section)) {
+            assert.equal(countRequests(successful.endpoint), 1, successful.endpoint + ' was needlessly reloaded');
+            await expect(child.getByRole('link', { name: successful.item, exact: true }).first()).toBeVisible();
+          }
+          release();
+          heldRequests.delete(key);
+          await expect(row.getByRole('alert')).toHaveCount(0);
+          await expect(row.getByRole('link', { name: section.item, exact: true }).first()).toBeVisible();
+          await expect(child.locator('#nprogress')).toHaveCount(0);
+          // Keep cached content visible if a later homepage refresh fails.
+          await child.locator('nav .avatar').click();
+          await child.getByText('设置', { exact: true }).click();
+          await expect(child.locator('.settings-page')).toBeVisible();
+          failures.set(key, { code: -462, msg: message });
+          await child.getByRole('link', { name: '首页', exact: true }).click();
+          await expect(row.getByRole('alert')).toContainText(message);
+          await expect(row.getByRole('link', { name: section.item, exact: true }).first()).toBeVisible();
+          assert.deepEqual(errors.slice(errorStart), []);
+        } catch (error) {
+          await page.locator('#' + profile).screenshot({ path: '.private/yesplaymusic-qa/' + profile + '-failure.png' });
+          throw new Error(error.message + '\nUnhandled browser errors: ' + JSON.stringify(errors.slice(errorStart)), { cause: error });
+        } finally {
+          release?.();
+          heldRequests.delete(key);
+          failures.delete(key);
+          await page.locator('#' + profile).evaluate(node => node.remove());
+        }
+      });
+    }
     assert.deepEqual(errors, []);
   } finally {
     await context.close();

@@ -34,6 +34,115 @@ export async function patchUpstream(directory) {
     '      <div class="item">\n        <div class="left">\n          <div class="title">\n            {{\n              isLastfmConnected',
     '      <div v-if="false" class="item">\n        <div class="left">\n          <div class="title">\n            {{\n              isLastfmConnected',
     'unconfigured Last.fm connection controls'));
+  await edit('src/views/home.vue', source => {
+    source = replaceOnce(source, '<div v-show="show" class="home">', '<div class="home">', 'independent homepage sections');
+    source = replaceOnce(source, '      show: false,', `      homeErrors: {
+        recommendPlaylist: '', newReleasesAlbum: '', recommendArtists: '', topList: '',
+      },
+      homeLoading: {
+        recommendPlaylist: false, newReleasesAlbum: false, recommendArtists: false, topList: false,
+      },`, 'homepage request state');
+    for (const [section, cover] of [
+      ['recommendPlaylist', '      <CoverRow\n        :type="\'playlist\'"\n        :items="recommendPlaylist.items"'],
+      ['recommendArtists', '      <CoverRow\n        type="artist"\n        :column-number="6"\n        :items="recommendArtists.items"'],
+      ['newReleasesAlbum', '      <CoverRow\n        type="album"\n        :items="newReleasesAlbum.items"'],
+      ['topList', '      <CoverRow\n        type="playlist"\n        :items="topList.items"'],
+    ]) {
+      source = replaceOnce(source, cover, `      <div v-if="homeErrors.${section}" class="home-error" role="alert">
+        <span>{{ homeErrors.${section} }}</span>
+        <button
+          type="button"
+          :disabled="homeLoading.${section}"
+          @click="loadData('${section}')"
+        >重试</button>
+      </div>
+` + cover, 'homepage error for ' + section);
+    }
+    const start = source.indexOf('    loadData() {');
+    const ending = '      this.$refs.DailyTracksCard.loadDailyTracks();\n    },';
+    const end = source.indexOf(ending, start);
+    if (start < 0 || end < start) throw new Error('Pinned homepage request layout changed');
+    source = source.slice(0, start) + `    loadData(section) {
+      const toplistOfArtistsAreaTable = {
+        all: null, zh: 1, ea: 2, jp: 4, kr: 3,
+      };
+      const loaders = {
+        recommendPlaylist: () => getRecommendPlayList(10, false).then(items => {
+          this.recommendPlaylist.items = items;
+        }),
+        newReleasesAlbum: () => newAlbums({
+          area: this.settings.musicLanguage ?? 'ALL',
+          limit: 10,
+        }).then(data => {
+          this.newReleasesAlbum.items = data.albums;
+        }),
+        recommendArtists: () => toplistOfArtists(
+          toplistOfArtistsAreaTable[this.settings.musicLanguage ?? 'all']
+        ).then(data => {
+          let indexs = [];
+          while (indexs.length < 6) {
+            let tmp = ~~(Math.random() * 100);
+            if (!indexs.includes(tmp)) indexs.push(tmp);
+          }
+          this.recommendArtists.indexs = indexs;
+          this.recommendArtists.items = data.list.artists.filter((l, index) =>
+            indexs.includes(index)
+          );
+        }),
+        topList: () => toplists().then(data => {
+          this.topList.items = data.list.filter(l =>
+            this.topList.ids.includes(l.id)
+          );
+        }),
+      };
+      for (const key of section ? [section] : Object.keys(loaders)) {
+        this.loadHomeSection(key, loaders[key]);
+      }
+      if (!section) this.$refs.DailyTracksCard.loadDailyTracks();
+    },
+    async loadHomeSection(section, load) {
+      if (this.homeLoading[section]) return;
+      this.homeLoading[section] = true;
+      const progress = setTimeout(() => NProgress.start(), 1000);
+      try {
+        await load();
+        this.homeErrors[section] = '';
+      } catch (error) {
+        const data = error?.response?.data;
+        this.homeErrors[section] =
+          data?.message || data?.msg || error?.message || '加载失败，请重试';
+      } finally {
+        clearTimeout(progress);
+        this.homeLoading[section] = false;
+        if (!Object.values(this.homeLoading).some(Boolean)) NProgress.done();
+      }
+    },` + source.slice(end + ending.length);
+    return replaceOnce(source, '<style lang="scss" scoped>', `<style lang="scss" scoped>
+.home-error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--color-secondary-bg);
+  color: var(--color-text);
+  font-size: 14px;
+  line-height: 1.5;
+  span { overflow-wrap: anywhere; }
+  button {
+    flex-shrink: 0;
+    padding: 8px 12px;
+    border-radius: 6px;
+    background: var(--color-primary-bg);
+    color: var(--color-primary);
+    font-weight: 600;
+    &:disabled { opacity: 0.5; cursor: default; }
+    &:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+  }
+}`, 'homepage error styles');
+  });
   await edit('src/api/track.js', source => replaceOnce(source, "        crypto: 'eapi',\n", '', 'fixed cloud lyric crypto'));
   await edit('src/utils/Player.js', source => {
     const start = source.indexOf('  _getAudioSourceFromNetease(track) {');
