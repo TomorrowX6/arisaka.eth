@@ -3,6 +3,7 @@ import { DOCUMENTS, basename, normalize } from '/filesystem.js';
 import { pickFile } from '/files.js';
 import { pipelineOperations, validateRecipe, hexBytes, base64Bytes, bytesBase64, PIPELINE_LIMIT } from '/data-pipeline.js';
 import { valueAt } from '/logic-data.js';
+import { createAnalysisTask as workerTask } from '/analysis-task.js';
 
 export const professionalLayouts = {
   pipeline: `<nav id="pipeline-menubar" class="native-menubar"></nav>
@@ -17,27 +18,6 @@ export const professionalLayouts = {
     <div class="logic-results utility-scroll"><table class="data-table"><thead><tr><th>#</th><th>开始 / tick</th><th>位数</th><th>MOSI</th><th>MISO</th><th>状态</th></tr></thead><tbody id="logic-transfers"></tbody></table></div><pre id="logic-detail" tabindex="0" aria-label="选中传输详情"></pre>
     <footer class="statusbar"><span id="logic-status" role="status">尚未载入</span><span class="toolbar-spacer"></span><button id="logic-prev" disabled aria-label="上一页传输">‹</button><span id="logic-page">0 / 0</span><button id="logic-next" disabled aria-label="下一页传输">›</button></footer>`,
 };
-
-function workerTask() {
-  let worker, pending, timer;
-  const stop = () => {
-    clearTimeout(timer); worker?.terminate(); worker = undefined;
-    const reject = pending; pending = undefined;
-    if (reject) reject(new DOMException('已停止', 'AbortError'));
-  };
-  const run = payload => {
-    stop();
-    return new Promise((resolve, reject) => {
-      pending = reject; worker = new Worker('/analysis-worker.js', { type: 'module' });
-      const finish = (error, value) => { pending = undefined; stop(); error ? reject(error) : resolve(value); };
-      worker.onmessage = ({ data }) => finish(data.error ? Error(data.error) : null, data.result);
-      worker.onerror = event => { event.preventDefault(); finish(Error('分析 Worker 失败，请重试')); };
-      timer = setTimeout(() => finish(Error('分析超过 20 秒，已停止')), 20000);
-      worker.postMessage(payload);
-    });
-  };
-  return { run, stop };
-}
 
 export function createProfessionalTools(controls) {
   const { fs, windows } = controls;

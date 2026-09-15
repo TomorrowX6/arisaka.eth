@@ -11,7 +11,7 @@ const manifest = { version: '0123456789abcdef', digests: widgets.map(() => 'test
 const healthy = { ok: true, edition: manifest.version, cases: widgets.length };
 
 test('deployment health follows the complete catalog rather than the old ten-case campaign', async () => {
-  assert.equal(widgets.length, 29);
+  assert.equal(widgets.length, 31);
   await verifyDeployment('https://worker.example/', manifest, {
     request: async (url, options) => {
       assert.equal(url.href, 'https://worker.example/api/health');
