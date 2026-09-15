@@ -42,9 +42,13 @@ export function encodeFrostCbor(value) {
   return Buffer.concat([head(5, pairs.length), ...pairs.flat()]);
 }
 
+export function frostGroupMaterial(random) {
+  for (;;) { const bytes = random(32), value = BigInt('0x' + bytes.toString('hex')); if (value > 0n && value < Q) return bytes; }
+}
+
 export function frostEvidence(code, random) {
   const draw = () => { for (;;) { const n = BigInt('0x' + random(32).toString('hex')); if (n > 0n && n < Q) return n; } };
-  const secret = draw(), publicKey = point(secret), threshold = 3;
+  const secret = BigInt('0x' + frostGroupMaterial(random).toString('hex')), publicKey = point(secret), threshold = 3;
   const polynomials = new Map([9, 10].map(epoch => [epoch, [secret, draw(), draw()]]));
   const share = (epoch, id) => polynomials.get(epoch).reduceRight((sum, coefficient) => mod(sum * BigInt(id) + coefficient, Q), 0n);
   const reused = new Map([1, 3, 5].map(id => [id, [draw(), draw()]]));

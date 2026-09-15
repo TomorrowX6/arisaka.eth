@@ -1,16 +1,17 @@
 # CTF Worker
 
-31 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
+32 关顺序解锁的 CTF，运行于 Cloudflare Workers Static Assets + SQLite Durable Objects，不依赖原 VPS 或 I2P 服务。入口保留在博客原终端的加密文件中，使用随机 20 位路径，不进入 sitemap。游戏只展示必要的题目文件、协议与操作界面，没有提示接口或解题说明。
 
 ## 工作区
 
 - 以 KDE Plasma 6.3.5 / Breeze Dark 为基准的桌面：官方 Nuvole 深色壁纸、本地 Noto Sans / Hack 字体、随字体调整的窗口装饰、Kickoff、四向面板、任务预览、虚拟桌面、锁屏和快捷键。
 - 窗口开关、朝任务图标最小化、最大化/平铺、菜单和弹出面板共享可取消的动画；桌面切换使用 KWin 的弹簧积分，反向时保留速度。系统与桌面“减少动态效果”设置即时生效。
-- 35 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、数据工坊、逻辑分析仪、结构检查器、离散数学工坊、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
+- 36 个可启动的桌面应用，包括 Dolphin、Konsole、Kate、Okular、Ark、Okteta、SQLite、Kleopatra、KDiff3、KolourPaint、数据包查看器、数据工坊、逻辑分析仪、结构检查器、离散数学工坊、eBPF 调试器、Minecraft 1.12.2、Firefox 和 YesPlayMusic。
 - 数据工坊提供可保存 / 载入 / 重排的字节处理配方，支持 Hex、Base64、位操作、XOR、字节序、截取、压缩和哈希。独立 Worker 可停止；预览明确标注截断，保存始终使用完整结果。
 - 逻辑分析仪读取 VCD，保留精确的 64 位时间戳、别名和未知态，支持信号选择、波形缩放 / 平移 / 游标，以及 SPI 四种模式与双位序解码。未知位、时序歧义和不完整传输明确标注，可将完整解码保存到工作区。
 - 结构检查器读取 DER / CBOR 与 CBOR 序列，保留精确偏移、头和负载范围，支持嵌套树、键盘、筛选与分页。CBOR 保留重复 map key；长值明确标注预览。可导出完整节点报告和选中原始字节；不把格式解析当作证书信任或签名验证。
 - 离散数学工坊提供精确模矩阵消元（行变换、特解、零空间）、广义 CRT、精确有理数 LLL 和 GF(2) 多项式算术。任务可保存 / 重新载入，运算有界且可取消；不内置关卡专用求解器。
+- eBPF 调试器读取原始指令及 ELF64 LE ET_REL，绑定 LLVM REL 本地函数和普通数据，提供 F8 / F9 / F10、断点、符号筛选、分支导航、精确寄存器与内存预览、完整反汇编和报告导出。未初始化栈字节显示 `??`，不能伪装成零保存。每次执行最多 50000 条、8 帧；关闭 / 停止终止独立 Worker。它是离线解释器，不是 Linux verifier / JIT，不执行 map FD、helpers、CO-RE、原子操作或外部调用。
 - Minecraft 使用 Eaglercraft 1.12.2 u3 的真实客户端，默认选择 WebAssembly GC，也可切换 JavaScript 兼容模式；世界在独立应用域名的 IndexedDB 中按桌面用户保存。关闭前通过游戏菜单保存并退出，两种模式共用存档。
 - Firefox 使用 HeyPuter 发布的真实 Gecko WASM 与官方 WISP 网络服务，保留应用自己的 Launch Firefox 启动按钮；需支持 JSPI 和 credentialless iframe 的新版 Chrome / Edge。内嵌会话随桌面页面关闭而结束，可通过工具栏独立打开官方应用。
 - YesPlayMusic 使用固定源码版本 0.4.10 的原版界面，默认中文深色，提供搜索、播放、歌词与网易云登录。网页和音乐 API 由独立应用 Worker 提供，设置、缓存与登录状态按桌面用户隔离；最小化继续播放，关闭释放播放器。
@@ -55,7 +56,8 @@ pnpm test:runtimes
 `pnpm test:e2e` 自动生成题目、启动随机端口的本地 Worker、检查版本、运行浏览器测试并关闭 Worker；存储与日常开发存档隔离，不更新博客入口，不需要 Cloudflare 部署凭证。它包含：
 
 - `pnpm test:browser`：全部应用启动、文件持久化、用户设置、脚本运行、PDF、SQLite、OpenPGP、窄屏布局，以及快速窗口开关、KWin 弹簧轨迹和反向、减少动态效果、任务预览与启动器键盘操作等真实界面回归。
-- `pnpm test:campaign`：只读取私有夹具中的入口，所有 31 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
+- `pnpm test:campaign`：只读取私有夹具中的入口，所有 32 个答案均从实际鉴权接口提供的题目文件与协议独立恢复，再经桌面界面提交；验证最终凭证、刷新和浏览器历史导航。
+- eBPF 浏览器回归：`node scripts/test-browser.mjs test/bpf-app.browser.test.mjs`，覆盖真实 Worker 单步与断点、ELF 重定位、文件关联、未知栈字节、输入失效、完整分页导出、取消、关闭重开及窄屏。截图位于忽略目录 `.private/bpf-qa/`。
 - 顶级工具浏览器回归：`node scripts/test-browser.mjs test/elite-apps.browser.test.mjs`，验证真实 Worker、超出 Number 精度的 LLL 变换、任务往返、结构树键盘、精确字节导出、完整 CBOR、失败恢复和窄屏。截图位于忽略目录 `.private/elite-qa/`。
 - 新工具浏览器回归：`node scripts/test-browser.mjs test/analysis-apps.browser.test.mjs`，验证真实分析 Worker、二进制保存、配方往返、完整 VCD / SPI、取消与窄屏键盘操作；截图位于忽略目录 `.private/professional-qa/`。
 
@@ -74,7 +76,9 @@ pnpm exec wrangler login
 pnpm run deploy
 ```
 
-部署账户在 `wrangler.jsonc` 和 `runtime/wrangler.jsonc` 中配置。脚本先发布独立的 `arisaka-desktop-apps` Worker，核对版本、完整资源哈希、响应类型和隔离策略，通过后再发布 `arisaka-afterglow`。两个配置中的应用域名与桌面域名须互相匹配。单独发布应用资源可使用 `pnpm runtimes:deploy`。
+部署账户在 `wrangler.jsonc` 和 `runtime/wrangler.jsonc` 中配置。脚本首先读取线上健康接口，只接受相同 edition 或生成器显式声明兼容的历史 edition；种子不匹配、关卡数不一致或无法确认线上状态时，不开始发布。随后发布独立的 `arisaka-desktop-apps` Worker，核对版本、完整资源哈希、响应类型和隔离策略，再次确认桌面版本未变化后才发布 `arisaka-afterglow`。两个配置中的应用域名与桌面域名须互相匹配。单独发布应用资源可使用 `pnpm runtimes:deploy`。
+
+已有 Worker 的 `SESSION_SECRET` 始终沿用线上绑定，不因本地没有密钥文件、存在另一份开发密钥或设置了 `CTF_SESSION_SECRET` 而覆盖。首次创建不存在的 Worker 才使用 `pnpm run deploy --bootstrap`，并配置或在本地生成会话密钥。`--bootstrap` 不允许覆盖任何已返回有效健康状态的不兼容版本。密钥轮换是单独的、会影响 Cookie / 凭证的维护操作，不是普通部署的一部分。
 
 桌面健康接口的版本与实际关卡数均确认一致后，才更新以下**配对文件**：
 
@@ -88,20 +92,20 @@ pnpm run deploy
 | 变量 | 用途 |
 | --- | --- |
 | `CTF_BUILD_SEED` | 64 位十六进制构建种子，固定题目、通行码与终端入口 |
-| `CTF_SESSION_SECRET` | 至少 32 字符的 Cookie / 通关凭证签名密钥 |
+| `CTF_SESSION_SECRET` | 首次创建 Worker 时使用的至少 32 字符 Cookie / 通关凭证签名密钥；已有部署不上传覆盖 |
 | `CLOUDFLARE_API_TOKEN` | Wrangler 部署凭证 |
 
-CI 发布必须配置三个变量。本地首次构建创建 `.private/build-seed`，首次发布创建 `.private/session-secret`；本地开发另用 `.dev.vars.local`。不要删除、公开或随意轮换生产种子和密钥。要沿用本地版本发布 CI，应将同一组值安全配置为 GitHub Secrets。
+CI 更新必须配置生产 `CTF_BUILD_SEED` 和 Cloudflare 凭据；首次创建还需要 `CTF_SESSION_SECRET`。本地首次构建创建 `.private/build-seed`，显式首次发布创建 `.private/session-secret`；本地开发另用 `.dev.vars.local`。不要删除、公开或随意轮换生产种子和密钥。要沿用本地版本发布 CI，应将同一组值安全配置为 GitHub Secrets；不能拿新 checkout 自动生成的开发种子替换生产种子。
 
 更换种子或不兼容的题目格式会使旧版存档显示失效，不会静默覆盖旧进度。改变题目生成或校验语义时应同步提升 `build-challenges.mjs` 中的版本域，并重新执行所有测试。回滚时同时恢复 Worker 版本、上述配对入口文件及对应私有种子 / 签名密钥。
 
 ## 追加战役与存档兼容
 
-第 26 关保留原编号、附件和回执重建流程；27–29 是面向专业玩家的协议与硬件取证延伸。30–31 是面向顶级玩家的门限密码学与代数编码延伸：FROST 刷新时期 / 多次 nonce-pair 复用转录，以及未知符号基、交织 RS16 纠错与认证封装。原 26 关及上一版 29 关均有固定测试种子的逐字节摘要回归，不因追加而重写。
+第 26 关保留原编号、附件和回执重建流程；27–29 是面向专业玩家的协议与硬件取证延伸。30–31 是面向顶级玩家的门限密码学与代数编码延伸：FROST 刷新时期 / 多次 nonce-pair 复用转录，以及未知符号基、交织 RS16 纠错与认证封装。第 32 关组合 eBPF ELF 重定位、64 / 32 位语义、ARX 逆变换和两份上游认证材料，不能只用前两关通行码打开。原 26 / 29 / 31 关均有固定测试种子的逐字节摘要回归，不因追加而重写。
 
 生成器显式列出同一种子、同一兼容域的历史 edition。首次访问时在 Durable Object 同步事务内升级已声明兼容的存档，保留玩家身份、开始时间、已解锁位置、尝试次数、冷却、账本和实验绑定，只补建新关卡记录。未通关者继续原位置；已完成 26 关者从 27 开始，已完成 29 关者从 30 开始，均不能越级读取后续附件。
 
-旧通关记录单独保留；Dolphin 状态栏的“通关记录”可重新查看和下载历史凭证，也可通过 `GET /api/proof?cases=26` 或 `?cases=29` 获取。多次扩展保留各版已有记录。历史凭证仍可独立验证，不会伪装成扩展战役已完成。未知版本、不同种子或不兼容格式仍要求重开。
+旧通关记录单独保留；Dolphin 状态栏的“通关记录”可重新查看和下载历史凭证，也可通过 `GET /api/proof?cases=26`、`?cases=29` 或 `?cases=31` 获取。多次扩展保留各版已有记录。历史凭证仍可独立验证，不会伪装成扩展战役已完成。未知版本、不同种子或不兼容格式仍要求重开。
 
 存档升级是向前的：已经写入新 edition 的存档，不能直接交给不含迁移逻辑的旧 26 关 Worker 继续。回滚前应保留兼容读取代码或相应存储备份；单纯回滚静态资源或更换种子不会回退进度。
 

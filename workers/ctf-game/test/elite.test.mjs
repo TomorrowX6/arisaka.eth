@@ -17,7 +17,7 @@ test('the elite release preserves all 29 preceding cases and declares both compa
   }
   assert.equal(hash.digest('hex'), 'bdc4a7619bf479907439c39916e9e1189eb3f089b80ccf7fe02a00e96dcb6803');
   assert.equal(createHash('sha256').update(JSON.stringify(answers.codes.slice(0, 29))).digest('hex'), 'e8ade38f1831bf02fffc44b2669c1aefc3ef7913605eada4b5dafa3759aa0c8d');
-  assert.deepEqual(manifest.compatibleEditions, [{ version: '6f2237319eb66605', cases: 26 }, { version: '46d9facbef1ffcbc', cases: 29 }]);
+  assert.deepEqual(manifest.compatibleEditions.filter(edition => edition.cases <= 29), [{ version: '6f2237319eb66605', cases: 26 }, { version: '46d9facbef1ffcbc', cases: 29 }]);
   assert.equal(decodeFrostEvidence(artifacts[30]).code, answers.codes[29]);
   assert.equal(decodeRs16Evidence(artifacts[31]).code, answers.codes[30]);
 });

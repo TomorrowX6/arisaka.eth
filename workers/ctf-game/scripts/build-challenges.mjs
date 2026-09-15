@@ -27,8 +27,9 @@ import { powerEvidence } from './expert/power.mjs';
 import { quicEvidence } from './expert/quic.mjs';
 import { dnssecEvidence } from './expert/dnssec.mjs';
 import { logicEvidence } from './expert/logic.mjs';
-import { frostEvidence } from './expert/frost.mjs';
-import { rs16Evidence } from './expert/rs16.mjs';
+import { frostEvidence, frostGroupMaterial } from './expert/frost.mjs';
+import { rs16Evidence, rs16CustodyMaterial } from './expert/rs16.mjs';
+import { bpfEvidence } from './expert/bpf.mjs';
 import caseWidgets from '../src/case-catalog.json' with { type: 'json' };
 
 export const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -63,7 +64,7 @@ export async function generate(seed) {
   const version = edition(caseWidgets.length);
   // An explicit append-only release lineage, not a blanket acceptance of any
   // old version. Bump the domain above for an incompatible artifact change.
-  const compatibleEditions = [26, 29].filter(cases => cases < caseWidgets.length).map(cases => ({ version: edition(cases), cases }));
+  const compatibleEditions = [26, 29, 31].filter(cases => cases < caseWidgets.length).map(cases => ({ version: edition(cases), cases }));
   const entryToken = randomPath(seededRandom(seed, 'terminal-entry-route'));
   const codes = Array.from({ length: caseWidgets.length }, (_, i) => randomPath(seededRandom(seed, 'code/' + (i + 1))));
   const finalKey = seededRandom(seed, 'final-key')(16);
@@ -128,6 +129,7 @@ export async function generate(seed) {
     29: logicEvidence(codes[28], seededRandom(seed, 'logic-evidence')),
     30: frostEvidence(codes[29], seededRandom(seed, 'frost-evidence')),
     31: rs16Evidence(codes[30], seededRandom(seed, 'rs16-evidence')),
+    32: bpfEvidence(codes[31], [frostGroupMaterial(seededRandom(seed, 'frost-evidence')), rs16CustodyMaterial(seededRandom(seed, 'rs16-evidence'))], seededRandom(seed, 'bpf-evidence')),
   };
   const files = Object.fromEntries(Object.entries(artifacts).map(([stage, entries]) => [stage, Object.keys(entries)]));
   const manifest = {
