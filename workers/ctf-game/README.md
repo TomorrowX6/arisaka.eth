@@ -80,6 +80,25 @@ pnpm run deploy
 
 已有 Worker 的 `SESSION_SECRET` 始终沿用线上绑定，不因本地没有密钥文件、存在另一份开发密钥或设置了 `CTF_SESSION_SECRET` 而覆盖。首次创建不存在的 Worker 才使用 `pnpm run deploy --bootstrap`，并配置或在本地生成会话密钥。`--bootstrap` 不允许覆盖任何已返回有效健康状态的不兼容版本。密钥轮换是单独的、会影响 Cookie / 凭证的维护操作，不是普通部署的一部分。
 
+### 独立专家版
+
+当暂时拿不到原生产种子时，不把新种子写入原 Worker。使用显式隔离的部署目标：
+
+```sh
+# 首次创建独立站点，确认这些名称尚未被其他项目占用后运行
+pnpm run deploy --target expert --bootstrap
+# 后续更新仍需沿用该专家站点的种子，且会保留其线上会话密钥
+pnpm run deploy --target expert
+```
+
+- 桌面：`arisaka-afterglow-expert`；资源：`arisaka-desktop-apps-expert`。
+- 两个 Worker 使用匹配的独立域名和严格 iframe 父源策略；Durable Objects 绑定各自桌面，不引用生产命名空间。Cookie、IndexedDB / 本地文件和玩家进度与生产分开。
+- 专家版不更新博客的任何配对入口文件，不迁移、删除或重置原站存档。它是独立新存档，不是已有玩家的自动升级副本。
+- 健康检查通过后，入口、edition、关卡数和版本 ID 记录在 `.private/releases/expert/release.json`；首次生成的专家版会话密钥单独存放在同目录的 `session-secret`。种子仍取自显式 `CTF_BUILD_SEED` 或本 checkout 的 `.private/build-seed`，需妥善保留。
+- `--target production` 等同默认更新；`local` 和任意环境名不接受。单独发布专家版资源可用 `pnpm runtimes:deploy --target expert`。
+
+手动 `Deploy CTF` 工作流可选择目标。专家版使用独立的 `CTF_EXPERT_BUILD_SEED` / `CTF_EXPERT_SESSION_SECRET` Secrets，不回退使用生产种子；更新时同样不上传替换会话密钥。工作流只上传指定目标的 `release.json`，生产目标才额外上传配对博客入口；不会上传其他 `.private` 文件。
+
 桌面健康接口的版本与实际关卡数均确认一致后，才更新以下**配对文件**：
 
 - `../../src/data/ctf-deployment.json`

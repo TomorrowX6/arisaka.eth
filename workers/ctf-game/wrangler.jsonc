@@ -28,6 +28,17 @@
     "DesktopProfiles": { "type": "durable-object", "storage": "sqlite" }
   },
   "env": {
+    "expert": {
+      "name": "arisaka-afterglow-expert",
+      "vars": { "DESKTOP_APPS_ORIGIN": "https://arisaka-desktop-apps-expert.454565615.workers.dev" },
+      "secrets": { "required": ["SESSION_SECRET"] },
+      "durable_objects": {
+        "bindings": [
+          { "name": "GAME_SESSIONS", "class_name": "GameSession" },
+          { "name": "DESKTOP_PROFILES", "class_name": "DesktopProfiles" }
+        ]
+      }
+    },
     "local": {
       "name": "arisaka-afterglow-local",
       "vars": { "DESKTOP_APPS_ORIGIN": "http://127.0.0.1:8789" },

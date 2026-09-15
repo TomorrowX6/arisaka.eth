@@ -3,6 +3,14 @@ name: Deploy CTF
 on:
   workflow_dispatch:
     inputs:
+      target:
+        description: 'Production upgrade or isolated expert desktop'
+        required: true
+        default: production
+        type: choice
+        options:
+          - production
+          - expert
       bootstrap:
         description: 'Create a genuinely new Worker (never bypasses an incompatible live edition)'
         required: false
@@ -22,8 +30,8 @@ jobs:
     timeout-minutes: 15
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-      CTF_BUILD_SEED: ${{ secrets.CTF_BUILD_SEED }}
-      CTF_SESSION_SECRET: ${{ secrets.CTF_SESSION_SECRET }}
+      CTF_BUILD_SEED: ${{ secrets[inputs.target == 'expert' && 'CTF_EXPERT_BUILD_SEED' || 'CTF_BUILD_SEED'] }}
+      CTF_SESSION_SECRET: ${{ secrets[inputs.target == 'expert' && 'CTF_EXPERT_SESSION_SECRET' || 'CTF_SESSION_SECRET'] }}
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -39,13 +47,24 @@ jobs:
           pnpm --dir workers/ctf-game check
           pnpm --dir workers/ctf-game test
       - name: Deploy
+        env:
+          DEPLOY_TARGET: ${{ inputs.target || 'production' }}
+          DEPLOY_BOOTSTRAP: ${{ inputs.bootstrap }}
         run: |
-          if [[ "${{ inputs.bootstrap }}" == "true" ]]; then
-            pnpm --dir workers/ctf-game run deploy --bootstrap
-          else
-            pnpm --dir workers/ctf-game run deploy
+          args=(--target "$DEPLOY_TARGET")
+          if [[ "$DEPLOY_BOOTSTRAP" == "true" ]]; then
+            args+=(--bootstrap)
           fi
-      - name: Save verified entrance
+          pnpm --dir workers/ctf-game run deploy "${args[@]}"
+      - name: Save verified release record
+        uses: actions/upload-artifact@v4
+        with:
+          name: ctf-release-${{ inputs.target || 'production' }}
+          path: workers/ctf-game/.private/releases/${{ inputs.target || 'production' }}/release.json
+          include-hidden-files: true
+          if-no-files-found: error
+      - name: Save verified production entrance
+        if: inputs.target != 'expert'
         uses: actions/upload-artifact@v4
         with:
           name: ctf-deployment

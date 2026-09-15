@@ -58,3 +58,14 @@
 - 部署预检拒绝不兼容线上版本；更新时沿用线上 `SESSION_SECRET`，不因缺少本地副本重新生成。应用资源发布后再次检查桌面版本，避免准备期间被其他发布覆盖。
 - 本地 BPF / 跨关卡独立恢复专项 14 / 14 通过；部署健康和安全预检 7 / 7 通过。首轮浏览器专项复现了单步后键盘焦点丢失，修复后 6 / 6 通过并检查了窄屏截图；随后增加表格节点复用和双击分支回归，随最终 CI 复验。没有将失败轮次记作通过。
 - Cloudflare 账户已验证可用。当前本地种子与现网 26 关 edition 不同，部署预检将拒绝覆盖；已向用户请求原生产种子 / 路径。实际部署和最终 CI 结果另行记录。
+
+第三段最终验证：[PR #16](https://github.com/TomorrowX6/arisaka.eth/pull/16) 的 [CI 35011993686](https://github.com/TomorrowX6/arisaka.eth/actions/runs/35011993686) 全绿，Node 107 通过 / 1 可选跳过，Worker 124 / 124，完整 32 关 / 桌面 / 运行时边界 92 / 92，原版音乐 17 / 17。最终表格复用、双击分支与连续键盘操作在本地另行 3 / 3 复验通过。
+
+## 第四段：独立 Cloudflare 专家站点
+
+- 原生产种子尚未取得，不覆盖 `arisaka-afterglow` 或其应用资源 Worker。
+- 新增显式 `expert` 目标：`arisaka-afterglow-expert` + `arisaka-desktop-apps-expert`，独立 Worker、Durable Objects、Cookie、浏览器文件存储与 iframe 父源策略。
+- 目标选择拒绝生产 / 专家混接、跨 Worker 状态绑定、错误账户、任意环境和未知 CLI 参数。
+- 专家版仅写 `.private/releases/expert/release.json`，不调用生产配对入口发布器；首次会话密钥独立保存，后续沿用线上密钥。
+- 手动 CI 目标使用各自 Secrets，仅打包指定 `release.json`；生产目标才打包博客入口。没有把任何私有密钥或构建种子加入 PR。
+- 本地目标 / 发布策略测试 4 / 4、类型检查、两套专家 Worker dry-run 构建通过；已通过 Cloudflare 账户 API 确认两个新名称未占用，保存原两套 Worker 的部署 ID 供发布后核对。实际发布正在准备。
