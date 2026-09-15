@@ -53,7 +53,7 @@ PR Checks 中的独立 CTF 作业会执行类型检查、单元测试、生产�
 
 ```sh
 pnpm exec wrangler login
-pnpm deploy
+pnpm run deploy
 ```
 
 部署账户在 `wrangler.jsonc` 中配置。脚本先构建和上传 Worker，确认健康接口的版本与实际关卡数均一致后，才更新以下**配对文件**：

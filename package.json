@@ -14,7 +14,7 @@
     "ctf:check": "pnpm --dir workers/ctf-game check",
     "ctf:test": "pnpm --dir workers/ctf-game test",
     "ctf:test:e2e": "pnpm --dir workers/ctf-game test:e2e",
-    "ctf:deploy": "pnpm --dir workers/ctf-game deploy",
+    "ctf:deploy": "pnpm --dir workers/ctf-game run deploy",
     "deploy": "pnpm build && node scripts/deploy-ardrive.mjs",
     "deploy:perma": "pnpm build && tsx scripts/deploy-permaweb.ts",
     "preview": "astro preview",

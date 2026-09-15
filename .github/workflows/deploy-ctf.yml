@@ -33,7 +33,7 @@ jobs:
           pnpm --dir workers/ctf-game check
           pnpm --dir workers/ctf-game test
       - name: Deploy
-        run: pnpm --dir workers/ctf-game deploy
+        run: pnpm --dir workers/ctf-game run deploy
       - name: Save verified entrance
         uses: actions/upload-artifact@v4
         with:
