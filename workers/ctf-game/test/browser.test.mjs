@@ -852,37 +852,42 @@ test('Dolphin groups all cases in one folder and reports access denied when open
   } finally { await context.close(); }
 });
 
-test('Dolphin completes a case-folder navigation when a delayed boot refresh arrives', { timeout: 60000 }, async () => {
+test('Dolphin completes an in-flight folder navigation when a metadata refresh arrives', { timeout: 60000 }, async () => {
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   const held = [], errors = [];
-  let requests = 0;
+  let requests = 0, finishing = false;
   page.on('pageerror', error => errors.push(error.message));
   await page.route('**/api/cases/1', async route => {
     const index = requests++;
     const response = await route.fetch();
-    await new Promise(resolve => { held[index] = resolve; });
+    await new Promise(resolve => { held[index] = resolve; if (finishing) resolve(); });
     await route.fulfill({ response });
   });
   try {
     const start = await context.request.post(base + '/api/start', { data: { entry: entryToken }, headers: { 'X-Afterglow': '1' } });
     assert.equal(start.status(), 200);
+    // Bootstrap now has a readiness boundary. Start at case 2, then hold an
+    // uncached case-1 folder request after bootstrap, not the bootstrap itself.
+    assert.equal((await context.request.post(base + '/api/answer', { data: { stage: 1, code: codes[0] }, headers: { 'X-Afterglow': '1' } })).status(), 200);
     await page.goto(base, { waitUntil: 'domcontentloaded' });
     await expect(page.locator('#desktop')).toBeVisible();
-    await expect.poll(() => held.filter(Boolean).length).toBe(1);
     await page.locator('#files-home').click();
     await page.locator('#files-primary [data-file-path="/home/user/档案"]').dblclick();
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
     await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').dblclick();
-    await expect.poll(() => held.filter(Boolean).length).toBe(2);
-    held[0]();
-    await page.waitForURL('**/#case-1');
+    await expect.poll(() => held.filter(Boolean).length).toBe(1);
+    // A refresh must update metadata without superseding the pending path.
+    const previousRow = await page.locator('#files-primary [data-file-path="/home/user/档案/01"]').elementHandle();
+    await page.locator('#files-primary').press('F5');
+    await expect.poll(() => previousRow.evaluate(node => node.isConnected)).toBe(false);
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案');
-    held[1]();
+    held[0]();
     await expect(page.locator('#file-location')).toHaveValue('/home/user/档案/01');
     await expect(page.locator('#files-primary [data-file-path="/home/user/档案/01/objects.pack"]')).toBeVisible();
     assert.deepEqual(errors, []);
   } finally {
+    finishing = true;
     held.forEach(release => release());
     await page.unrouteAll({ behavior: 'wait' });
     await context.close();
