@@ -166,7 +166,10 @@ test('narrow graph tools retain keyboard selection, zoom, focus and accessible e
     const node = page.locator('#graph-window'), bounds = await node.boundingBox(); assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= 391);
     assert.ok(await node.evaluate(element => element.scrollWidth <= element.clientWidth + 1));
     const canvas = page.locator('#graph-canvas'); await canvas.press('ArrowRight'); await expect(page.locator('#graph-selection')).toHaveText('选中 decode');
-    const zoom = await page.locator('#graph-zoom').textContent(); await canvas.press('+'); assert.notEqual(await page.locator('#graph-zoom').textContent(), zoom);
+    // Camera rendering is requestAnimationFrame-driven. Check each exact scale
+    // after its frame, not a one-shot DOM read that may see the previous frame.
+    await expect(page.locator('#graph-zoom')).toHaveText('40%'); await canvas.press('+');
+    await expect(page.locator('#graph-zoom')).toHaveText('56%');
     await canvas.press('Shift+ArrowRight'); await canvas.press('Home'); await canvas.press('Control+Enter'); await expect(page.locator('#graph-save-report')).toBeEnabled(); await expect(canvas).toBeFocused();
     await save(page, '#graph-save-report', 'narrow-graph.json'); assert.equal(JSON.parse(await files(page, { name: 'narrow-graph.json' })).graph.nodes.length, 9);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true); await canvas.scrollIntoViewIfNeeded(); await screenshot(page, 'graph-mobile'); assert.deepEqual(errors, []);
