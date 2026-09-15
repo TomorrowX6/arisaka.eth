@@ -23,13 +23,19 @@ async function desktop(viewport = { width: 1440, height: 980 }) {
 async function launch(page, id, name) {
   await page.locator('#launcher-button').click(); await page.locator('#launcher-search').fill(name);
   await page.locator('#launcher-apps [data-launch="' + id + '"]').click(); await expect(page.locator('#' + id + '-window')).toBeVisible();
+  await page.waitForFunction(id => !document.querySelector('#' + id + '-window').dataset.motionState, id);
 }
 async function saveAs(page, button, name) {
   await page.locator(button).click(); await page.locator('dialog[open] input').fill(name);
   await page.locator('dialog[open]').getByRole('button', { name: '确定', exact: true }).click(); await expect(page.locator('dialog[open]')).toHaveCount(0);
 }
 async function openWith(page, button, name) {
-  await page.locator(button).click(); await page.locator('dialog[open] [data-name]').fill(name);
+  await page.locator(button).click();
+  try { await page.locator('dialog[open] [data-name]').fill(name); }
+  catch (error) {
+    const state = await page.evaluate(() => ({ toast: document.querySelector('#toast')?.textContent, focus: document.activeElement?.outerHTML, dialogs: [...document.querySelectorAll('dialog')].map(node => node.outerHTML.slice(0, 1000)) }));
+    throw new Error('File chooser did not open: ' + JSON.stringify(state), { cause: error });
+  }
   await page.locator('dialog[open] button[type=submit]').click(); await expect(page.locator('dialog[open]')).toHaveCount(0);
 }
 async function files(page, value) {
@@ -42,6 +48,22 @@ async function files(page, value) {
     return Array.from(await fs.read('/home/user/Documents/' + value.name));
   }, value);
 }
+
+test('desktop readiness waits for delayed initial navigation before exposing launcher input', { timeout: 90000 }, async () => {
+  const context = await browser.newContext({ viewport: { width: 1440, height: 980 } }), page = await context.newPage();
+  let release; const barrier = new Promise(resolve => release = resolve);
+  try {
+    assert.equal((await context.request.post(base + '/api/start', { data: { entry: entryToken }, headers: { 'X-Afterglow': '1' } })).status(), 200);
+    await context.route('**/api/cases/1', async route => { await barrier; await route.continue().catch(() => {}); });
+    await page.goto(base, { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('#desktop')).toHaveAttribute('aria-busy', 'true');
+    await expect(page.locator('#desktop')).toBeHidden(); await expect(page.locator('#gate')).toBeVisible();
+    release(); await expect(page.locator('#desktop')).toBeVisible(); await expect(page.locator('#gate')).toBeHidden();
+    await expect(page.locator('#desktop')).not.toHaveAttribute('aria-busy', 'true');
+    await launch(page, 'pipeline', '数据工坊'); await page.locator('#pipeline-input').fill('41'); await page.locator('#pipeline-run').click();
+    await expect(page.locator('#pipeline-output')).toHaveValue('41'); await expect(page.locator('#pipeline-window')).toHaveClass(/focused/);
+  } finally { release(); await context.close(); }
+});
 
 test('data recipes execute in a real Worker, save exact bytes and round-trip through the workspace', { timeout: 90000 }, async () => {
   const { context, page, errors } = await desktop();

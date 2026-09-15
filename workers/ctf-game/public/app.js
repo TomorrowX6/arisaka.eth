@@ -317,7 +317,11 @@ async function boot() {
       session = await api('/api/start', { entry });
     }
     updateState(session);
-    $('#gate').hidden = true;
+    // Keep the loading surface until the initial navigation and session restore
+    // have finished. Otherwise a late programmatic window launch can close a
+    // launcher the player has already opened and steal their keyboard focus.
+    // visibility (rather than display:none) preserves layout during bootstrap.
+    $('#desktop').setAttribute('aria-busy', 'true');
     $('#desktop').hidden = false;
     windows.open('files');
     showFolder('root');
@@ -328,6 +332,11 @@ async function boot() {
     $('.connection').classList.add('offline');
     $('#connection-label').textContent = '离线';
     $('#gate-status').textContent = error.status === 403 ? '403' : '连接失败';
+  } finally {
+    if (!$('#desktop').hidden) {
+      $('#desktop').removeAttribute('aria-busy');
+      $('#gate').hidden = true;
+    }
   }
 }
 await boot();

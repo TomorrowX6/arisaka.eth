@@ -1,4 +1,5 @@
 [data-motion-state] { will-change: opacity, transform; }
+#desktop[aria-busy="true"] { visibility: hidden; }
 [data-motion-state="exit"] { pointer-events: none !important; }
 .window.dragging, .window.resizing { transition: none !important; }
 
