@@ -100,6 +100,36 @@ describe("private, sequential archive", () => {
     expect((await player.request("/api/proof?cases=999")).status).toBe(404);
   });
 
+  test("29-case completions migrate forward without overwriting an older completion milestone", async () => {
+    const player = client();
+    const started = await player.start(); await player.advance(30);
+    const old26 = manifest.compatibleEditions.find(item => item.cases === 26)!;
+    const old29 = manifest.compatibleEditions.find(item => item.cases === 29)!;
+    const completion26 = { edition: old26.version, cases: 26, completedAt: started.startedAt + 1000, attempts: 26 };
+    const completedAt = started.startedAt + 2000;
+    await runInDurableObject(player.stub(), (_instance, context) => {
+      context.storage.sql.exec("UPDATE game SET version = ?, completed_at = ?", old29.version, completedAt);
+      context.storage.sql.exec("DELETE FROM stages WHERE stage > 29");
+      context.storage.kv.put("completionMilestones", [completion26]);
+    });
+    await evictDurableObject(player.stub());
+    const state = await (await player.request("/api/session")).json<any>();
+    expect(state).toMatchObject({ edition: answers.version, stage: 30, startedAt: started.startedAt, completedAt: null });
+    expect(state.milestones).toEqual([completion26, { edition: old29.version, cases: 29, completedAt, attempts: 29 }]);
+    expect((await player.request("/api/cases/30")).status).toBe(200);
+    expect((await player.request("/api/cases/31")).status).toBe(403);
+    expect((await player.request("/api/proof")).status).toBe(403);
+    for (const cases of [26, 29]) {
+      const proof = await (await player.request("/api/proof?cases=" + cases)).json<any>();
+      expect(proof.completion.cases).toBe(cases);
+      expect((await (await client().request("/api/proof/verify", { proof: proof.proof })).json<any>()).completion).toEqual(proof.completion);
+    }
+    await player.advance(answers.codes.length + 1);
+    expect((await (await player.request("/api/proof")).json<any>()).completion.cases).toBe(answers.codes.length);
+    await evictDurableObject(player.stub());
+    expect((await (await player.request("/api/session")).json<any>()).milestones).toEqual(state.milestones);
+  });
+
   test("health, catalog, and every attachment enforce the complete sequential campaign", async () => {
     const player = client();
     const health = await (await player.request("/api/health")).json<any>();
@@ -122,7 +152,7 @@ describe("private, sequential archive", () => {
       }
       expect((await (await player.request("/api/answer", { stage, code: answers.codes[stage - 1] })).json<any>()).result).toBe("correct");
     }
-    for (const path of ["/scripts/decoders.mjs", "/scripts/expert/gcm-decoder.mjs", "/test/campaign.test.mjs", "/.private/build-seed", "/.dev.vars.local"]) {
+    for (const path of ["/scripts/decoders.mjs", "/scripts/expert/gcm-decoder.mjs", "/scripts/expert/frost-decoder.mjs", "/scripts/expert/rs16-decoder.mjs", "/test/campaign.test.mjs", "/.private/build-seed", "/.dev.vars.local"]) {
       expect((await player.request(path)).status).toBe(404);
     }
   }, 30000);

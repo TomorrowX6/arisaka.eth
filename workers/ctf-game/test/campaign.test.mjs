@@ -2,6 +2,7 @@ import { after, before, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { chromium, expect as baseExpect } from '@playwright/test';
+import caseCatalog from '../src/case-catalog.json' with { type: 'json' };
 import { openSeal, decodeQr, decodeWave, decodeImages, decodeSignatures, signatureMaterial, decodeWasm, reconstruct } from '../scripts/decoders.mjs';
 import { recoverMachineInput } from '../scripts/expert/vm-decoder.mjs';
 import { recoverGitSeed } from '../scripts/expert/git-decoder.mjs';
@@ -24,6 +25,8 @@ import { forgeWotsSignature } from '../scripts/expert/wots-decoder.mjs';
 import { decodeQuicEvidence } from '../scripts/expert/quic-decoder.mjs';
 import { decodeDnssecEvidence } from '../scripts/expert/dnssec-decoder.mjs';
 import { decodeLogicEvidence } from '../scripts/expert/logic-decoder.mjs';
+import { decodeFrostEvidence } from '../scripts/expert/frost-decoder.mjs';
+import { decodeRs16Evidence } from '../scripts/expert/rs16-decoder.mjs';
 import { decodePowerEvidence } from '../scripts/expert/power-decoder.mjs';
 
 const base = process.env.CTF_E2E_URL || 'http://127.0.0.1:8788';
@@ -91,7 +94,7 @@ test('the complete campaign is independently recovered through Plasma applicatio
     const started = await call('/api/start', { entry: entryToken });
     const receipts = [];
     const final = started.total;
-    assert.equal(final, 29);
+    assert.equal(final, caseCatalog.length);
     for (let stage = 1; stage <= final; stage++) {
       let completed = false;
       await t.test('case ' + String(stage).padStart(2, '0'), async () => {
@@ -181,6 +184,8 @@ test('the complete campaign is independently recovered through Plasma applicatio
         else if (stage === 27) result = decodeQuicEvidence(files);
         else if (stage === 28) result = decodeDnssecEvidence(files);
         else if (stage === 29) result = decodeLogicEvidence(files);
+        else if (stage === 30) result = decodeFrostEvidence(files);
+        else if (stage === 31) result = decodeRs16Evidence(files);
         else throw Error('Missing independent decoder for case ' + stage);
         assert.match(result.code, /^[a-z0-9]{20}$/, 'recovered code format');
         if (result.receipt) receipts.push(result.receipt);

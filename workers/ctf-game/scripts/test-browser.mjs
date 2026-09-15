@@ -8,7 +8,7 @@ import { verifyDeployment } from './deployment-health.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const files = process.argv.slice(2);
-if (!files.length) files.push('test/browser.test.mjs', 'test/runtime-apps.browser.test.mjs', 'test/analysis-apps.browser.test.mjs', 'test/campaign.test.mjs');
+if (!files.length) files.push('test/browser.test.mjs', 'test/runtime-apps.browser.test.mjs', 'test/analysis-apps.browser.test.mjs', 'test/elite-apps.browser.test.mjs', 'test/campaign.test.mjs');
 let worker, tests, builder, interrupted;
 const interrupt = signal => {
   interrupted = signal;

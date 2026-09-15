@@ -20,7 +20,7 @@ test('the additive release preserves the original 26-case edition byte for byte'
   }
   assert.equal(hash.digest('hex'), '3f9466a1ce3c1d20ae7a4f4de7903b68563265090991e4a5222cdfe4a898666e');
   assert.equal(createHash('sha256').update(JSON.stringify(answers.codes.slice(0, 26))).digest('hex'), '721cdd738142afbf5528bfdfe2e210fde6cc36bc4b295b69c5f7410102282d2f');
-  assert.deepEqual(manifest.compatibleEditions, [{ version: '6f2237319eb66605', cases: 26 }]);
+  assert.deepEqual(manifest.compatibleEditions.find(edition => edition.cases === 26), { version: '6f2237319eb66605', cases: 26 });
   for (const [stage, decode] of [[27, decodeQuicEvidence], [28, decodeDnssecEvidence], [29, decodeLogicEvidence]]) {
     assert.equal(decode(artifacts[stage]).code, answers.codes[stage - 1]);
   }

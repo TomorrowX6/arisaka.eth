@@ -120,7 +120,7 @@ pnpm midi:scan
 
 桌面端会加载本地 Live2D 模型。角色菜单可打开一个不会离开页面的终端窗口，终端实现了真实的命令解析、历史记录、Tab 补全与虚拟文件系统。
 
-CTF 保留原终端加密入口，主游戏是包含 29 关顺序挑战的 Plasma 风格浏览器桌面，独立部署在 Cloudflare Workers。运行、完整通关测试、存档隔离及入口发布流程见 [CTF Worker](workers/ctf-game/README.md)。
+CTF 保留原终端加密入口，主游戏是包含 31 关顺序挑战的 Plasma 风格浏览器桌面，独立部署在 Cloudflare Workers。运行、完整通关测试、存档隔离及入口发布流程见 [CTF Worker](workers/ctf-game/README.md)。
 
 角色也可与访客聊天：公开文章每 10 秒向 Cloudflare Worker 请求下一条 AI 话题，Worker 为每篇文章缓存 39 条简短开场白；非文章页面从 1,490 条有作品出处的动漫语录中按偏好抽取，每轮缓存 39 条、同样每 10 秒更换一句。优先催泪、百合、恋爱、日常、治愈及神作题材，输入或等待回复时暂停。发送按钮为输入框内的绿色圆形上箭头。配置、运行与缓存说明见 [Roro 聊天后端](workers/live2d-chat/README.md)，语料来源和更新方式见 [动漫语料说明](src/data/README.md)。
 
