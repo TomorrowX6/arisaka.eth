@@ -29,8 +29,8 @@ function client() {
       return response;
     },
     async start() { return (await this.request("/api/start", { entry: answers.entryToken })).json<any>(); },
-    async advance(to: number) {
-      for (let stage = 1; stage < to; stage++) {
+    async advance(to: number, from = 1) {
+      for (let stage = from; stage < to; stage++) {
         const response = await this.request("/api/answer", { stage, code: answers.codes[stage - 1] });
         expect(response.status).toBe(200);
         const data = await response.json<any>();
@@ -124,10 +124,41 @@ describe("private, sequential archive", () => {
       expect(proof.completion.cases).toBe(cases);
       expect((await (await client().request("/api/proof/verify", { proof: proof.proof })).json<any>()).completion).toEqual(proof.completion);
     }
-    await player.advance(answers.codes.length + 1);
+    await player.advance(answers.codes.length + 1, 30);
     expect((await (await player.request("/api/proof")).json<any>()).completion.cases).toBe(answers.codes.length);
     await evictDurableObject(player.stub());
     expect((await (await player.request("/api/session")).json<any>()).milestones).toEqual(state.milestones);
+  });
+
+  test("31-case custody completions survive concurrent migration and eviction before the convergence case", async () => {
+    const player = client(), started = await player.start();
+    const predecessor = manifest.compatibleEditions.find(item => item.cases === 31)!;
+    const completedAt = started.startedAt + 2000;
+    const earlier = manifest.compatibleEditions.filter(item => item.cases < 31).map(item => ({ edition: item.version, cases: item.cases, completedAt: started.startedAt + item.cases, attempts: item.cases }));
+    // A stored completion fixture tests the migration independently of replaying
+    // the earlier campaign, whose answer and attachment gates are tested below.
+    await runInDurableObject(player.stub(), (_instance, context) => {
+      context.storage.sql.exec("UPDATE game SET version = ?, stage = 32, completed_at = ?", predecessor.version, completedAt);
+      context.storage.sql.exec("DELETE FROM stages WHERE stage > 31");
+      context.storage.sql.exec("UPDATE stages SET attempts = 1, solved_at = ?", completedAt);
+      context.storage.kv.put("completionMilestones", earlier);
+    });
+    await evictDurableObject(player.stub());
+    const expected = [...earlier, { edition: predecessor.version, cases: 31, completedAt, attempts: 31 }];
+    const states = await Promise.all(Array.from({ length: 4 }, async () => (await player.request("/api/session")).json<any>()));
+    for (const state of states) {
+      expect(state).toMatchObject({ edition: answers.version, stage: 32, attempts: 31, completedAt: null, startedAt: started.startedAt, milestones: expected });
+      expect(state.stages[31]).toMatchObject({ id: 32, attempts: 0, solvedAt: null, retryAt: 0 });
+    }
+    expect((await player.request("/api/cases/32")).status).toBe(200);
+    expect((await player.request("/api/proof")).status).toBe(403);
+    const proof = await (await player.request("/api/proof?cases=31")).json<any>();
+    expect((await (await client().request("/api/proof/verify", { proof: proof.proof })).json<any>()).completion).toEqual(proof.completion);
+    await player.advance(answers.codes.length + 1, 32);
+    await evictDurableObject(player.stub());
+    expect((await (await player.request("/api/session")).json<any>()).milestones).toEqual(expected);
+    expect(await (await player.request("/api/proof?cases=31")).json()).toEqual(proof);
+    expect((await (await player.request("/api/proof")).json<any>()).completion.cases).toBe(answers.codes.length);
   });
 
   test("health, catalog, and every attachment enforce the complete sequential campaign", async () => {

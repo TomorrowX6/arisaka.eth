@@ -2,6 +2,12 @@ name: Deploy CTF
 
 on:
   workflow_dispatch:
+    inputs:
+      bootstrap:
+        description: 'Create a genuinely new Worker (never bypasses an incompatible live edition)'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -33,7 +39,12 @@ jobs:
           pnpm --dir workers/ctf-game check
           pnpm --dir workers/ctf-game test
       - name: Deploy
-        run: pnpm --dir workers/ctf-game run deploy
+        run: |
+          if [[ "${{ inputs.bootstrap }}" == "true" ]]; then
+            pnpm --dir workers/ctf-game run deploy --bootstrap
+          else
+            pnpm --dir workers/ctf-game run deploy
+          fi
       - name: Save verified entrance
         uses: actions/upload-artifact@v4
         with:

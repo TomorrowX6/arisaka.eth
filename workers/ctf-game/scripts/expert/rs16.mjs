@@ -11,8 +11,10 @@ const tlv = (tag, data) => { if (data.length >= 128) throw Error('DER fixture si
 const u16le = n => { const b = Buffer.alloc(2); b.writeUInt16LE(n); return b; };
 const step = n => (n >>> 1) ^ (n & 1 ? 0xb400 : 0);
 
+export const rs16CustodyMaterial = random => random(32);
+
 export function rs16Evidence(code, random) {
-  const n = 63, k = 31, lanes = 4, material = random(32), basis = Array.from({ length: 16 }, (_, i) => 1 << i);
+  const n = 63, k = 31, lanes = 4, material = rs16CustodyMaterial(random), basis = Array.from({ length: 16 }, (_, i) => 1 << i);
   for (let i = 0; i < 128; i++) {
     const a = random(1)[0] % 16, b = (a + 1 + random(1)[0] % 15) % 16;
     basis[a] ^= basis[b]; if (i % 3 === 0) [basis[a], basis[b]] = [basis[b], basis[a]];

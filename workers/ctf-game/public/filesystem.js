@@ -64,6 +64,7 @@ export function fileType(name) {
   if (/\.(m?js|cjs|ts)$/i.test(name)) return { icon: 'script', label: 'JavaScript' };
   if (/\.pdf$/i.test(name)) return { icon: 'pdf', label: 'PDF 文档' };
   if (/\.vcd$/i.test(name)) return { icon: 'binary', label: '数字波形' };
+  if (/\.bpf(?:\.o)?$/i.test(name)) return { icon: 'binary', label: 'eBPF 程序' };
   if (/\.(der|cer|cbor|cborseq)$/i.test(name)) return { icon: 'binary', label: '结构化二进制' };
   if (/\.(wasm|bin|zip|rom|rs16|journal)$/i.test(name)) return { icon: 'binary', label: '二进制文件' };
   return { icon: 'text', label: /\.json$/i.test(name) ? 'JSON 文档' : '文本文档' };

@@ -16,6 +16,7 @@ const publicFiles = new Set([
   "/developer-tools.js", "/developer-tools.css", "/profiler.js",
   "/professional-tools.js", "/professional-tools.css", "/data-pipeline.js", "/logic-data.js", "/analysis-worker.js",
   "/analysis-task.js", "/binary-structure.js", "/discrete-math.js", "/elite-tools.js", "/elite-tools.css",
+  "/bpf-core.js", "/bpf-elf.js", "/bpf-session.js", "/bpf-worker.js", "/bpf-app.js", "/bpf-app.css",
   "/transport.js", "/python-runner.js", "/recovery.js",
   "/runtime-apps.js", "/runtime-apps.css", "/runtime-config.json", "/icons/runtime-attribution.txt",
   "/icons/firefox.webp", "/icons/yesplaymusic.webp",
